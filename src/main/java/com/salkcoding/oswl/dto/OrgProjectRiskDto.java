@@ -49,4 +49,10 @@ public class OrgProjectRiskDto {
 
     @Schema(description = "KEV-listed CVEs on components that are neither reviewed nor deferred", example = "2")
     private final int kevUnaddressed;
+
+    @Schema(description = "Owning team id — null when the project has no team", example = "1")
+    private final Long teamId;
+
+    @Schema(description = "Owning team name — null when the project has no team", example = "Payments")
+    private final String teamName;
 }

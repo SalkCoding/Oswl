@@ -1,4 +1,4 @@
--- OsWL performance/offline plan E1/E4 — snapshot bundle v2 provenance/integrity, and the
+-- OsWL — snapshot bundle v2 provenance/integrity, and the
 -- pre-join per-license list so a multi-license package round-trips exactly through an
 -- offline snapshot export/import instead of being re-split from "MIT AND Apache-2.0" text.
 --

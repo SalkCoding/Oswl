@@ -1,9 +1,10 @@
 package com.salkcoding.oswl.controller;
+import com.salkcoding.oswl.controller.vulnerability.SecurityCenterController;
 
 import com.salkcoding.oswl.dto.BulkStatusRequest;
 import com.salkcoding.oswl.auth.service.AuditLogService;
-import com.salkcoding.oswl.service.ProjectAccessService;
-import com.salkcoding.oswl.service.SecurityCenterService;
+import com.salkcoding.oswl.service.project.ProjectAccessService;
+import com.salkcoding.oswl.service.vulnerability.SecurityCenterService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,7 +40,7 @@ class SecurityCenterControllerTest {
     void index_callsServiceAndReturnsView() {
         String view = controller.index(1L, null, new ConcurrentModel());
 
-        verify(securityCenterService).populateModel(eq(1L), isNull(), any());
+        verify(securityCenterService).populateIndexModel(eq(1L), isNull(), any());
         assertThat(view).isEqualTo("security-center/index");
     }
 
@@ -48,7 +49,7 @@ class SecurityCenterControllerTest {
     void index_passesScanId() {
         controller.index(1L, 42L, new ConcurrentModel());
 
-        verify(securityCenterService).populateModel(eq(1L), eq(42L), any());
+        verify(securityCenterService).populateIndexModel(eq(1L), eq(42L), any());
     }
 
     @Test

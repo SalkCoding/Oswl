@@ -29,7 +29,7 @@ public class AiSettingUpdateRequest {
     @Schema(description = "If true, activates the provider upon save", example = "true")
     private Boolean    activate;
 
-    @Schema(description = "Prompt response language", example = "en", allowableValues = {"en", "ko"})
+    @Schema(description = "Prompt response language", example = "en", allowableValues = {"en", "ko", "ja"})
     private String     promptsLocale;
 
     @Schema(description = "Max Critical/High CVEs summarized per scan enrichment", example = "10")

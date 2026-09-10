@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -58,6 +59,8 @@ public class OswlStartupWarnings implements ApplicationListener<ApplicationReady
             sections.add(ephemeralEncryptionSection(isProd(env)));
         }
 
+        quickImportPoolSizeSection(env).ifPresent(sections::add);
+
         if (sections.isEmpty()) {
             return;
         }
@@ -71,8 +74,8 @@ public class OswlStartupWarnings implements ApplicationListener<ApplicationReady
                 {}
                 {}
                 
-                 Copy .env.example → .env (local) or .env.prod.example → .env.prod (production).
-                 See docs/Production-Deployment-Checklist.md
+                 Copy deploy/docker/.env.example → .env (local) or deploy/docker/.env.prod.example → .env.prod (production).
+                 See docs/en/Production-Deployment-Checklist.md
                 {}
                 """,
                 SEPARATOR,
@@ -130,6 +133,30 @@ public class OswlStartupWarnings implements ApplicationListener<ApplicationReady
                 
                  Generate: openssl rand -base64 32
                  Set OSWL_ENCRYPTION_KEY in your environment or .env file.""".formatted(context);
+    }
+
+    /**
+     * Warns when the Quick Import concurrency cap can exhaust the DB connection pool on
+     * its own. Each running import holds connections during ingest/enrichment; with
+     * {@code max-concurrent >= maximum-pool-size} a burst of imports leaves nothing for
+     * interactive requests.
+     */
+    private static Optional<String> quickImportPoolSizeSection(Environment env) {
+        int maxConcurrent = Integer.parseInt(env.getProperty("oswl.quick-import.max-concurrent", "3"));
+        // Spring Boot's HikariCP default when the property is unset.
+        int dbPool = Integer.parseInt(env.getProperty("spring.datasource.hikari.maximum-pool-size", "10"));
+        if (maxConcurrent < dbPool) {
+            return Optional.empty();
+        }
+        return Optional.of("""
+                [QUICK IMPORT CONCURRENCY >= DB CONNECTION POOL]
+                 oswl.quick-import.max-concurrent is %d but spring.datasource.hikari.maximum-pool-size is %d.
+                 A burst of concurrent imports can hold every pooled connection during ingest/enrichment,
+                 starving interactive web requests until a connection frees up.
+
+                 Fix: lower OSWL_QUICK_IMPORT_MAX_CONCURRENT below the pool size, or raise
+                 spring.datasource.hikari.maximum-pool-size (and the DB's max_connections) accordingly."""
+                .formatted(maxConcurrent, dbPool));
     }
 
     private static List<String> missingVars(Environment env, String... names) {

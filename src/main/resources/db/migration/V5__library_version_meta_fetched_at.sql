@@ -1,4 +1,4 @@
--- OsWL performance plan A2 — separate TTL for deps.dev version metadata.
+-- OsWL — separate TTL for deps.dev version metadata.
 --
 -- refreshVersionMetadata() previously called deps.dev GetVersion for every cache-hit library on
 -- every scan, even though the data (isLatestVersion / deprecated / latestVersion / scorecard)

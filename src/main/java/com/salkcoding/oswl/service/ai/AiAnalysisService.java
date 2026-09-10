@@ -2,13 +2,13 @@ package com.salkcoding.oswl.service.ai;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.salkcoding.oswl.domain.entity.AiSetting;
+import com.salkcoding.oswl.domain.entity.ai.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
 import com.salkcoding.oswl.exception.AiSummaryFailureReason;
-import com.salkcoding.oswl.repository.AiSettingRepository;
+import com.salkcoding.oswl.repository.ai.AiSettingRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.dto.AiConnectionTestResult;
-import com.salkcoding.oswl.service.EnrichmentProgressContext;
+import com.salkcoding.oswl.service.ingest.EnrichmentProgressContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,6 +35,7 @@ public class AiAnalysisService {
     private final AiPromptTemplateService promptTemplates;
     private final AiUsageLimiterService usageLimiter;
     private final AiConnectionDiagnostics connectionDiagnostics;
+    private final AiUsageRecorderService usageRecorder;
 
     /**
      * Batch items are split into chunks of this size before the prompt is assembled, so a
@@ -106,7 +107,7 @@ public class AiAnalysisService {
 
     /** Plain-text delegate — unwraps JSON/fence noise smaller models add to prose answers. */
     private String delegatePlainText(String prompt, AiSetting setting, String operation) {
-        // D2: free-form (prose) calls stream token-by-token when the caller opened an
+        // free-form (prose) calls stream token-by-token when the caller opened an
         // enrichment preview scope; batch/JSON calls never stream (raw partial JSON is
         // meaningless as a user-facing preview). Outside a scope the sink is null and the
         // non-streaming path is used exactly as before.
@@ -166,17 +167,17 @@ public class AiAnalysisService {
         return delegatePlainText(prompt, setting, "version.diff");
     }
 
-    /** F2: posture + security-trend + license-trend + version-diff folded into one AI call. */
+    /** Posture + security-trend + license-trend + version-diff folded into one AI call. */
     public record CombinedInsights(String posture, String securityTrend, String licenseTrend, String versionDiff) {}
 
     /**
-     * F2: one JSON call producing all 4 free-form scan-level insights instead of 4 separate
+     * One JSON call producing all 4 free-form scan-level insights instead of 4 separate
      * prose calls. {@code hasHistory=false} (project's first scan) omits the trend/diff
      * arguments and uses the reduced posture-only schema/response. A partial parse (some
      * fields present, others missing) still returns those fields — the caller (block 3 of
      * {@code VulnerabilityEnrichmentService.enrichWithAiBody}) persists whichever insights
      * came back and leaves the rest untouched, same "partial success is still success"
-     * philosophy as the CVE/license batch chunking (C1).
+     * philosophy as the CVE/license batch chunking.
      */
     @Transactional(readOnly = true)
     public CombinedInsights generateCombinedInsights(String projectName,
@@ -189,7 +190,7 @@ public class AiAnalysisService {
         String prompt = promptTemplates.combinedInsightsPrompt(projectName, posture, hasHistory,
                 secDelta, licDelta, recentVersions, secChangeDetails, licChangeDetails,
                 fromVersion, toVersion, added, removed, updated, newThreats, threatDetails);
-        // JSON response — never streamed to the D2 live preview (raw partial JSON is
+        // JSON response — never streamed to the live preview (raw partial JSON is
         // meaningless as a user-facing preview, same reasoning as the CVE/license batches).
         String response = delegate(prompt, setting, "insights.combined");
         Map<String, String> parsed = parseCombinedInsightsResponse(response);
@@ -293,6 +294,16 @@ public class AiAnalysisService {
         }
 
         String prompt = promptTemplates.batchCvePrompt(List.of(item), deploymentProfile);
+        // this on-demand path has no content-hash cache to check (the "Regenerate" action it
+        // backs must always ask the provider fresh, even when a cached summary already matches
+        // the current CVE data), so it's always a real call — record it as a miss so the batch
+        // enrichment pipeline's cache-hit-rate stat reflects total AI usage, not just batch usage.
+        // Best-effort: stats must never fail the regenerate action itself.
+        try {
+            usageRecorder.recordCacheOutcomes(0, 1);
+        } catch (Exception e) {
+            log.debug("[AI] On-demand cache-outcome recording failed: {}", e.getMessage());
+        }
         String response;
         try {
             response = delegate(prompt, setting, "batch.cve");
@@ -342,7 +353,7 @@ public class AiAnalysisService {
         return merged;
     }
 
-    /** D2: reports "N/M done" for batch chunks — only when the caller opened a progress scope. */
+    /** Reports "N/M done" for batch chunks — only when the caller opened a progress scope. */
     private void reportBatchProgress(int processed, int total) {
         IntConsumer progress = EnrichmentProgressContext.currentBatchProgress();
         if (progress != null) {
@@ -404,7 +415,7 @@ public class AiAnalysisService {
     /**
      * Runs one batch call and, on an empty or failed parse, retries by splitting the chunk in
      * half rather than resending the identical prompt — a truncated/unparseable response is
-     * usually an output-budget problem (see C1), which an identical retry cannot fix.
+     * usually an output-budget problem, which an identical retry cannot fix.
      * {@code retriesLeft} bounds the split recursion depth, not the raw request count: each
      * split level can issue up to 2 requests (one per half), so a chunk that fails completely
      * can cost more than {@code 1 + retriesLeft} requests in the worst case — traded
@@ -482,8 +493,8 @@ public class AiAnalysisService {
                 : decryptApiKey(setting);
         return switch (setting.getProvider()) {
             // The streaming (5-arg) overload is only used when a preview sink is bound, so
-            // callers without a scope take the exact pre-D2 path. Anthropic has no streaming
-            // path (D2 scope is the OpenAI-compatible client) — previews are simply absent.
+            // callers without a scope take the exact original path. Anthropic has no streaming
+            // path — previews are simply absent for it.
             case OPENAI, LOCAL, GEMINI -> previewSink != null
                     ? openAiClient.callWithSetting(prompt, setting, operation, resolvedApiKey, previewSink)
                     : openAiClient.callWithSetting(prompt, setting, operation, resolvedApiKey);

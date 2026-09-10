@@ -117,6 +117,21 @@
 
         .report-footer { padding: 14px 32px; border-top: 1px solid var(--grayscale-15); display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--grayscale-40); letter-spacing: -0.1px; }
 
+        .custom-header-text { margin-top: 10px; font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.6); letter-spacing: -0.11px; }
+
+        /* Cover page (opt-in via branding.showCoverPage) */
+        .cover-page {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 20px; padding: 120px 40px; text-align: center; background: var(--background-dark);
+            -webkit-print-color-adjust: exact; print-color-adjust: exact;
+        }
+        .cover-logo { width: 56px; height: 76px; }
+        .cover-company { font-size: 24px; font-weight: 800; color: white; letter-spacing: -0.4px; }
+        .cover-project { font-size: 16px; font-weight: 500; color: rgba(255,255,255,0.75); letter-spacing: -0.16px; }
+        .cover-type { font-size: 12px; font-weight: 700; color: var(--primary-80); text-transform: uppercase; letter-spacing: 1px; margin-top: 24px; }
+        .cover-date { font-size: 12px; color: rgba(255,255,255,0.4); letter-spacing: -0.12px; }
+        .cover-header-text { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.6); margin-top: 8px; }
+
         @media print {
             @page { size: A4; margin: 8mm 10mm 12mm; }
             html, body { background: white; min-width: unset; }
@@ -125,6 +140,7 @@
             .kev-table thead { display: table-header-group; }
             .kev-table tr { page-break-inside: avoid; }
             .section { page-break-inside: avoid; }
+            .cover-page { page-break-after: always; }
         }
     </style>
 </head>
@@ -146,15 +162,28 @@
 
 <div class="page">
 
+    <!-- Cover page — opt-in via Settings → Reports branding -->
+    <div class="cover-page" th:if="${branding.showCoverPage}">
+        <img th:if="${branding.logoDataUri} == null" th:src="@{/icon/icon-logo-card.svg}" class="cover-logo" alt="" aria-hidden="true">
+        <img th:unless="${branding.logoDataUri} == null" th:src="${branding.logoDataUri}" class="cover-logo" style="object-fit:contain;" alt="">
+        <span class="cover-company" th:text="${branding.companyName} ?: 'OsWL'">OsWL</span>
+        <span class="cover-project" th:text="${report.projectName()}">My-Service</span>
+        <span class="cover-type" th:text="#{report.compliance.type}">Compliance Report · CRA / ISMS-P</span>
+        <span class="cover-date" th:text="${report.generatedAt()}">2026-07-22 20:00</span>
+        <span class="cover-header-text" th:if="${branding.headerText} != null" th:text="${branding.headerText}">Confidential</span>
+    </div>
+
     <div class="report-header">
         <div class="header-top">
             <div class="header-logo">
-                <img th:src="@{/icon/icon-logo-card.svg}" width="16" height="22" alt="OsWL" style="display:block;">
-                <span class="header-logo-text">OsWL</span>
+                <img th:if="${branding.logoDataUri} == null" th:src="@{/icon/icon-logo-card.svg}" width="16" height="22" alt="OsWL" style="display:block;">
+                <img th:unless="${branding.logoDataUri} == null" th:src="${branding.logoDataUri}" width="16" height="22" style="display:block; object-fit:contain;" alt="">
+                <span class="header-logo-text" th:text="${branding.companyName} ?: 'OsWL'">OsWL</span>
             </div>
             <div class="header-divider"></div>
             <span class="header-report-type" th:text="#{report.compliance.type}">Compliance Report · CRA / ISMS-P</span>
         </div>
+        <p class="custom-header-text" th:if="${branding.headerText} != null" th:text="${branding.headerText}">Confidential — internal distribution only</p>
         <div class="header-meta">
             <div class="meta-item">
                 <span class="meta-label" th:text="#{report.compliance.meta.project}">Project</span>

@@ -4,10 +4,15 @@ on:
   push:
     branches: [main]
     paths:
-      - 'docs/**'
-      - '!docs/ko/**'
+      - 'docs/en/**'
+      - '.github/scripts/prepare-wiki.py'
       - '.github/workflows/wiki-sync.yml'
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview the Wiki commit without publishing'
+        type: boolean
+        default: true
 
 concurrency:
   group: wiki-sync-${{ github.ref }}
@@ -27,13 +32,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Prepare English Wiki pages
+        env:
+          WIKI_REPOSITORY: ${{ github.repository }}
+        run: python3 .github/scripts/prepare-wiki.py "$WIKI_REPOSITORY"
+
       - name: Sync to GitHub Wiki
         uses: Andrew-Chen-Wang/github-wiki-action@v5.0.4
         with:
-          path: docs/
+          path: build/wiki/
           strategy: clone
-          preprocess: true
+          preprocess: false
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
           disable-empty-commits: true
           commit-message: "wiki: sync from ${{ github.sha }}"
-          ignore: |
-            ko/**

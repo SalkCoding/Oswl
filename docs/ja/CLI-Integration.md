@@ -89,6 +89,8 @@ ScanIngestService → async CVE + license enrichment (OSV / deps.dev)
 
 ---
 
+マニフェストアーカイブの収集範囲は `/scripts/manifest-rules.json` に従います。依存関係マニフェストのほか、ビルド設定、ラッパーファイル、`buildSrc` の Java/Kotlin ファイルも含まれるため、送信前に収集ルールを確認してください。
+
 ## 前提条件
 
 1. OsWL に登録済みの**プロジェクト**。
@@ -108,12 +110,12 @@ ScanIngestService → async CVE + license enrichment (OSV / deps.dev)
 | `POST` | `/api/scan` | API key + ユーザーパスワード | エンリッチメント用のスキャン送信 |
 | `GET` | `/api/scan/{scanId}/status` | セッション | スキャン状態のポーリング（UI） |
 | `POST` | `/api/scan/gate` | API key | **v1.0.4** — PR / CI セキュリティゲート。`exitCode` を含む判定を返す |
-| `GET` | `/api/projects/{projectId}/sbom` | セッション / キー | **v1.0.4** — CycloneDX 1.6 SBOM |
-| `GET` | `/api/projects/{projectId}/vex` | セッション / キー | **v1.0.4** — CycloneDX VEX |
-| `GET` | `/api/projects/{projectId}/sarif` | セッション / キー | **v1.0.4** — SARIF 2.1.0 |
+| `GET` | `/api/projects/{projectId}/sbom` | セッション | **v1.0.4** — CycloneDX 1.6 SBOM |
+| `GET` | `/api/projects/{projectId}/vex` | セッション | **v1.0.4** — CycloneDX VEX |
+| `GET` | `/api/projects/{projectId}/sarif` | セッション | **v1.0.4** — SARIF 2.1.0 |
 | `POST` | `/api/sbom/import` | セッション | **v1.0.4** — サードパーティの CycloneDX ファイルをインポート |
 
-> CLI エンドポイントは `Authorization: Bearer` ヘッダーのみで認証し、セッションクッキーや CSRF トークンは不要です。`POST /api/scan`、`POST /api/scan/parse`、`GET /api/scan/ping` はブラウザの CSRF 検査から除外されます。それ以外のルートは通常どおり CSRF 保護が維持されます。[スキャン API セキュリティ](Scan-Api-Security.md)を参照してください。
+> CLI リクエストは `Authorization: Bearer` にプロジェクト API キーを指定します。`POST /api/scan` は送信者のメールアドレス・パスワード・権限・プロジェクトへのアクセス権限も確認します。`POST /api/scan`、`POST /api/scan/parse`、`POST /api/scan/gate` にブラウザセッションや CSRF トークンは不要です。`GET /api/scan/ping` はキーを検証します。[スキャン API セキュリティ](Scan-Api-Security.md)を参照してください。
 
 ---
 
@@ -127,9 +129,9 @@ POST /api/projects/{projectId}/keys
 
 UI: プロジェクト → **設定 (⚙)** → **CLI** → **キーを生成**。
 
-### 管理者用グローバルキー
+### 管理者によるキー管理
 
-**設定 → 管理者 → CLI キー** — [API リファレンス](API-Reference.md)を参照してください。
+管理者は各プロジェクトの CLI キーを一覧表示・失効させ、指定した `projectId` にキーを発行できます。スキャンキーの範囲はプロジェクト単位です。別の SCIM トークンではスキャンを送信できません。
 
 ---
 
@@ -252,8 +254,14 @@ exit "$(echo "$verdict" | jq -r .exitCode)"
 | `failOnEpss` | `OSWL_GATE_FAIL_ON_EPSS` | `0.5` |
 | `failOnLicenseViolation` | `OSWL_GATE_FAIL_ON_LICENSE_VIOLATION` | `true` |
 | `onlyNew` | `OSWL_GATE_ONLY_NEW` | `true` |
+| `onlyReachable` | `OSWL_GATE_ONLY_REACHABLE` | `false` |
+| `failOnSecrets` | `OSWL_GATE_FAIL_ON_SECRETS` | `false` |
 
-`onlyNew` は直前の完了スキャンをベースラインとして比較するため、既存の技術的負債がマージを妨げることはありません。リクエストに GitHub の対象を指定すると、判定結果は Check Run と PR コメントとしても投稿されます。
+`onlyNew` はベースラインで確認済みの CVE・ライセンス問題を除外しますが、ゲートの通過を保証しません。悪意あるパッケージ、有効にしたシークレット検出など、ほかの適用ルールによって失敗する場合があります。`onlyReachable` は、対応するバイトコード解析またはソース参照解析で `REACHABLE` となったコンポーネントの CVE のみを評価します。有効時は `UNKNOWN` の CVE を除外しますが、参照を確認できないことは悪用不可能である証明にはなりません。ライセンスと悪意あるパッケージの検査はこのフィルターとは独立しています。解析範囲を確認してから有効にしてください。GitHub の対象を設定すると Check Run と PR コメントで結果を公開できます。
+
+確定的に悪性と判定されたパッケージ(OSV `MAL-` アドバイザリ)は、上記のすべてのしきい値および `onlyNew`/`onlyReachable` に関係なく常にブロックされます — 解除する唯一の方法は承認済みのポリシー例外(waiver、**v1.0.5**、`/api/policies/exceptions` 参照)です。
+
+`failOnSecrets`(**v1.0.5**)は、Quick Import クローンのスキャンで CRITICAL/HIGH severity のシークレット検出(正規表現 + エントロピー規則 — AWS キー、GitHub/GitLab/Slack/npm トークン、埋め込みプライベートキーブロックなど)が1件でもあればブロックします。上記の他のしきい値と同様に、リクエストのオーバーライド → 組織/チーム/プロジェクトのポリシー階層 → インスタンスの既定値の順で解決されます。
 
 ---
 

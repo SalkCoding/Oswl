@@ -1,0 +1,235 @@
+# Production deployment checklist
+
+Use this one-page list before exposing OsWL on the internet. **Do not run `prod` with `local` defaults** (H2, Swagger, `/data/**`, or committed encryption keys).
+
+## 1. Profile and build
+
+| Check | Action |
+|-------|--------|
+| Profile | Set `SPRING_PROFILES_ACTIVE=prod` |
+| JAR | Build with `./gradlew bootJar verifyProdJar` — `TestDataController` must **not** appear in the JAR |
+| Local-only code | `src/local/java` is for `bootRun` / dev only, not packaged in `bootJar` |
+
+## 2. Required environment variables
+
+| Variable | Purpose |
+|----------|---------|
+| `DB_URL` | JDBC URL (e.g. `jdbc:postgresql://db:5432/oswl`) |
+| `DB_USERNAME` | Database user |
+| `DB_PASSWORD` | Database password |
+| `OSWL_ENCRYPTION_KEY` | Instance encryption key (generate with `openssl rand -base64 32`) |
+
+Copy `deploy/docker/.env.prod.example` → `.env.prod` and fill every value. **No defaults** for DB or encryption in `application-prod.yaml`.
+
+After startup, configuration warnings are grouped in the `OSWL STARTUP WARNINGS` log block. Some invalid settings, including a missing production encryption key or datasource configuration, can fail startup before this block appears. Keep a stable `OSWL_ENCRYPTION_KEY` in production. The `local` YAML supplies a stable development-only fallback; never use that key in production.
+
+## 3. Network binding
+
+For a JVM running directly on the host, `application-prod.yaml` defaults to `SERVER_ADDRESS=127.0.0.1`. A reverse proxy on the same host can connect to it. For **Docker Compose**, set `SERVER_ADDRESS=0.0.0.0` **inside the container** so Docker can forward traffic to the application. This does not publish every host interface: `deploy/docker/compose.prod.yml` separately binds the host port to **`127.0.0.1:8080:8080`**. The production sample uses this container setting. Existing `.env.prod` files must be checked when upgrading.
+
+Terminate TLS at your reverse proxy. With the supplied host-loopback port mapping, run the proxy on the Docker host; a proxy in another container should use the service address on a shared Docker network. Accept forwarded headers only from a trusted proxy.
+
+## 4. Docker Compose (production)
+
+Run from the repository root. Keep existing `.env.prod` values; copy the template only for a new installation. Both Compose files default to project name `oswl`. If the previous installation used another project name, keep it with `-p YOUR_EXISTING_PROJECT` or `COMPOSE_PROJECT_NAME` so it reconnects the existing volumes. See the [deployment file guide](../../deploy/README.md).
+
+```bash
+cp deploy/docker/.env.prod.example .env.prod
+# Edit DB_*, OSWL_ENCRYPTION_KEY, SMTP_*
+docker compose --env-file .env.prod -f deploy/docker/compose.prod.yml up -d --build
+```
+
+Compose reads `.env.prod` through `--env-file`. A direct `java -jar` or `bootRun` launch does not automatically load this file: export the variables or configure them in the service manager. Prepare the database schema before first production startup (see §9).
+
+Verify logs: no missing-env banner, PostgreSQL connected, no H2 or Swagger URLs.
+
+`deploy/docker/compose.prod.yml` caps both the container's own stdout/stderr (docker `json-file` driver, 100MB × 10 files) and the app's own rotating file log (mounted to the `oswl-logs-prod` volume) — see §5 for the latter.
+
+## 5. Logging and observability
+
+| Check | Action |
+|-------|--------|
+| Log levels | `prod` profile: `com.salkcoding.oswl` at **INFO** only; no DEBUG on AI/clients |
+| AI excerpts | `oswl.ai.debug.log-prompt-excerpt` / `log-response-excerpt` default **false** in prod |
+| Actuator | **`health`, `info`, `prometheus`** exposed (v1.0.4); everything else disabled (`enabled-by-default: false`) |
+| Metrics scrape | Point Prometheus at `/actuator/prometheus` — the scraper must present admin credentials |
+| Actuator auth | Requires **SYSTEM_ADMIN** session (not public) |
+
+### Log rotation and request correlation
+
+`local`/`test` are console-only. In `prod`, `logback-spring.xml` additionally writes a rolling file log:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `OSWL_LOG_DIR` | `./logs` (docker: `/var/log/oswl`, see §4) | Directory for `oswl.log`. Rotates at 100MB or daily, keeps 30 files, caps total at 5GB. |
+| `OSWL_LOG_JSON` | `false` | `true` switches the file (not the console) to one JSON object per line — point a log shipper at it for SIEM ingestion. |
+
+Every request is stamped with a `requestId` (also returned as the `X-Request-Id` response header) and, once authenticated, `userId` — both appear in every log line for that request via MDC (`[req=...] [user=...]` in plain-text mode, top-level fields in JSON mode), so a support ticket referencing one request can be traced across the whole log without grepping by timestamp.
+
+## 6. Security features enabled in prod
+
+- Springdoc / Swagger UI: **off**
+- H2 console and `/data/**`: **not in prod JAR** (local profile + `src/local/java` only)
+- Security headers + HSTS (behind HTTPS): see `application-prod.yaml` `oswl.security.headers`
+- Trusted-device cookie: `Secure` in prod
+
+## 7. Optional secrets
+
+| Variable | Purpose |
+|----------|---------|
+| `OSWL_TRUSTED_DEVICE_HMAC_KEY` | Dedicated HMAC key for `OSWL_TD` cookie (recommended; separate from `OSWL_ENCRYPTION_KEY`) |
+| `OSWL_OIDC_CLIENT_ID` / `OSWL_OIDC_CLIENT_SECRET` / `OSWL_OIDC_ISSUER_URI` | **v1.0.4** — OIDC single sign-on. Also uncomment the `spring.security.oauth2.client` block in `application-prod.yaml`; the login page shows the SSO button only when a provider is registered. |
+
+### v1.0.4 opt-in features
+
+All default to **off** — enable deliberately.
+
+| Variable | Default | Effect when enabled |
+|---|---|---|
+| `OSWL_FLYWAY_ENABLED` | `false` | Run the supplied V1 baseline and later migrations; review existing schemas first |
+| `OSWL_AIRGAPPED_ENABLED` | `false` | All vulnerability / threat-intel lookups served from an imported offline snapshot; no outbound HTTP — full offline procedure in §7.1 |
+| `OSWL_GATE_*` | see [What's New](Whats-New-v1.0.4.md) | Default thresholds for `POST /api/scan/gate` |
+
+Continuous monitoring is the exception: `OSWL_MONITORING_ENABLED` defaults to **`true`** (nightly OSV re-query at 03:00, `OSWL_MONITORING_CRON`). It sends e-mail to project members, so confirm SMTP is configured before first launch — or set it to `false`.
+
+### Performance tunables (v1.0.4)
+
+Defaults are production-safe — override only when you have a reason.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `OSWL_DEPSDEV_CONNECT_TIMEOUT_MS` / `OSWL_DEPSDEV_READ_TIMEOUT_MS` | `5000` / `10000` | deps.dev HTTP timeouts (previously a stalled call could hang a whole scan) |
+| `OSWL_DEPSDEV_MAX_CONCURRENT` | `24` | Max simultaneous deps.dev requests; on HTTP 429 the client backs off and retries once |
+| `OSWL_OSV_CONNECT_TIMEOUT_MS` / `OSWL_OSV_READ_TIMEOUT_MS` | `5000` / `30000` | OSV HTTP timeouts (read is generous — a 1,000-item batch query can legitimately take a while) |
+| `OSWL_VERSION_META_TTL_SEC` | `86400` | TTL for deps.dev version metadata on cache-hit libraries |
+| `OSWL_CLONE_SPARSE_ENABLED` | `true` | Quick Import clones are blobless + sparse-checked-out; git servers without partial-clone support fall back to a full shallow clone automatically |
+| `OSWL_AI_STREAMING_ENABLED` | `true` | Stream free-form AI calls (posture/trend/version diff) over SSE for live previews; endpoints that reject streaming fall back automatically |
+| `OSWL_AI_MAX_PARALLEL_CALLS` | `3` | Max concurrent AI enrichment calls; a local llama-server benefits from `--parallel` up to this same count |
+| `OSWL_ANTHROPIC_PROMPT_CACHING_ENABLED` | `true` | Mark the Anthropic system prompt as an ephemeral cache breakpoint for repeat calls |
+
+### 7.1 Air-gapped / offline snapshot (v1.0.4)
+
+This mode redirects supported vulnerability and threat-intelligence feeds to the snapshot; it is not a network firewall. Configure VCS, SMTP, webhooks, and external AI providers separately for an isolated environment.
+
+Set `OSWL_AIRGAPPED_ENABLED=true` so vulnerability/threat-intel lookups (OSV, deps.dev, EPSS, CISA KEV) are served from an imported offline snapshot instead of live external APIs. No outbound HTTP is attempted for enrichment.
+
+| Step | Action |
+|------|--------|
+| 1. Build bundle | On an internet-connected machine, run the `oswl-vdb` builder. Wrapper scripts: `scripts/oswl-vdb/oswl-vdb.sh` (Linux/macOS) or `scripts/oswl-vdb/oswl-vdb.ps1` (Windows). Both invoke `./gradlew vdbBuild --args="..."`. |
+| 2. Target the bundle | Export the components this instance actually scans with `GET /api/admin/snapshot/wanted-list` (SYSTEM_ADMIN), then pass it to `build --wanted wanted-list.jsonl`. The builder fetches only those ecosystem/name/version tuples instead of a full upstream mirror. |
+| 3. Import bundle | `POST /api/admin/snapshot/import?mode=replace|merge` (multipart `.zip`). For large bundles, use `POST /api/admin/snapshot/import-from-path` with `{"path":"bundle.zip","mode":"merge"}` after setting `OSWL_AIRGAPPED_IMPORT_DIR` to a whitelist directory. |
+| 4. Place model (if using Embedded AI) | Provision the runtime in `embedded-ai/llama/` and verified weights in `embedded-ai/model/<family>/` before starting the offline host. Downloads remain disabled even if an internal mirror is configured; see §8. |
+
+`oswl-vdb build` options (see `VdbBuilderCli`):
+- `--sources osv,epss,kev,depsdev` (default all).
+- `--mode delta --since previous.zip` writes only added/changed keys plus `"_deleted":true` markers.
+- `--offline-sources <dir>` builds without any network from a cache directory populated by an earlier online run (covers `osv`/`epss`/`kev` only; deps.dev has no bulk dump and is skipped).
+- `verify <bundle.zip>` and `inspect <bundle.zip>` check checksums and metadata.
+
+Import semantics:
+- `replace` (default) clears each source in the store and writes the bundle.
+- `merge` upserts by `(source, entry_key)` and honors `"_deleted":true` lines as deletes.
+- v2 bundles are SHA-256-checksummed per file in `meta.json`; a mismatch rejects the whole bundle and leaves the existing store untouched.
+
+Definition freshness: `OSWL_AIRGAPPED_STALENESS_WARN_DAYS` (default `7`) and `OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS` (default `30`) drive the admin UI badge, measured from the oldest per-source `sourceAsOf` date across imported snapshots.
+
+Snapshot uploads may need `OSWL_MULTIPART_MAX_FILE_SIZE` / `OSWL_MULTIPART_MAX_REQUEST_SIZE` (default `50MB` each) if your bundle is larger.
+
+## 8. Embedded AI (optional, CPU-only)
+
+Default: **Qwen3.5-2B Q4_K_M**; optional: **Gemma 4 E2B Q4_K_M**. Plan 2 vCPU / 8 GB RAM minimum for occasional Qwen use, or 4 vCPU / 16 GB recommended for Gemma, including OsWL and PostgreSQL. These are estimates, not validated performance guarantees; CPU credits and scan concurrency matter.
+
+Place the matching runtime in `embedded-ai/llama/`, Qwen weights in `model/Qwen/`, and Gemma weights in `model/Gemma/`. Only Qwen auto-downloads. Default GPU layers = 0, threads = 1, parallel slots = 1, context = 8192. Use the pinned URL/hash/size together; the old `models-v1` asset is not the new model. Docker requires a mounted root and a Linux runtime.
+
+See [Embedded AI](Embedded-AI.md) for full requirements, directory layout, checksums, mirror/offline installation, CPU tuning, model/language selection and distribution notices.
+
+## 9. Database schema (upgrades)
+
+OsWL uses **Hibernate `ddl-auto=validate`** in `prod` — the app does not auto-alter PostgreSQL on startup.
+
+| Profile | Schema management |
+|---------|-------------------|
+| `local` | `ddl-auto: update` — H2 schema follows JPA entities automatically |
+| `prod` | `ddl-auto: validate` — run SQL scripts manually when upgrading |
+
+Manual scripts live in `src/main/resources/db/`:
+
+| File | When to run |
+|------|-------------|
+| `project_members.sql` | First deploy of project ACL (if table missing) |
+| `instance_setup_lock.sql` | First deploy after setup-lock feature |
+| `ai_enhancement.sql` | Legacy installs predating AI preference columns / `ai_daily_usage` |
+| `schema_cleanup.sql` | **Once** when upgrading to the release that removes unused tables/columns (`ai_feedback`, `external_api_settings`, denormalized `projects.version`, etc.) |
+
+After running migrations, restart the app and confirm `validate` passes.
+
+### Flyway (v1.0.4, opt-in)
+
+`OSWL_FLYWAY_ENABLED=true` enables the versioned migrations in `src/main/resources/db/migration/`; it defaults to `false`. The repository already provides `V1__baseline.sql` and subsequent migrations. On an empty PostgreSQL database, Flyway runs V1 and then the later versions before Hibernate validation. For an existing database without Flyway history, `baseline-on-migrate` records version 1 without executing V1, then runs V2 onward. Back up and compare the existing schema with these migrations before enabling it; manually applied changes can conflict with later migrations. Do not regenerate or edit a migration already applied to a shared database. If managing SQL manually, apply all required changes for the target version in order; the short list of legacy scripts below is not a complete fresh-install schema.
+
+### v1.0.4 columns
+
+This release adds `libraries.malicious` and `libraries.typosquat_risk`, both `NOT NULL DEFAULT false`. The defaults let the column be added to a populated table, so no manual script is required — but on `prod` (`ddl-auto: validate`) you still add them yourself. It also adds three nullable `libraries` columns (`description`, `homepage`, `source_repo_url`) for the upstream project metadata shown on Component Detail — `validate` checks that every mapped column exists regardless of nullability, so these need the same manual treatment:
+
+```sql
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS malicious        boolean NOT NULL DEFAULT false;
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS typosquat_risk   boolean NOT NULL DEFAULT false;
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS description      text;
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS homepage         varchar(500);
+ALTER TABLE libraries ADD COLUMN IF NOT EXISTS source_repo_url  varchar(500);
+ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS ai_locale varchar(16);
+```
+
+(Flyway users: `V3__component_metadata.sql` covers the three new `libraries` columns; see [Database Schema](Database-Schema.md).)
+
+### v1.0.5: Spring Session / ShedLock tables (opt-in)
+
+Only needed if you're moving to a **multi-instance** deployment (see §12). Adds `spring_session`, `spring_session_attributes`, and `shedlock`. Flyway users get this from `db/migration/V10__spring_session_and_shedlock.sql`; manual-script users run `db/spring_session_and_shedlock.sql`. A single-instance deployment can skip this entirely — nothing reads these tables until you set `OSWL_SESSION_STORE_TYPE=jdbc` and/or `OSWL_SCHEDULER_LOCK_ENABLED=true`.
+
+## 10. Post-deploy smoke test
+
+1. Open UI via HTTPS reverse proxy only.
+2. Complete setup / login and 2FA if enabled.
+3. Create a project and VCS connection; restart app — token still decrypts (confirms stable `OSWL_ENCRYPTION_KEY`).
+4. `POST /api/scan` with project API key (see [Scan API security](Scan-Api-Security.md)).
+5. Open a project you are a member of — confirm another user’s project ID returns forbidden (project membership).
+6. Review audit log for failed auth attempts.
+
+## 11. Operations
+
+- Back up PostgreSQL and store `OSWL_ENCRYPTION_KEY` in a secrets manager (loss = unreadable VCS tokens) — see [Backup and restore](Backup-And-Restore.md) for the full procedure and a restore-rehearsal script.
+- Rotate API keys and SMTP credentials on compromise.
+- Keep `SPRING_PROFILES_ACTIVE` out of images that should never run as `local`.
+
+## 12. Multi-instance deployment (horizontal scaling / HA)
+
+By default OsWL runs as a **single instance** — an in-memory HTTP session and per-instance `@Scheduled` jobs. That's correct for a single container/process, but it does not survive a second instance behind a load balancer: a user's session would be pinned to whichever instance served their login, and the nightly monitoring / defer-expiry / trash-cleanup jobs would each run once *per instance* instead of once per cluster. This section is only relevant once you deploy **2+ instances against the same PostgreSQL database**.
+
+**1. Run the schema first.** Before starting any instance with these features on, make sure `spring_session`, `spring_session_attributes`, and `shedlock` exist (§9, "v1.0.5: Spring Session / ShedLock tables"). Rolling out the env vars below before the tables exist will crash every instance on the first request/job tick.
+
+**2. Environment variables:**
+
+| Variable | Purpose |
+|----------|---------|
+| `OSWL_SESSION_STORE_TYPE=jdbc` | Moves HTTP sessions from in-memory Tomcat storage to PostgreSQL (`spring_session`). Login state and single-session enforcement (`maximumSessions(1)`) then work across the whole cluster instead of per-instance. |
+| `OSWL_SCHEDULER_LOCK_ENABLED=true` | Wraps the 3 scheduled jobs (`ContinuousMonitoringScheduler`, `DeferExpiryScheduler`, `TrashCleanupScheduler`) in a cluster-wide lock (ShedLock, backed by the `shedlock` table) so only one instance runs each job per cycle. |
+
+Set both together for a real multi-instance deployment — enabling only one leaves the other gap open.
+
+**3. Load balancer:** any standard L7 LB (nginx, ALB, etc.) works — **no sticky sessions required** once `OSWL_SESSION_STORE_TYPE=jdbc` is set, since session state is centralized in PostgreSQL rather than instance memory.
+
+**4. Scan-progress polling is the one exception.** `EnrichmentProgressHolder` and `ScanStatusEmitterRegistry` (the live progress shown during Quick Import / scan enrichment) are still in-memory per instance, not backed by the DB. Recommended: keep the load balancer's routing **sticky for the duration of an active scan** (e.g. cookie-based affinity scoped to the session), so progress-polling requests land back on the instance that's actually running the scan. The alternative — moving scan progress into the DB and switching the UI to pure polling — is a larger change tracked separately; sticky routing is the pragmatic default for now.
+
+**5. Rolling deploy order:**
+   1. Apply any pending DB migration first (old app code must tolerate the new schema — additive-only migrations, which is what `db/migration` follows).
+   2. Roll instances one at a time (not all at once), waiting for each new instance to pass its readiness check before moving to the next.
+   3. Because sessions live in PostgreSQL (not instance memory) once `OSWL_SESSION_STORE_TYPE=jdbc` is set, a rolling restart no longer logs users out.
+
+**6. Verifying it worked:**
+   - Log in against instance A, then send a subsequent request that the LB routes to instance B — it should stay authenticated (not redirected to `/login`).
+   - Stop instance A — the session (and single-session enforcement) should keep working from instance B.
+   - Check scheduler logs across both instances after a nightly job fires — the job's log lines should appear on exactly one instance, not both.
+
+---
+
+**Local development:** Run `./gradlew bootRun` (PowerShell: `.\gradlew.bat bootRun`) for the `local` profile and H2. The local YAML supplies a development-only encryption key; override it through the process environment if needed. `.env` is only loaded when the launcher explicitly reads it.

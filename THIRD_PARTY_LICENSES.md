@@ -22,6 +22,7 @@ OsWL uses the following third-party libraries. This document lists each library,
 | [H2 Database](#h2-database)                                           | EPL 2.0 / MPL 2.0      |
 | [PostgreSQL JDBC Driver](#postgresql-jdbc-driver)                     | BSD 2-Clause           |
 | [Project Lombok](#project-lombok)                                     | MIT                    |
+| [Caffeine](#caffeine)                                                 | Apache 2.0             |
 | [Alpine.js](#alpinejs)                                                | MIT                    |
 | [@alpinejs/collapse](#alpinejscollapse)                               | MIT                    |
 | [Chart.js](#chartjs)                                                  | MIT                    |
@@ -32,11 +33,20 @@ OsWL uses the following third-party libraries. This document lists each library,
 | [Micrometer Prometheus Registry](#micrometer-prometheus-registry)     | Apache 2.0             |
 | [Flyway](#flyway)                                                     | Apache 2.0             |
 | [Spring Security OAuth2 Client](#spring-security-oauth2-client)       | Apache 2.0             |
-| [Qwen3-1.7B (GGUF)](#qwen3-17b-gguf)                                  | Apache 2.0             |
-| [OSV (Open Source Vulnerabilities)](#osv-open-source-vulnerabilities) | CC-BY 4.0 / CC0 1.0 (varies) |
+| [Spring Session JDBC](#spring-session-jdbc)                           | Apache 2.0             |
+| [ShedLock](#shedlock)                                                 | Apache 2.0             |
+| [Qwen3.5-2B (GGUF)](#qwen35-2b-gguf) | Apache 2.0 |
+| [Gemma 4 E2B (GGUF)](#gemma-4-e2b-gguf) | Apache 2.0 |
+| [llama.cpp](#llamacpp) | MIT |
+| [OSV (Open Source Vulnerabilities)](#osv-open-source-vulnerabilities) | Source-specific, including CC-BY-SA 4.0 |
+| [GitHub Advisory Database](#github-advisory-database) | CC-BY 4.0 |
+| [NIST NVD](#nist-national-vulnerability-database-nvd) | NIST / CVE source terms; redistribution review pending |
 | [FIRST.org EPSS](#firstorg-epss-exploit-prediction-scoring-system)    | Free access, attribution requested |
 | [CISA KEV](#cisa-kev-known-exploited-vulnerabilities-catalog)         | CC0 1.0                |
-| [deps.dev](#depsdev)                                                  | CC-BY 4.0 (generated data) / Apache 2.0 (client repo) |
+| [deps.dev](#depsdev)                                                  | CC-BY 4.0 (generated data); upstream terms for aggregated data |
+| [CocoaPods specifications](#cocoapods-specifications) | MIT for specifications; pod licenses separate |
+| [Bundled Conda mapping](#bundled-conda-to-pypi-name-mapping) | Combined BSD-style / BSD 3-Clause / MIT notices |
+| [CVSS v4.0 Lookup Table (cvss-v4-calculator)](#cvss-v40-lookup-table-cvss-v4-calculator) | BSD 2-Clause |
 
 ---
 
@@ -231,6 +241,36 @@ Licensed under the Apache License, Version 2.0 (the "License").
 
 ---
 
+### Spring Session JDBC
+
+- **Version:** Managed by Spring Boot 4.1.0
+- **Website:** https://spring.io/projects/spring-session
+- **License:** Apache License, Version 2.0
+- **Used for:** Cluster-wide HTTP session storage in PostgreSQL, so a multi-instance deployment behind a load balancer keeps users logged in across instances and survives a single instance restarting.
+
+```
+Copyright 2014-2024 the original author or authors.
+
+Licensed under the Apache License, Version 2.0 (the "License").
+```
+
+---
+
+### ShedLock
+
+- **Version:** 7.7.0 (shedlock-spring, shedlock-provider-jdbc-template)
+- **Website:** https://github.com/lukas-krecan/ShedLock
+- **License:** Apache License, Version 2.0
+- **Used for:** Cluster-wide lock ensuring each `@Scheduled` job (nightly monitoring, deferral expiry, trash cleanup) runs on exactly one instance even when OsWL is deployed with multiple instances.
+
+```
+Copyright 2009-2024 the original author(s)
+
+Licensed under the Apache License, Version 2.0 (the "License").
+```
+
+---
+
 ### Jackson
 
 - **Version:** Managed by Spring Boot 4.1.0
@@ -381,9 +421,28 @@ all copies or substantial portions of the Software.
 
 ---
 
-## Frontend Dependencies (CDN)
+### Caffeine
 
-These libraries are loaded at runtime from public CDNs and are not bundled inside the JAR artifact.
+- **Version:** 3.2.4
+- **Website:** https://github.com/ben-manes/caffeine
+- **License:** Apache License, Version 2.0
+- **Used for:** High-performance in-memory query cache for read-heavy configuration data (license policy, role templates, settings).
+
+```
+Copyright 2015 Ben Manes. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    https://www.apache.org/licenses/LICENSE-2.0
+```
+
+---
+
+## Vendored Frontend Dependencies
+
+Gradle downloads pinned versions of these libraries into `src/main/resources/static/js/vendor/`. They are packaged in the JAR and served locally from `/js/vendor/`; application pages do not load them from a runtime CDN.
 
 ### Alpine.js
 
@@ -485,50 +544,128 @@ all copies or substantial portions of the Software.
 
 ---
 
-## Bundled AI Models
+## Embedded AI Runtime and Models
 
-Unlike the libraries above, model weights are not source code and are not covered by a
-uniform "open source" regime — each model below is listed with its actual license, which
-may impose obligations beyond a copyright notice.
+Runtime binaries and model weights are optional downloads, excluded from the source repository,
+Docker build context and released JAR. The JAR includes this notice and the Apache 2.0 text.
+Inference runs locally. Installation from upstream is a separate network operation.
 
-### Qwen3-1.7B (GGUF)
+### Qwen3.5-2B (GGUF)
 
-- **Version:** Qwen3-1.7B, quantized to GGUF (Q4_K_M)
-- **Publisher:** Alibaba Cloud (Qwen team)
-- **Website:** https://github.com/QwenLM/Qwen3
-- **License:** Apache License, Version 2.0 — full text below under [Apache License 2.0 — Full Text](#apache-license-20--full-text)
-- **Distribution:** Not bundled in the git repository or build artifacts. OsWL downloads the official `ggml-org/Qwen3-1.7B-GGUF` file `Qwen3-1.7B-Q4_K_M.gguf` directly from Hugging Face (over plain HTTPS, verifying its SHA256 against the value below) the first time a user clicks **Start** on Embedded AI with no model present, or in the background shortly after boot (see [Embedded AI](docs/Embedded-AI.md)), storing it at `embedded-ai/qwen3-1.7b-q4_k_m.gguf`. Nothing is downloaded in air-gapped mode — those hosts place the file themselves. Operators may point `OSWL_EMBEDDED_DEFAULT_MODEL_URL` at a self-hosted byte-identical mirror instead; Apache 2.0 permits that redistribution, no modifications are made to the model weights beyond the upstream GGUF quantization already noted above, and this notice plus the included license text and upstream attribution satisfy its requirements. Permissively licensed, so mirroring and auto-fetching it carries no obligation beyond this notice.
-- **SHA256:** `d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5` — must always match `oswl.ai.embedded.default-model-sha256` (`EmbeddedAiService`'s default); if one changes without the other, downloads fail integrity verification.
+- **Role:** Default CPU model; replaces the previous Qwen3-1.7B automatic download.
+- **Publisher:** Alibaba Cloud / Qwen team.
+- **Upstream:** https://huggingface.co/Qwen/Qwen3.5-2B
+- **License:** Apache License, Version 2.0; full text below.
+- **Quantization:** Unsloth AI GGUF Q4_K_M. OsWL does not fine-tune or modify the downloaded bytes.
+- **Source revision:** `unsloth/Qwen3.5-2B-GGUF@f6d5376be1edb4d416d56da11e5397a961aca8ae`
+- **File:** `model/Qwen/Qwen3.5-2B-Q4_K_M.gguf`, 1280835840 bytes.
+- **SHA256:** `aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223`
+- **Pinned download:** https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf
+
+### Gemma 4 E2B (GGUF)
+
+- **Role:** Optional CPU model, installed manually; replaces Gemma 3 1B in the refreshed local installation.
+- **Publisher:** Google DeepMind.
+- **Upstream:** https://huggingface.co/google/gemma-4-E2B-it
+- **License:** Apache License, Version 2.0, as stated in the Gemma 4 model card and https://ai.google.dev/gemma/apache_2 .
+  This entry is specifically for Gemma 4, not the distinct terms of earlier Gemma releases.
+- **Quantization:** Unsloth AI GGUF Q4_K_M. OsWL does not fine-tune or modify the downloaded bytes.
+- **Source revision:** `unsloth/gemma-4-E2B-it-GGUF@0314792d7f1f7e229411f620751375812bb9faf2`
+- **File:** `model/Gemma/gemma-4-E2B-it-Q4_K_M.gguf`, 3106738272 bytes.
+- **SHA256:** `740185b21d22ceb83a11c3aa62ad5842ef32c70f6096d756bbee85a1e4ec34b8`
+- **Pinned download:** https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/0314792d7f1f7e229411f620751375812bb9faf2/gemma-4-E2B-it-Q4_K_M.gguf
+
+Apache 2.0 permits redistribution subject to its conditions, including supplying the license,
+retaining applicable copyright/attribution notices and carrying forward any upstream NOTICE
+content when provided. Preserve the quantization provenance above. Do not represent these weights
+as OsWL-authored or imply endorsement by Qwen, Google or Unsloth.
+
+The old GitHub `models-v1` asset is Qwen3-1.7B and is not the new default.
+A new mirror must be a verified byte-identical copy of the relevant pinned file and accompany
+the license and attribution notices. This change does not publish new model assets.
+Custom/older weights retain their own licenses; these entries do not relicense them.
+
+### llama.cpp
+
+- **Publisher:** The ggml authors.
+- **Source:** https://github.com/ggml-org/llama.cpp
+- **License:** MIT.
+- **Validated local runtime:** b10068, commit `571d0d540`; operators supply an OS/architecture-compatible build in `embedded-ai/llama/`.
+- **Distribution:** Not bundled in the repository or JAR. If packaging runtime binaries separately,
+  preserve this full license and the licenses/notices of all included libraries (for example,
+  an OpenMP runtime); this MIT notice alone does not cover every binary in a vendor archive.
 
 ```
-Copyright Alibaba Cloud. Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License. You may obtain a copy
-of the License at https://www.apache.org/licenses/LICENSE-2.0
+MIT License
+
+Copyright (c) 2023-2026 The ggml authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 ```
 
 ---
 
 ## External Data Sources (Vulnerability / Threat Intelligence Feeds)
 
-Unlike the libraries and models above, the entries below are **data, not code** — consumed live
-by `OsvClient`/`DepsDevClient`/`EpssClient`/`KevCatalogService` when air-gapped mode is off, and
-by the `oswl-vdb` builder CLI (E5, `com.salkcoding.oswl.vdb`) when constructing an offline
-snapshot bundle for air-gapped instances. None of this data is bundled in the git repository or
-build artifacts; it is fetched over HTTPS at scan time or at bundle-build time.
+The notices below distinguish remotely acquired data from bundled reference resources.
+Online clients and the `oswl-vdb` builder acquire data under the relevant provider's terms.
+Conda name mappings and the CVSS lookup table are already included in build resources.
+This notice does not grant rights in upstream material or establish that every existing
+snapshot/export preserves the attribution required for redistribution. Preserve record-level
+origin, license links, supplied copyright notices and modification history with redistributed
+data. Review date: 2026-09-07; unresolved permissions are identified explicitly below.
 
 ### OSV (Open Source Vulnerabilities)
 
 - **Website:** https://osv.dev/ · bulk dumps: `https://storage.googleapis.com/osv-vulnerabilities/<ecosystem>/all.zip`
-- **License:** Varies by upstream advisory source, documented per-ecosystem at
-  https://google.github.io/osv.dev/data/. For the ecosystems OsWL supports: **npm, Maven,
-  RubyGems, NuGet** entries originate from the **GitHub Advisory Database (CC-BY 4.0)**; **PyPI**
-  additionally draws from the PyPI Advisory Database and the Python Software Foundation Database
-  (both **CC-BY 4.0**); **Go** from the Go Vulnerability Database (**CC-BY 4.0**); **crates.io**
-  from the RustSec Advisory Database (**CC0 1.0**, public domain).
+- **License:** Varies by original source, not merely by ecosystem. Consult the
+  [OSV source catalog](https://google.github.io/osv.dev/data/) and the source's own license.
+  GitHub Advisory Database, PyPA advisory data and Go `/data/` use CC-BY 4.0.
+  [RustSec](https://github.com/rustsec/advisory-db/blob/main/LICENSE.txt) defaults to CC0,
+  but imported GHSA records use CC-BY 4.0 with record-specific attribution.
+  [Ubuntu Security Notices](https://github.com/canonical/ubuntu-security-notices/blob/main/LICENSE)
+  use CC-BY-SA 4.0. No blanket redistribution clearance for Debian/Alpine-derived data
+  was established in this review. OSV access does not replace upstream permissions.
 - **Used for:** Live per-component vulnerability lookups (`OsvClient`) and, in `oswl-vdb build`,
   bulk re-indexing of the ecosystem `all.zip` dumps into `osv.jsonl` snapshot entries.
-- **Attribution:** CC-BY 4.0 requires attribution to the original source; this notice plus OSV's
-  own `id`/`aliases` fields preserved verbatim in every re-indexed entry satisfy that.
+- **Attribution:** Credit OSV and the original advisory publisher; retain supplied notices,
+  source and license links, and indicate transformations. IDs alone do not establish compliance.
+  Apply CC-BY-SA obligations to qualifying adaptations; do not relabel all data as OsWL's MIT code.
+
+### GitHub Advisory Database
+
+- **Source / license:** [GitHub Advisory Database — CC-BY 4.0](https://github.com/github/advisory-database/blob/main/LICENSE.md).
+- **Used for:** Direct `GitHubAdvisoryClient` queries as well as advisories surfaced through OSV.
+- **Attribution:** GitHub Advisory Database and the contributors identified by the source;
+  preserve advisory URL, license and supplied attribution when sharing transformed records.
+
+### NIST National Vulnerability Database (NVD)
+
+- **Source:** https://nvd.nist.gov/ · API: https://nvd.nist.gov/developers/vulnerabilities
+- **Used for:** CVE details and CPE-based advisory lookup (`NvdClient`).
+- **Terms:** Consult [NIST copyright and licensing statements](https://www.nist.gov/open/copyright-fair-use-and-licensing-statements-srd-data-software-and-technical-series-publications)
+  and the applicable NVD/CVE source terms. A U.S. government publisher does not establish a
+  CC0 license for every incorporated third-party record or referenced publication. The NVD-specific
+  terms pages did not expose sufficient content during this review; blanket redistribution
+  permission for every incorporated field remains unverified.
+- **Attribution / non-endorsement:** Data source: NIST NVD. This product uses data from the
+  NVD API but is not endorsed or certified by the NVD.
 
 ### FIRST.org EPSS (Exploit Prediction Scoring System)
 
@@ -539,14 +676,17 @@ build artifacts; it is fetched over HTTPS at scan time or at bundle-build time.
   **not** shared per that FAQ, only the published per-CVE scores OsWL consumes.
 - **Used for:** Live per-CVE probability-of-exploitation scores (`EpssClient`) and, in
   `oswl-vdb build`, the full bulk CSV.
-- **Attribution:** This notice + preserving FIRST.org as the named source satisfies the
-  attribution request.
+- **Attribution:** FIRST.org EPSS; preserve score date and model version when supplied.
+  Public access and requested attribution do not establish unrestricted dataset redistribution.
+  No explicit SPDX data license or blanket commercial redistribution grant was verified in
+  the published FAQ/data pages; confirm terms before distributing a score database to others.
 
 ### CISA KEV (Known Exploited Vulnerabilities Catalog)
 
 - **Website:** https://www.cisa.gov/known-exploited-vulnerabilities-catalog
-- **License:** **CC0 1.0** (public domain) — a work of the U.S. federal government, mirrored
-  under CC0 at https://github.com/cisagov/kev-data.
+- **License:** **CC0 1.0**, expressly published in the
+  [CISA KEV data repository license](https://github.com/cisagov/kev-data/blob/develop/LICENSE).
+  Linked third-party material and CISA/DHS marks are not licensed by that dedication.
 - **Used for:** Live KEV-listed flagging (`KevCatalogService`) and, in `oswl-vdb build`, the full
   bulk JSON feed.
 
@@ -554,30 +694,83 @@ build artifacts; it is fetched over HTTPS at scan time or at bundle-build time.
 
 - **Website:** https://deps.dev/ · API: https://docs.deps.dev/api/v3/ · source:
   https://github.com/google/deps.dev
-- **License:** The deps.dev README states: *"deps.dev generates additional data, including
-  resolved dependencies, advisory statistics, associations between entities, etc. This generated
-  data is available under a **CC-BY 4.0** license."* This covers the derived fields OsWL consumes
-  (`licenses`, `advisoryKeys`, resolved version/dependency data). Advisory content itself
-  (GHSA title/CVSS surfaced via `GetAdvisory`) originates from OSV/GHSA and is independently
-  CC-BY 4.0 per the OSV entry above. The raw registry fields deps.dev merely aggregates (not
-  generates) have no independently stated license and inherit whatever terms the origin registry
-  applies. Access to the API itself is governed by the
-  [Google APIs Terms of Service](https://developers.google.com/terms), which explicitly permits
-  caching: *"Clients are expressly permitted to cache data served by the API."* The deps.dev
-  **client repository's own code** (not the data) is Apache 2.0.
+- **License:** The [deps.dev README](https://github.com/google/deps.dev#readme) licenses generated
+  data, including resolved dependencies and advisory statistics, under **CC-BY 4.0**.
+  Aggregated registry/advisory content remains subject to its original terms: do not infer that
+  every `licenses` or `advisoryKeys` field and referenced record has been relicensed.
+  The README permits API caching; API use is also subject to the
+  [Google APIs Terms of Service](https://developers.google.com/terms).
+  The repository's code is Apache 2.0; this does not license the hosted backend or all its data.
 - **Used for:** Live per-version license/advisory-key lookups and Scorecard scores
   (`DepsDevClient`) and, in `oswl-vdb build`, targeted `GetVersion`/`GetAdvisory` calls against a
-  wanted-list (E6) — deps.dev has no bulk dump, so this is the only viable ingestion path (E5.2).
-- **Attribution:** This notice + the OSV/GHSA attribution above satisfies CC-BY 4.0 for the
-  generated and advisory data. deps.dev-derived fields are used to power OsWL's own analysis
-  output, not redistributed as a standalone dataset.
+  wanted-list. The provider also documents a BigQuery dataset in its [FAQ](https://docs.deps.dev/faq/);
+  availability is not a grant to redistribute every underlying source.
+- **Attribution:** deps.dev / Google and the original data publishers, source and license URLs,
+  and an indication of transformations. Existing offline snapshots require the same review as
+  other exported data. This notice alone does not certify their attribution completeness.
+
+### CocoaPods specifications
+
+- **Source / license:** [CocoaPods Specs](https://github.com/CocoaPods/Specs#readme) states that
+  the specifications are under the [CocoaPods MIT license](https://github.com/CocoaPods/CocoaPods/blob/master/LICENSE).
+- **Used for:** Repository and package-license metadata (`CocoaPodsSpecsClient`). Retain the
+  applicable MIT copyright and permission notice when redistributing substantial specification
+  content. Each actual pod's source code retains its own license; a podspec is not permission
+  to redistribute the package under MIT.
+
+### Bundled Conda-to-PyPI name mapping
+
+- **Resource:** `src/main/resources/conda/grayskull-pypi-mapping.json`.
+- **Origin:** `mappings/pypi/grayskull_pypi_mapping.json` from `regro/cf-graph-countyfair`, now
+  [conda-forge/conda-forge-bot-data](https://github.com/conda-forge/conda-forge-bot-data).
+  This is not the separate Grayskull program's Apache-licensed source.
+- **License:** The upstream `License` contains a Columbia University BSD-style notice,
+  Tick-my-feedstocks and Rever BSD 3-Clause notices, and a Doctr MIT notice. Preserve the
+  [complete upstream text shipped with OsWL](src/main/resources/META-INF/licenses/conda-forge-bot-data-LICENSE.txt).
+  Do not replace the combined/custom text with an assumed single SPDX identifier.
+- **Copyright:** © 2018 Board of Trustees of Columbia University in the city of New York;
+  © 2017 Peter M. Landwehr; © 2017 Anthony Scopatz; © 2016 Aaron Meurer, Gil Forsyth.
+- **Provenance:** License text retrieved from commit
+  `fd0dfed0d43fbb084f683d2c00473a887b645d69` on 2026-09-07; this is the license revision,
+  **not a verified revision of the bundled mapping**. The mapping's original commit and any
+  additional upstream-data terms remain to be established before claiming complete provenance.
+  Existing mapping SHA-256: `345402a491deabb648ddbb60a5c6708e0d99c69a99d11e5d8cd64a1d495ea2bd`.
+
+### CVSS v4.0 Lookup Table (cvss-v4-calculator)
+
+- **Source:** https://github.com/FIRSTdotorg/cvss-v4-calculator (`cvss_lookup.js`, `max_composed.js`,
+  `max_severity.js`) · publisher: FIRST.org, Inc., Red Hat, and contributors
+- **License:** BSD 2-Clause
+- **Note:** Unlike the other entries in this section, this is not a live-queried feed — the
+  270-entry MacroVector→score table and its supporting per-equivalence-class data are vendored
+  verbatim as `src/main/resources/cvss/cvss-v4-lookup.json`, converted from the source `.js` object
+  literals to JSON with no values changed. `service/cvss/CvssV4Calculator.java` reimplements the
+  surrounding scoring algorithm (MacroVector derivation, severity-distance interpolation) in Java
+  from the same reference source, since the algorithm itself is not data that can be vendored as a
+  file.
+- **Used for:** CVSS v4.0 Base/Environmental scoring (`CvssV4Calculator`) when a CVE supplies a
+  `CVSS:4.0/...` vector.
+
+```
+Copyright (c) 2023 FIRST.ORG, Inc., Red Hat, and contributors
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+```
 
 ---
 
 ## Apache License 2.0 — Full Text
 
 The following libraries and models are licensed under the Apache License, Version 2.0:
-Spring Boot, Spring Framework, Spring Security, Spring Data JPA, Thymeleaf, thymeleaf-extras-springsecurity6, springdoc-openapi, Jackson, GreenMail, Qwen3-1.7B.
+Spring Boot, Spring Framework, Spring Security, Spring Data JPA, Thymeleaf, thymeleaf-extras-springsecurity6, springdoc-openapi, Jackson, GreenMail, Spring Session JDBC, ShedLock, Qwen3.5-2B, Gemma 4 E2B.
 
 ```
                                  Apache License
@@ -693,3 +886,14 @@ Spring Boot, Spring Framework, Spring Security, Spring Data JPA, Thymeleaf, thym
 
    END OF TERMS AND CONDITIONS
 ```
+
+## Additional rule and browser notification libraries
+
+Versions are resolved in the generated OSS manifest and displayed on `/oss-notices`.
+
+- **RE2/J**: BSD 3-Clause. [Upstream license/project](https://github.com/google/re2j/blob/re2j-1.8/LICENSE).
+- **web-push**: MIT. [Upstream license/project](https://github.com/web-push-libs/webpush-java).
+- **Bouncy Castle**: MIT. [Upstream license/project](https://www.bouncycastle.org/licence.html).
+- **jose4j**: Apache 2.0. [Upstream license/project](https://bitbucket.org/b_c/jose4j).
+
+RE2/J derives from the Go RE2 implementation, copyright 2009 The Go Authors. Bouncy Castle is copyright 2000–2026 The Legion of the Bouncy Castle Inc.; its license is interpreted as MIT by the publisher. The distributed dependency JARs retain their upstream notices.

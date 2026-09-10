@@ -1,6 +1,6 @@
 # API 레퍼런스
 
-이 페이지는 OsWL이 노출하는 모든 REST 엔드포인트를 요약합니다. 인터랙티브 스키마는 **`local` 프로파일**의 Swagger UI(`http://localhost:8080/swagger-ui.html`)에서 확인합니다. **`prod`에서는 Swagger가 꺼져 있습니다.**
+이 페이지는 OsWL이 노출하는 모든 REST 엔드포인트를 요약합니다. 인터랙티브 스키마는 **`local` 프로필**의 Swagger UI(`http://localhost:8080/swagger-ui.html`)에서 확인합니다. **`prod`에서는 Swagger가 꺼져 있습니다.**
 
 OpenAPI 스펙 (JSON): `http://<host>:8080/v3/api-docs`
 
@@ -86,7 +86,7 @@ Authorization: Bearer oswl_<your_api_key>
 | 메서드 | 경로 | 설명 |
 |---|---|---|
 | `POST` | `/api/github/connect` | GitHub PAT 연결 |
-| `DELETE` | `/api/github/disconnect` | GitHub 연결 제거 |
+| `POST` | `/api/github/disconnect` | GitHub 연결 제거 |
 | `GET` | `/api/github/status` | 연결 상태 |
 | `GET` | `/api/github/accounts` | 인증된 계정 목록 |
 | `GET` | `/api/github/repos` | 접근 가능한 저장소 목록 |
@@ -101,7 +101,6 @@ Authorization: Bearer oswl_<your_api_key>
 
 | 메서드 | 경로 | 인증 | 설명 |
 |---|---|---|---|
-| `POST` | `/api/auth` | API 키 | API 키 검증 (레거시) |
 | `GET` | `/api/scan/ping` | API 키 | 연결 및 키 유효성 확인 |
 | `GET` | `/api/scan/manifest-rules` | API 키 | manifest 수집 규칙 (`/scripts/manifest-rules.json`과 동일) |
 | `POST` | `/api/scan/parse` | API 키 | manifest zip 파싱 (CLI 1단계) |
@@ -119,7 +118,7 @@ Authorization: Bearer oswl_<your_api_key>
 | `PATCH` | `/projects/{id}/security-center/bulk-status` | `SECURITY_CENTER_UPDATE_STATUS` | CVE 상태 일괄 업데이트 |
 | `GET` | `/projects/{id}/security-center/export` | `SECURITY_CENTER_EXPORT` | CVE 목록 CSV 다운로드 (`?scanId=`, `?format=csv`) |
 | `POST` | `/projects/{id}/security-center/batch-pr` | `SECURITY_CENTER_UPDATE_STATUS` | **v1.0.4** — 선택 컴포넌트 일괄 업그레이드 PR 생성 |
-| `GET` | `/security-center/compliance-report` | `SECURITY_CENTER_EXPORT` | **v1.0.4** — 인쇄용 컴플라이언스 리포트 |
+| `GET` | `/projects/{projectId}/security-center/compliance-report` | `SECURITY_CENTER_EXPORT` | **v1.0.4** — 인쇄용 컴플라이언스 리포트 |
 
 ### SBOM / VEX / SARIF (v1.0.4)
 
@@ -251,8 +250,8 @@ Authorization: Bearer oswl_<your_api_key>
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
-| `GET` | `/api/admin/cli-keys` | 전역 CLI 키 목록 |
-| `POST` | `/api/admin/cli-keys` | 전역 키 생성 |
+| `GET` | `/api/admin/cli-keys` | 프로젝트별 CLI 키 통합 조회 |
+| `POST` | `/api/admin/cli-keys` | 프로젝트별 키 발급 (`projectId` 필수) |
 | `PATCH` | `/api/admin/cli-keys/{keyId}/toggle` | 키 활성화/비활성화 |
 
 ---
@@ -281,7 +280,7 @@ Authorization: Bearer oswl_<your_api_key>
 | `GET` | `/api/settings/ai/usage` | `SETTINGS_AI_MANAGE` | AI 사용량 통계 — 오늘 호출 수/토큰/예상 비용, 일일 상한, 최근 7일 집계(일별 집계 테이블에서 조회) |
 | `GET` | `/api/settings/ai/usage/events` | `SETTINGS_AI_MANAGE` | 최근 AI 호출 이벤트, 최신순 (`?page=`, `?size=`, 기본 크기 `10`). 최근 **100건**만 보존되며(FIFO), 최대 10페이지까지 존재 |
 | `GET` | `/api/settings/ai/embedded` | `SETTINGS_AI_MANAGE` | 내장 AI 상태 (`running`, `external`, `binaryFound`, `activeModel`, `fallbackUsed`, `lastError`, `availableModels`, `modelsDir`, `baseUrl`, 기본 모델 다운로드 진행 중이면 `downloading`, `downloadedBytes`, `downloadTotalBytes`도 포함) |
-| `POST` | `/api/settings/ai/embedded/start?model=` | `SETTINGS_AI_MANAGE` | llama.cpp 사이드카 시작 (모델 파일명 선택 지정; 후보 자동 폴백, 실패 시 400과 사유). `.gguf`가 하나도 없는 신규 설치에서는 대신 Apache 2.0 Qwen3-1.7B 모델을 백그라운드로 다운로드하고 즉시 응답(`downloading: true`) — 진행률은 `GET .../embedded`로 폴링 |
+| `POST` | `/api/settings/ai/embedded/start?model=` | `SETTINGS_AI_MANAGE` | llama.cpp 사이드카 시작 (모델 파일명 선택 지정; 후보 자동 폴백, 실패 시 400과 사유). `.gguf`가 하나도 없는 신규 설치에서는 대신 Apache 2.0 Qwen3.5-2B Q4_K_M 모델을 백그라운드로 다운로드하고 즉시 응답(`downloading: true`) — 진행률은 `GET .../embedded`로 폴링 |
 | `POST` | `/api/settings/ai/embedded/stop` | `SETTINGS_AI_MANAGE` | 사이드카 중지 및 LOCAL 프로바이더 비활성화 |
 | `PUT` | `/api/settings/ai/embedded/config` | `SETTINGS_AI_MANAGE` | 폴더/모델 오버라이드 저장 `{ "dir", "model" }` (null은 유지, 공백은 해제; dir이 없으면 400) |
 
@@ -324,7 +323,7 @@ Authorization: Bearer oswl_<your_api_key>
 
 ---
 
-## 로컬/테스트 (local 프로파일 전용)
+## 로컬/테스트 (local 프로필 전용)
 
 | 메서드 | 경로 | 설명 |
 |---|---|---|

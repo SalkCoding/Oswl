@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:replace="~{fragments/head :: head(#{settings.pageTitle})}"></head>
-<body class="flex flex-col min-h-screen bg-[var(--grayscale-5)]">
+<body class="settings-page flex flex-col min-h-screen bg-[var(--grayscale-5)]">
 <script th:inline="javascript">
     // 설정 페이지 최초 진입 시 이전 URL 저장 (탭 이동해도 덮어쓰지 않음)
     (function () {
@@ -14,27 +14,44 @@
     const _accessDeniedMsg = /*[[#{common.error.accessDenied}]]*/ 'Access denied. You do not have permission to perform this action.';
     function _fetchErr(r, fallback) { return r.status === 403 ? _accessDeniedMsg : fallback; }
 </script>
+<script th:src="@{/js/settings/settings-subtabs.min.js(v='1.0.5.1')}"></script>
+<script defer th:src="@{/js/settings/settings-dirty.min.js(v='1.0.5.1')}"></script>
 
 <header th:replace="~{fragments/topbar :: simple-topbar('Settings')}"></header>
 
 <!-- Tab bar — full width, Figma #f3f5f6 bg, directly below header -->
-<div th:if="${not #lists.isEmpty(accessibleTabs)}"
+<nav th:if="${not #lists.isEmpty(accessibleTabs)}"
+     th:aria-label="#{settings.pageTitle}"
      class="bg-[#f3f5f6] w-full shrink-0">
-    <div class="max-w-[1440px] mx-auto px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] flex items-center gap-[32px] pt-[17px] pb-[16px] overflow-x-auto">
-        <th:block th:each="t, tStat : ${accessibleTabs}">
-            <!-- 활성 탭: teal pill, 비활성 탭: 텍스트만 -->
-            <a th:href="@{/settings(tab=${t.key})}"
-               th:classappend="${t.key == activeTab} ? 'bg-[rgba(51,209,183,0.1)] text-[var(--primary-120)] font-bold px-[12px] py-[6px] rounded-[8px]' : 'text-[var(--grayscale-90)] font-medium hover:text-[var(--grayscale-100)]'"
-               class="text-[18px] tracking-[-0.18px] no-underline whitespace-nowrap transition-colors"
-               th:text="#{${t.labelKey}}">Tab</a>
-            <!-- 점 구분자 (4px 원) -->
-            <span th:unless="${tStat.last}"
-                  class="w-[4px] h-[4px] rounded-full bg-[var(--grayscale-40)] shrink-0 -mx-[16px]"></span>
-        </th:block>
+    <div class="max-w-[1440px] mx-auto px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] flex items-center justify-between gap-[32px] pt-[17px] pb-[16px] overflow-x-auto thin-scrollbar">
+        <div class="flex items-center gap-[32px]">
+            <th:block th:each="t, tStat : ${accessibleTabs}">
+                <!-- 활성 탭: teal pill, 비활성 탭: 텍스트만 -->
+                <a th:href="@{/settings(tab=${t.key})}"
+                   th:aria-current="${t.key == activeTab} ? 'page' : null"
+                   th:classappend="${t.key == activeTab} ? 'bg-[rgba(51,209,183,0.1)] text-[var(--text-accent)] font-bold px-[12px] py-[6px] rounded-[8px]' : 'text-[var(--grayscale-90)] font-medium hover:text-[var(--grayscale-100)]'"
+                   class="text-[18px] tracking-[-0.18px] no-underline whitespace-nowrap transition-colors"
+                   th:text="#{${t.labelKey}}">Tab</a>
+                <!-- 점 구분자 (4px 원) -->
+                <span th:unless="${tStat.last}"
+                      class="w-[4px] h-[4px] rounded-full bg-[var(--grayscale-40)] shrink-0 -mx-[16px]"></span>
+            </th:block>
+        </div>
+        <a sec:authorize="hasRole('SYSTEM_ADMIN')" th:href="@{/onboarding}"
+           class="shrink-0 text-[13px] text-[var(--grayscale-60)] hover:text-[var(--grayscale-90)] no-underline whitespace-nowrap transition-colors"
+           th:text="#{settings.onboarding.rerun}">↻ Revisit onboarding</a>
+    </div>
+</nav>
+
+<div id="settings-dirty-status" hidden role="status"
+     class="w-full max-w-[1440px] mx-auto mt-[16px] px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px]">
+    <div class="inline-flex items-center gap-[8px] rounded-[6px] bg-[var(--grayscale-10)] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-70)]">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m16 3 5 5-12 12H4v-5L16 3Z"/><path d="m13 6 5 5"/></svg>
+        <span id="settings-dirty-status-text">Unsaved changes</span>
     </div>
 </div>
 
-<main class="w-full flex flex-col gap-[24px] mt-[32px] pb-[220px] px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] max-w-[1440px] mx-auto">
+<main class="w-full min-w-0 overflow-x-auto flex flex-col gap-[24px] mt-[32px] pb-[220px] px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] max-w-[1440px] mx-auto">
 
     <div th:if="${#lists.isEmpty(accessibleTabs)}"
          class="bg-white border border-[var(--grayscale-20)] rounded-[10px] p-[40px] text-center text-[14px] text-[var(--grayscale-60)]"
@@ -51,11 +68,33 @@
         <th:block th:if="${activeTab == 'cli'}"><div th:replace="~{settings/tabs/cli :: tab}"></div></th:block>
         <th:block th:if="${activeTab == 'cache'}"><div th:replace="~{settings/tabs/cache :: tab}"></div></th:block>
         <th:block th:if="${activeTab == 'license-policy'}"><div th:replace="~{settings/tabs/license-policy :: tab}"></div></th:block>
+        <th:block th:if="${activeTab == 'policy'}"><div th:replace="~{settings/tabs/policy :: tab}"></div></th:block>
+        <th:block th:if="${activeTab == 'webhooks'}"><div th:replace="~{settings/tabs/webhooks :: tab}"></div></th:block>
+        <th:block th:if="${activeTab == 'reports'}"><div th:replace="~{settings/tabs/reports :: tab}"></div></th:block>
+        <th:block th:if="${activeTab == 'diagnostics'}"><div th:replace="~{settings/tabs/diagnostics :: tab}"></div></th:block>
+        <th:block th:if="${activeTab == 'config-transfer'}"><div th:replace="~{settings/tabs/config-transfer :: tab}"></div></th:block>
     </div>
 
 </main>
 
 <footer th:replace="~{fragments/footer :: site-footer}"></footer>
 
+<script th:inline="javascript">
+    document.addEventListener('DOMContentLoaded', function () {
+        var active = document.querySelector('.settings-page nav a[aria-current="page"]');
+        if (active) active.scrollIntoView({ block: 'nearest', inline: 'center' });
+
+        var dirtyStatus = document.getElementById('settings-dirty-status');
+        var dirtyText = document.getElementById('settings-dirty-status-text');
+        var dirtySummary = /*[[#{settings.dirty.summary}]]*/ '{0} unsaved change(s)';
+        function renderDirty(event) {
+            var count = event && event.detail ? event.detail.count : 0;
+            dirtyStatus.hidden = count === 0;
+            if (count > 0) dirtyText.textContent = dirtySummary.replace('{0}', count);
+        }
+        document.addEventListener('oswl:dirty-change', renderDirty);
+        if (window.OswlDirty) renderDirty({ detail: { count: window.OswlDirty.scopes().length } });
+    });
+</script>
 </body>
 </html>

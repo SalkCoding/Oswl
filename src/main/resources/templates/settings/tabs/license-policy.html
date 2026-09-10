@@ -3,7 +3,6 @@
 <body>
 <div th:fragment="tab"
      x-data="licensePolicyTab()"
-     x-init="init()"
      class="flex flex-col gap-[20px]">
 
     <div class="flex flex-col gap-[8px]">
@@ -14,7 +13,12 @@
     </div>
 
     <div x-show="apiError" x-cloak
-         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]" x-text="apiError"></div>
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px] flex items-center justify-between gap-[8px]">
+        <span x-text="apiError"></span>
+        <button type="button" @click="apiError = null; resetAndLoad()"
+                class="shrink-0 text-[12px] font-semibold text-red-700 hover:underline"
+                th:text="#{common.retry}">Retry</button>
+    </div>
 
     <div class="bg-[var(--grayscale-10)] flex gap-[9px] h-[40px] items-center max-w-[560px] px-[14px] rounded-[75px] border border-transparent focus-within:border-[var(--primary-120)]">
         <img th:src="@{/icon/icon-search.svg}" class="w-[16px] h-[16px] shrink-0" alt="" aria-hidden="true">
@@ -30,7 +34,8 @@
        class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px]"
        x-text="resultSummary()"></p>
 
-    <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden">
+    <div data-dirty-scope="license-policy"
+         class="bg-white rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden">
         <table class="w-full text-[13px]">
             <thead>
             <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
@@ -42,7 +47,7 @@
             </thead>
             <tbody>
             <tr x-show="visibleEntries.length === 0 && !fetching" x-cloak>
-                <td colspan="4" class="px-[18px] py-[28px] text-center text-[13px] text-[var(--grayscale-50)]"
+                <td colspan="4" class="px-[18px] py-[28px] text-center text-[13px] text-[var(--grayscale-60)]"
                     th:text="#{settings.licensePolicy.search.noResults}">No licenses match your search.</td>
             </tr>
             <template x-for="entry in visibleEntries" :key="entry.spdxId">
@@ -52,7 +57,7 @@
                             <span class="font-mono text-[12px] text-[var(--grayscale-80)]" x-text="entry.spdxId"></span>
                             <a x-show="entry.spdxUrl" :href="entry.spdxUrl" target="_blank" rel="noopener noreferrer"
                                @click.stop=""
-                               class="inline-flex items-center text-[var(--grayscale-50)] hover:text-[var(--primary-120)] shrink-0"
+                               class="inline-flex items-center text-[var(--grayscale-60)] hover:text-[var(--text-accent)] shrink-0"
                                :title="_licensePolicyI18n.viewSpdx">
                                 <svg class="w-[12px] h-[12px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
@@ -64,9 +69,11 @@
                     <td class="px-[18px] py-[12px] text-[13px] text-[var(--grayscale-90)] flex-1" x-text="entry.displayName || entry.spdxId"></td>
                     <td class="px-[18px] py-[12px] w-[200px]">
                         <div class="relative min-w-[100px]"
-                             @click.away="if(openStatusDropdown === entry.spdxId) openStatusDropdown = null">
+                             @click.away="if(openStatusDropdown === entry.spdxId) openStatusDropdown = null"
+                             @keydown.escape.stop="if(openStatusDropdown === entry.spdxId) openStatusDropdown = null">
                             <button type="button"
                                     @click="openStatusDropdown = openStatusDropdown === entry.spdxId ? null : entry.spdxId"
+                                    :aria-expanded="openStatusDropdown === entry.spdxId" aria-haspopup="listbox" :aria-controls="'lp-status-menu-' + entry.spdxId"
                                     class="w-full flex items-center justify-between bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] transition-colors cursor-pointer"
                                     :class="openStatusDropdown === entry.spdxId ? 'border-[var(--primary-120)]' : ''">
                                 <span x-text="statusLabel(entry.status)"></span>
@@ -75,12 +82,14 @@
                                      class="transition-transform duration-150 shrink-0 w-[12px] h-[12px] ml-[8px]" alt="" aria-hidden="true">
                             </button>
                             <div x-show="openStatusDropdown === entry.spdxId" x-cloak
+                                 :id="'lp-status-menu-' + entry.spdxId" role="listbox"
                                  class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
                                 <template x-for="opt in statusOptions" :key="opt.value">
                                     <button type="button"
+                                            data-dirty-mark
                                             @click="entry.status = opt.value; openStatusDropdown = null"
                                             class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                            :class="entry.status === opt.value ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                            :class="entry.status === opt.value ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                             x-text="opt.label"></button>
                                 </template>
                             </div>
@@ -88,7 +97,7 @@
                     </td>
                     <td class="px-[18px] py-[12px] w-[120px]">
                         <button type="button" @click="save(entry)"
-                                class="bg-[#00A093] hover:bg-[#008f83] px-[8px] py-[6px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[8px] items-center justify-center min-w-[88px] transition-colors cursor-pointer">
+                                class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] px-[8px] py-[6px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[8px] items-center justify-center min-w-[88px] transition-colors cursor-pointer">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
                                 <polyline points="17 21 17 13 7 13 7 21"/>
@@ -139,173 +148,7 @@
         viewSpdx:         /*[[#{license.obligations.viewSpdx}]]*/ 'View full SPDX license text'
     };
     </script>
-    <script>
-    function licensePolicyTab() {
-        return {
-            entries: [],
-            searchQuery: '',
-            page: 0,
-            pageSize: 50,
-            renderCount: 50,
-            total: 0,
-            hasMore: false,
-            allLoaded: false,
-            fetching: false,
-            prefetching: false,
-            _prefetchToken: 0,
-            _scrollObserver: null,
-            openStatusDropdown: null,
-            statusOptions: [
-                { value: 'PERMITTED',  label: _licensePolicyI18n.statusPermitted },
-                { value: 'CAUTION',    label: _licensePolicyI18n.statusCaution },
-                { value: 'RESTRICTED', label: _licensePolicyI18n.statusRestricted },
-                { value: 'UNKNOWN',    label: _licensePolicyI18n.statusUnknown }
-            ],
-            apiError: null,
-            toastVisible: false,
-            toastMsg: '',
-            headers() { return oswlJsonHeaders(); },
-            statusLabel(status) {
-                const opt = this.statusOptions.find(o => o.value === status);
-                return opt ? opt.label : status;
-            },
-            get filteredPool() {
-                const q = this.searchQuery.trim().toLowerCase();
-                if (!q) return this.entries;
-                if (!this.allLoaded) return this.entries;
-                return this.entries.filter(entry => {
-                    const id = (entry.spdxId || '').toLowerCase();
-                    const name = (entry.displayName || '').toLowerCase();
-                    return id.includes(q) || name.includes(q);
-                });
-            },
-            get visibleEntries() {
-                return this.filteredPool.slice(0, this.renderCount);
-            },
-            get canExpandRender() {
-                return this.allLoaded && this.renderCount < this.filteredPool.length;
-            },
-            resultSummary() {
-                const q = this.searchQuery.trim();
-                if (q) {
-                    const count = this.allLoaded ? this.filteredPool.length : this.total;
-                    return _licensePolicyI18n.searchSummary.replace('{0}', String(count));
-                }
-                return _licensePolicyI18n.resultSummary.replace('{0}', String(this.total));
-            },
-            init() {
-                this.$nextTick(() => {
-                    this._scrollObserver = new IntersectionObserver((hits) => {
-                        if (hits.some(h => h.isIntersecting)) this.loadMore();
-                    }, { rootMargin: '320px' });
-                    if (this.$refs.scrollSentinel) {
-                        this._scrollObserver.observe(this.$refs.scrollSentinel);
-                    }
-                });
-                this.resetAndLoad();
-            },
-            showToast(msg) {
-                this.toastMsg = msg;
-                this.toastVisible = true;
-                setTimeout(() => { this.toastVisible = false; }, 2500);
-            },
-            onSearchChange() {
-                if (this.allLoaded) {
-                    this.renderCount = this.pageSize;
-                    return;
-                }
-                this.resetAndLoad();
-            },
-            async resetAndLoad() {
-                this._prefetchToken++;
-                const token = this._prefetchToken;
-                this.prefetching = false;
-                this.allLoaded = false;
-                this.renderCount = this.pageSize;
-                this.page = 0;
-                this.entries = [];
-                this.hasMore = false;
-                this.total = 0;
-                await this.fetchPage(0, false, token);
-                if (token !== this._prefetchToken) return;
-                if (!this.searchQuery.trim()) {
-                    this.prefetchRemaining(token);
-                }
-            },
-            async loadMore() {
-                if (this.canExpandRender) {
-                    this.renderCount = Math.min(this.renderCount + this.pageSize, this.filteredPool.length);
-                    return;
-                }
-                if (!this.hasMore || this.fetching || this.prefetching) return;
-                if (this.searchQuery.trim() && !this.allLoaded) return;
-                const token = this._prefetchToken;
-                await this.fetchPage(this.page + 1, true, token);
-            },
-            async prefetchRemaining(token) {
-                if (this.prefetching || token !== this._prefetchToken) return;
-                this.prefetching = true;
-                try {
-                    while (this.hasMore && token === this._prefetchToken && !this.searchQuery.trim()) {
-                        await this.fetchPage(this.page + 1, true, token);
-                        await new Promise(resolve => setTimeout(resolve, 0));
-                    }
-                    if (token === this._prefetchToken && !this.hasMore) {
-                        this.allLoaded = true;
-                    }
-                } finally {
-                    if (token === this._prefetchToken) {
-                        this.prefetching = false;
-                    }
-                }
-            },
-            async fetchPage(page, append, token) {
-                if (token !== this._prefetchToken) return;
-                this.fetching = true;
-                this.apiError = null;
-                try {
-                    const params = new URLSearchParams({
-                        page: String(page),
-                        size: String(this.pageSize)
-                    });
-                    const q = this.searchQuery.trim();
-                    if (q) params.set('q', q);
-                    const r = await fetch('/api/settings/license-policy?' + params.toString());
-                    if (token !== this._prefetchToken) return;
-                    if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = _fetchErr(r, _licensePolicyI18n.loadFailed); return; }
-                    const data = await r.json();
-                    this.page = data.page;
-                    this.total = data.total;
-                    this.hasMore = data.hasMore;
-                    const items = data.items || [];
-                    this.entries = append ? this.entries.concat(items) : items;
-                    if (!this.hasMore && !q) {
-                        this.allLoaded = true;
-                    }
-                } catch (e) {
-                    if (token === this._prefetchToken) {
-                        this.apiError = _licensePolicyI18n.loadFailed;
-                    }
-                } finally {
-                    if (token === this._prefetchToken) {
-                        this.fetching = false;
-                    }
-                }
-            },
-            async save(entry) {
-                this.apiError = null;
-                const encoded = encodeURIComponent(entry.spdxId);
-                const r = await fetch('/api/settings/license-policy/' + encoded, {
-                    method: 'PUT', headers: this.headers(), body: JSON.stringify({ status: entry.status })
-                });
-                if (r.status === 401) { location.href = '/login'; return; }
-                if (!r.ok) { this.apiError = _fetchErr(r, _licensePolicyI18n.saveFailed); return; }
-                this.showToast(_licensePolicyI18n.saved);
-            }
-        };
-    }
-    </script>
+    <script th:src="@{/js/settings/license-policy.min.js(v='1.0.5.1')}"></script>
 </div>
 </body>
 </html>

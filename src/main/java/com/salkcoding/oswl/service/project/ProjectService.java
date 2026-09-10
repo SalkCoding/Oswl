@@ -1,0 +1,404 @@
+package com.salkcoding.oswl.service.project;
+import com.salkcoding.oswl.service.org.TeamService;
+
+import com.salkcoding.oswl.auth.enums.VcsProvider;
+import com.salkcoding.oswl.domain.entity.project.Project;
+import com.salkcoding.oswl.domain.entity.project.ProjectVersion;
+import com.salkcoding.oswl.domain.entity.scan.ScanResult;
+import com.salkcoding.oswl.domain.enums.DeploymentProfile;
+import com.salkcoding.oswl.domain.enums.ImportSource;
+import com.salkcoding.oswl.domain.enums.ProjectMemberRole;
+import com.salkcoding.oswl.domain.enums.ScanStatus;
+import com.salkcoding.oswl.dto.ProjectSummaryDto;
+import com.salkcoding.oswl.dto.TrashProjectDto;
+import com.salkcoding.oswl.repository.vulnerability.CveAlertRepository;
+import com.salkcoding.oswl.repository.vulnerability.LibraryRepository;
+import com.salkcoding.oswl.repository.project.ProjectRepository;
+import com.salkcoding.oswl.repository.project.ProjectVersionRepository;
+import com.salkcoding.oswl.repository.scan.ScanResultRepository;
+import com.salkcoding.oswl.auth.service.AuditLogService;
+import com.salkcoding.oswl.aop.Auditable;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class ProjectService {
+
+    private final ProjectRepository projectRepository;
+    private final ProjectVersionRepository projectVersionRepository;
+    private final ScanResultRepository scanResultRepository;
+    private final AuditLogService auditLogService;
+    private final ProjectAccessService projectAccessService;
+    private final CveAlertRepository cveAlertRepository;
+    private final LibraryRepository libraryRepository;
+    private final TeamService teamService;
+    private final com.salkcoding.oswl.service.scan.ScanSummaryReader summaryReader;
+
+    @Transactional(readOnly = true)
+    public List<ProjectSummaryDto> findAll() {
+        List<Long> accessible = projectAccessService.accessibleProjectIds();
+        if (accessible.isEmpty()) {
+            return List.of();
+        }
+        java.util.Map<Long, Long> alertCounts = cveAlertRepository
+                .countUnacknowledgedByProjectIds(accessible).stream()
+                .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
+
+        List<Project> projects = projectRepository.findAllByDeletedAtIsNullAndIdInOrderByCreatedAtDesc(accessible);
+        if (projects.isEmpty()) {
+            return List.of();
+        }
+
+        // Batched in place of one findLatestByProjectId() call per project — see
+        // ScanResultRepository.findLatestByProjectIds() for why a tie on scannedAt is harmless here.
+        Map<Long, ScanResult> latestScanByProjectId = new HashMap<>();
+        for (ScanResult scan : scanResultRepository.findLatestByProjectIds(accessible)) {
+            latestScanByProjectId.putIfAbsent(scan.getProject().getId(), scan);
+        }
+
+        var summaries = summaryReader.read(latestScanByProjectId.values().stream()
+                .filter(scan -> scan.getStatus() == ScanStatus.COMPLETED).toList());
+
+        return projects.stream()
+                .map(p -> {
+                    ScanResult latest = latestScanByProjectId.get(p.getId());
+                    return toSummary(p, latest, alertCounts.getOrDefault(p.getId(), 0L),
+                            latest == null ? null : summaries.get(latest.getId()));
+                })
+                .collect(Collectors.toList());
+    }
+
+    /** Marks all open continuous-monitoring alerts of the project as seen (clears the card badge). */
+    @Transactional
+    public void acknowledgeCveAlerts(Long projectId) {
+        projectAccessService.assertCanViewProject(projectId);
+        int cleared = cveAlertRepository.acknowledgeAllForProject(projectId, java.time.LocalDateTime.now());
+        if (cleared > 0) {
+            Project project = projectRepository.findById(projectId).orElse(null);
+            auditLogService.log("MONITOR.ALERT_ACK", "PROJECT",
+                    projectId.toString(), project != null ? project.getName() : null,
+                    "cleared=" + cleared);
+        }
+        log.info("[Monitor] Acknowledged {} alert(s) for projectId={}", cleared, projectId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TrashProjectDto> findTrash() {
+        return projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc().stream()
+                .filter(p -> projectAccessService.canViewProject(p.getId()))
+                .map(this::toTrash)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Project getById(Long id) {
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + id));
+        projectAccessService.assertCanViewProject(id);
+        return project;
+    }
+
+    @Transactional
+    @Auditable(action = "PROJECT.CREATE", targetType = "PROJECT",
+               targetIdExpr = "#result.id.toString()", targetNameExpr = "#result.name")
+    public Project create(String name) {
+        Long creatorId = projectAccessService.currentUserIdOrNull();
+        Project project = Project.builder()
+                .name(name)
+                .createdByUserId(creatorId)
+                .team(teamService.findDefaultTeam())
+                .build();
+        Project saved = projectRepository.save(project);
+        if (creatorId != null) {
+            projectAccessService.ensureMember(saved.getId(), creatorId, ProjectMemberRole.ADMIN);
+        }
+        log.info("[Project] Created id={} name={}", saved.getId(), saved.getName());
+        return saved;
+    }
+
+    /**
+     * Find-or-create a Project for the given GitHub owner/repo, then upsert a
+     * {@link ProjectVersion} for the given branch.
+     *
+     * <ul>
+     *   <li>Same owner/repo + same branch → no new {@link ProjectVersion} row.</li>
+     *   <li>Same owner/repo + new branch → create a new version with the next sequential number.</li>
+     *   <li>New owner/repo → create a new Project (UUID auto-generated) and first version.</li>
+     * </ul>
+     *
+     * @param createdByUserId user who initiated the import; stored only on first creation
+     * @return the Project (existing or newly created)
+     */
+    @Transactional
+    public Project upsertFromGitHub(VcsProvider provider, String owner, String repo, String branch, Long createdByUserId) {
+        String repoKey = owner + "/" + repo;
+
+        // 1. Find or create the logical project
+        boolean isNewProject = projectRepository.findByGithubRepo(repoKey).isEmpty();
+        Project project = projectRepository.findByGithubRepo(repoKey)
+                .orElseGet(() -> projectRepository.save(
+                        Project.builder().name(repoKey).createdByUserId(createdByUserId)
+                                .team(teamService.findDefaultTeam()).build()
+                ));
+
+        // 2. Create branch-level version row on first import of this branch
+        if (projectVersionRepository.findByProjectAndBranch(project, branch).isEmpty()) {
+            int nextNum = projectVersionRepository.findMaxVersionNumber(project) + 1;
+            projectVersionRepository.save(ProjectVersion.builder()
+                    .project(project)
+                    .branch(branch)
+                    .versionNumber(nextNum)
+                    .importSource(ImportSource.GIT)
+                    .build());
+        }
+
+        // 3. Update denormalized fields on the project
+        project.markGithubImport(provider, owner, repo, branch);
+        Project saved = projectRepository.save(project);
+        if (createdByUserId != null) {
+            projectAccessService.ensureMember(saved.getId(), createdByUserId, ProjectMemberRole.ADMIN);
+        } else {
+            projectAccessService.ensureCreatorMemberIfAbsent(saved);
+        }
+        if (isNewProject) {
+            auditLogService.log("PROJECT.CREATE", "PROJECT",
+                    saved.getId().toString(), saved.getName(),
+                    "import=" + provider + " repo=" + repoKey);
+        }
+        log.info("[Project] {} import projectId={} repo={} branch={}", provider, saved.getId(), repoKey, branch);
+        return saved;
+    }
+
+    @Transactional
+    public Project upsertFromGitHub(String owner, String repo, String branch, Long createdByUserId) {
+        return upsertFromGitHub(VcsProvider.GITHUB, owner, repo, branch, createdByUserId);
+    }
+
+    /** Backward-compat overload — caller does not know the user (e.g. GitHubApiController). */
+    @Transactional
+    public Project upsertFromGitHub(String owner, String repo, String branch) {
+        return upsertFromGitHub(owner, repo, branch, null);
+    }
+
+    /** Soft-delete: moves the project to trash. */
+    @Transactional
+    @Auditable(action = "PROJECT.DELETE", targetType = "PROJECT",
+               targetIdExpr = "#id.toString()", when = Auditable.When.BEFORE)
+    public void delete(Long id) {
+        projectAccessService.assertCanViewProject(id);
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + id));
+        project.softDelete();
+        projectRepository.save(project);
+        log.info("[Project] Soft-deleted id={}", id);
+    }
+
+    @Transactional
+    @Auditable(action = "PROJECT.RESTORE", targetType = "PROJECT",
+               targetIdExpr = "#id.toString()", when = Auditable.When.BEFORE)
+    public void restore(Long id) {
+        projectAccessService.assertCanViewProject(id);
+        Project project = projectRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + id));
+        project.restore();
+        projectRepository.save(project);
+        log.info("[Project] Restored id={}", id);
+    }
+
+    @Transactional
+    @Auditable(action = "PROJECT.PERMANENT_DELETE", targetType = "PROJECT",
+               targetIdExpr = "#id.toString()", when = Auditable.When.BEFORE)
+    public void permanentDelete(Long id) {
+        projectAccessService.assertCanViewProject(id);
+        projectRepository.deleteById(id);
+        log.info("[Project] Permanently deleted id={}", id);
+    }
+
+    @Transactional
+    public void permanentDeleteAll() {
+        List<Project> trash = projectRepository.findAllByDeletedAtIsNotNullOrderByDeletedAtAsc().stream()
+                .filter(p -> projectAccessService.canViewProject(p.getId()))
+                .toList();
+        trash.forEach(p -> auditLogService.log("PROJECT.PERMANENT_DELETE", "PROJECT",
+                p.getId().toString(), p.getName(), "bulk=all"));
+        projectRepository.deleteAll(trash);
+        log.info("[Project] Permanently deleted entire trash count={}", trash.size());
+    }
+
+    @Transactional
+    public void permanentDeleteSelected(List<Long> ids) {
+        ids.forEach(id -> {
+            projectAccessService.assertCanViewProject(id);
+            projectRepository.findById(id).ifPresent(p -> {
+                auditLogService.log("PROJECT.PERMANENT_DELETE", "PROJECT",
+                        id.toString(), p.getName(), "bulk=selected");
+                projectRepository.deleteById(id);
+                log.info("[Project] Permanently deleted selected id={}", id);
+            });
+        });
+    }
+
+    @Transactional
+    public void restoreSelected(List<Long> ids) {
+        ids.forEach(id -> {
+            projectAccessService.assertCanViewProject(id);
+            projectRepository.findById(id).ifPresent(p -> {
+                p.restore();
+                projectRepository.save(p);
+                auditLogService.log("PROJECT.RESTORE", "PROJECT",
+                        id.toString(), p.getName(), "bulk=selected");
+                log.info("[Project] Restored selected id={}", id);
+            });
+        });
+    }
+
+    // ── Internal ─────────────────────────────────────────────────────────
+
+    private static final DateTimeFormatter IMPORT_FMT = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm");
+
+    private ProjectSummaryDto toSummary(Project project, ScanResult latestScan, long newCveAlerts,
+            com.salkcoding.oswl.service.scan.ScanSummaryReader.Summary summary) {
+        String importedAt = project.getImportedAt() != null
+                ? project.getImportedAt().format(IMPORT_FMT)
+                : null;
+
+        Long teamId = project.getTeam() != null ? project.getTeam().getId() : null;
+        String teamName = project.getTeam() != null ? project.getTeam().getName() : null;
+        java.util.List<String> tags = project.tagList();
+
+        // Build the display string: "owner/repo#latestBranch" when available
+        String githubDisplayRepo = project.getGithubRepo() != null
+                ? project.getGithubRepo()
+                  + (project.getLatestBranch() != null ? "#" + project.getLatestBranch() : "")
+                : null;
+        String vcsProvider = project.getVcsProvider() != null
+                ? project.getVcsProvider().name()
+                : null;
+
+        // No scan at all → truly unsaved / zombie project
+        if (latestScan == null) {
+            return ProjectSummaryDto.builder()
+                    .id(project.getId())
+                    .name(project.getName())
+                    .version("-")
+                    .lastScanned("-")
+                    .githubRepo(githubDisplayRepo)
+                    .vcsProvider(vcsProvider)
+                    .importedAt(importedAt)
+                    .projectUuid(project.getProjectUuid())
+                    .scanStatus(null)
+                    .newCveAlerts(newCveAlerts)
+                    .teamId(teamId)
+                    .teamName(teamName)
+                    .tags(tags)
+                    .build();
+        }
+
+        var status = latestScan.getStatus();
+
+        // For completed scans: aggregate full security/license data
+        if (status == ScanStatus.COMPLETED) {
+            int[] sec = summary.security();
+            int[] lic = summary.licenses();
+            String lastScanned = latestScan.getScannedAt() != null
+                    ? latestScan.getScannedAt().toLocalDate().toString().replace("-", ".")
+                    : "-";
+            return ProjectSummaryDto.builder()
+                    .id(project.getId())
+                    .name(project.getName())
+                    .version(latestScan.getVersion())
+                    .lastScanned(lastScanned)
+                    .securityCritical(sec[0]).securityHigh(sec[1])
+                    .securityMedium(sec[2]).securityLow(sec[3]).securityUnscored(sec[4])
+                    .licenseCritical(lic[0]).licenseHigh(lic[1])
+                    .licenseMedium(lic[2]).licenseLow(lic[3])
+                    .githubRepo(githubDisplayRepo)
+                    .vcsProvider(vcsProvider)
+                    .importedAt(importedAt)
+                    .projectUuid(project.getProjectUuid())
+                    .scanStatus(status.name())
+                    .newCveAlerts(newCveAlerts)
+                    .teamId(teamId)
+                    .teamName(teamName)
+                    .tags(tags)
+                    .build();
+        }
+
+        // For in-progress (SCANNING / ANALYZING) or FAILED scans: show the state without
+        // risk counts so the UI can render an appropriate indicator.
+        return ProjectSummaryDto.builder()
+                .id(project.getId())
+                .name(project.getName())
+                .version(latestScan.getVersion() != null ? latestScan.getVersion() : "-")
+                .lastScanned("-")
+                .githubRepo(githubDisplayRepo)
+                .vcsProvider(vcsProvider)
+                .importedAt(importedAt)
+                .projectUuid(project.getProjectUuid())
+                .scanStatus(status.name())
+                .newCveAlerts(newCveAlerts)
+                .teamId(teamId)
+                .teamName(teamName)
+                .tags(tags)
+                .build();
+    }
+
+    @Transactional
+    public void updateDeploymentProfile(Long projectId, DeploymentProfile profile) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+        project.updateDeploymentProfile(profile);
+        projectRepository.save(project);
+        auditLogService.log("PROJECT.DEPLOYMENT_PROFILE", "PROJECT",
+                String.valueOf(projectId), project.getName(), profile.name());
+    }
+
+    /**
+     * Replaces the project's free-form tag labels (comma-separated, max 500 chars stored).
+     * Tags are display/filter metadata only — they do not affect access control.
+     */
+    @Transactional
+    public void updateTags(Long projectId, String tags) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+        String normalized = tags == null ? null : tags.trim();
+        if (normalized != null && normalized.isEmpty()) {
+            normalized = null;
+        }
+        if (normalized != null && normalized.length() > 500) {
+            throw new IllegalArgumentException("Tags must not exceed 500 characters.");
+        }
+        project.updateTags(normalized);
+        projectRepository.save(project);
+        auditLogService.log("PROJECT.TAGS_UPDATE", "PROJECT",
+                String.valueOf(projectId), project.getName(), normalized);
+    }
+
+    private static final DateTimeFormatter DELETED_FMT = DateTimeFormatter.ofPattern("yyyy.MM.dd");
+
+    private TrashProjectDto toTrash(Project project) {
+        long daysSince = ChronoUnit.DAYS.between(
+                project.getDeletedAt().toLocalDate(), LocalDate.now());
+        int daysLeft = (int) Math.max(0, 30 - daysSince);
+        String urgency = daysLeft <= 7 ? "red" : daysLeft <= 15 ? "orange" : "yellow";
+        return TrashProjectDto.builder()
+                .id(project.getId())
+                .name(project.getName())
+                .deletedAt(project.getDeletedAt().format(DELETED_FMT))
+                .daysLeft(daysLeft)
+                .urgencyColor(urgency)
+                .build();
+    }
+}

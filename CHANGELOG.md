@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.0.5.1] - 2026-09-08
+
+### Improvements
+
+- Restore the original light appearance across login, search and settings. Clarify input validation, save results and unsaved changes in English, Korean and Japanese.
+- Restore CLI API key deletion, correct trash visibility and restoration, and provide direct NVD links beside CVE identifiers.
+- Select known OSV fixes for the installed numeric release interval; resolve inherited Maven properties and supported Gradle rich version constraints. Preserve and refresh available license metadata.
+- Improve scan retry isolation, incomplete-analysis reporting, request cancellation and duplicate-action handling.
+- Add opt-in browser security notifications, custom scan rules, organization risk briefings and scoped offline CocoaPods data. Add bounded OCI image inspection tooling.
+- Improve diagnostic status reporting and disk-space readability. Clarify offline snapshot import, configuration transfer and scan archive exports, including empty exports.
+
+### Upgrading
+
+- Java 25 is required. Back up the database and persistent files before upgrading; follow the deployment and migration instructions. Migrated databases require the migrations through V35.
+- Browser notifications require web push/VAPID configuration and browser permission. SMTP, VCS and AI connections must be configured for the relevant integrations.
+- Existing scan records are not rewritten by a code upgrade. Rescan to apply parsing and enrichment corrections.
+- A missing fix version does not prove that no patch exists. Complex ranges, ecosystem-specific ordering, incomplete source data and offline parity still require review.
+
+See [English](docs/en/Whats-New-v1.0.5.1.md), [한국어](docs/ko/Whats-New-v1.0.5.1.md) or [日本語](docs/ja/Whats-New-v1.0.5.1.md) for release guidance.
+
 ## [1.0.3](https://github.com/SalkCoding/Oswl/releases/tag/v1.0.3) (2026-07-19)
 
 User-feedback release — applies the remaining findings from the 5-person usability test

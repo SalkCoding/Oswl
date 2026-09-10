@@ -9,6 +9,9 @@ spring:
     hibernate:
       ddl-auto: create-drop
     show-sql: false
+    properties:
+      hibernate:
+        generate_statistics: true
   mail:
     host: localhost
     port: 3025

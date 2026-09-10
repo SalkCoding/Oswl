@@ -33,12 +33,12 @@ class SettingsTabAccessTest {
     }
 
     @Test
-    @DisplayName("systemAdmin → 모든 탭 포함 (admin, security, ai, vcs, cli, cache)")
+    @DisplayName("systemAdmin → 모든 탭 포함 (admin, security, ai, vcs, cli, cache, webhooks, reports, diagnostics, config-transfer, policy)")
     void accessibleTabsFor_systemAdmin_allTabs() {
         List<SettingsTabAccess.TabSpec> tabs = SettingsTabAccess.accessibleTabsFor(adminPrincipal());
 
         assertThat(tabs).extracting(SettingsTabAccess.TabSpec::getKey)
-                .containsExactlyInAnyOrder("admin", "security", "license-policy", "ai", "vcs", "cli", "cache");
+                .containsExactlyInAnyOrder("admin", "security", "license-policy", "policy", "ai", "vcs", "cli", "cache", "webhooks", "reports", "diagnostics", "config-transfer");
     }
 
     @Test

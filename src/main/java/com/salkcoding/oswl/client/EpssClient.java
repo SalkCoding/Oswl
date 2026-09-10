@@ -1,6 +1,7 @@
 package com.salkcoding.oswl.client;
 
-import com.salkcoding.oswl.service.AirgappedSnapshotService;
+import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
+import com.salkcoding.oswl.service.metrics.OswlMetrics;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.client.RestClient;
 
@@ -23,6 +24,13 @@ public class EpssClient {
     private final RestClient restClient = RestClient.create();
     private final AirgappedSnapshotService snapshotService;
     private final boolean airgapped;
+    /** Null until wired by Spring config (unit tests construct the client directly) — every use is guarded. */
+    private volatile OswlMetrics oswlMetrics;
+
+    /** Called once by Spring config after construction to enable external-API metrics. */
+    public void setOswlMetrics(OswlMetrics oswlMetrics) {
+        this.oswlMetrics = oswlMetrics;
+    }
 
     /** Live-HTTP client (no snapshot store). Used directly by unit tests. */
     public EpssClient() {
@@ -64,6 +72,7 @@ public class EpssClient {
                     .uri(BASE + "?cve=" + joined)
                     .retrieve()
                     .body(Map.class);
+            recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
             if (body == null) return Map.of();
             Object data = body.get("data");
             if (!(data instanceof List<?> rows)) return Map.of();
@@ -85,8 +94,17 @@ public class EpssClient {
             }
             return result;
         } catch (Exception e) {
+            recordApiCall(OswlMetrics.OUTCOME_FAILURE);
             log.warn("[EPSS] Batch fetch failed: {}", e.getMessage());
             return Map.of();
+        }
+    }
+
+    /** External-API call counter — no-op until Spring config wires the metrics bean. */
+    private void recordApiCall(String outcome) {
+        OswlMetrics m = oswlMetrics;
+        if (m != null) {
+            m.recordExternalApiCall("epss", outcome);
         }
     }
 }

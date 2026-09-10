@@ -1,15 +1,16 @@
 package com.salkcoding.oswl.controller;
+import com.salkcoding.oswl.controller.apikey.AdminCliKeyController;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
-import com.salkcoding.oswl.domain.entity.ApiKey;
-import com.salkcoding.oswl.domain.entity.Project;
+import com.salkcoding.oswl.domain.entity.apikey.ApiKey;
+import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.dto.api.AdminCliKeyIssueRequest;
 import com.salkcoding.oswl.dto.api.ApiKeyIssueResponse;
 import com.salkcoding.oswl.dto.api.GlobalApiKeyResponse;
-import com.salkcoding.oswl.service.ApiKeyService;
-import com.salkcoding.oswl.service.ApiKeyTokenSupport;
-import com.salkcoding.oswl.service.IssuedApiKey;
-import com.salkcoding.oswl.service.ProjectCliKeyPolicyService;
+import com.salkcoding.oswl.service.apikey.ApiKeyService;
+import com.salkcoding.oswl.service.apikey.ApiKeyTokenSupport;
+import com.salkcoding.oswl.service.apikey.IssuedApiKey;
+import com.salkcoding.oswl.service.apikey.ProjectCliKeyPolicyService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

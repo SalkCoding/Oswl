@@ -2,11 +2,11 @@ package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.dto.AiConnectionTestResult;
 import com.salkcoding.oswl.auth.security.EncryptionService;
-import com.salkcoding.oswl.domain.entity.AiPreferences;
-import com.salkcoding.oswl.domain.entity.AiSetting;
+import com.salkcoding.oswl.domain.entity.ai.AiPreferences;
+import com.salkcoding.oswl.domain.entity.ai.AiSetting;
 import com.salkcoding.oswl.domain.enums.AiProvider;
-import com.salkcoding.oswl.repository.AiPreferencesRepository;
-import com.salkcoding.oswl.repository.AiSettingRepository;
+import com.salkcoding.oswl.repository.ai.AiPreferencesRepository;
+import com.salkcoding.oswl.repository.ai.AiSettingRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

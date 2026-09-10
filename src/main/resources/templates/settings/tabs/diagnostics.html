@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="tab"
+     x-data="diagnosticsTab()"
+     class="flex flex-col gap-[20px]">
+
+    <!-- Heading -->
+    <div class="flex flex-col gap-[8px]">
+        <h2 class="font-bold text-[22px] text-black tracking-[-0.22px] leading-[1.3]" th:text="#{settings.diagnostics.heading}">Diagnostics</h2>
+        <p class="font-normal text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3]" th:text="#{settings.diagnostics.description}">Checks connectivity to external data sources, SMTP, AI provider, VCS tokens, database, disk space and the embedded AI sidecar.</p>
+    </div>
+
+    <!-- API Error -->
+    <div x-show="apiError" x-cloak
+         class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px]" x-text="apiError"></div>
+
+    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[24px]">
+        <div class="flex items-center justify-between flex-wrap gap-[12px]">
+            <span class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.diagnostics.results.heading}">Results</span>
+            <div class="flex items-center gap-[8px]">
+                <button @click="copyForSupport()" x-show="results.length"
+                        class="text-[var(--grayscale-70)] hover:text-[var(--grayscale-100)] text-[13px] font-medium px-[16px] py-[10px] rounded-[8px] border border-[var(--grayscale-20)] transition-colors"
+                        th:text="#{settings.diagnostics.btn.copy}">Copy for support</button>
+                <button @click="run()" :disabled="running"
+                        class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] disabled:opacity-60 transition-colors"
+                        x-text="running ? _diagI18n.running : _diagI18n.run">Run diagnostics</button>
+            </div>
+        </div>
+
+        <div x-show="!results.length && !running" class="text-[13px] text-[var(--grayscale-60)]" th:text="#{settings.diagnostics.empty}">
+            Click "Run diagnostics" to check connectivity and health.
+        </div>
+
+        <div x-show="results.length" class="flex flex-col divide-y divide-[var(--grayscale-10)]">
+            <template x-for="r in results" :key="r.id">
+                <div class="flex items-center justify-between gap-[16px] py-[12px]">
+                    <div class="flex flex-col gap-[2px] min-w-0">
+                        <span class="font-medium text-[14px] text-black" x-text="_diagI18n['label_' + r.id] || r.label"></span>
+                        <span class="text-[13px] text-[var(--grayscale-60)] whitespace-pre-line break-words leading-[1.6]" x-text="detailText(r)"></span>
+                    </div>
+                    <div class="flex items-center gap-[8px] shrink-0">
+                        <span class="text-[11px] text-[var(--grayscale-60)]" x-show="r.tookMs" x-text="r.tookMs + 'ms'"></span>
+                        <span class="text-[12px] font-bold px-[10px] py-[4px] rounded-[100px]"
+                              :class="statusClass(r.status)" x-text="statusLabel(r.status)"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Data retention is intentionally separated from diagnostics checks: it is a destructive
+         data-management operation, not a health probe. -->
+    <div class="border-t border-[var(--grayscale-20)] pt-[4px]">
+        <h3 class="font-bold text-[16px] text-[var(--grayscale-90)]" th:text="#{settings.diagnostics.archive.domainHeading}">Data retention</h3>
+    </div>
+
+    <!-- Scan archiving (SYSTEM_ADMIN only — the whole diagnostics tab already is) -->
+    <div x-data="scanArchivingPanel()" x-init="loadProjects()"
+         class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[16px]">
+        <div class="flex flex-col gap-[8px]">
+            <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.diagnostics.archive.heading}">Scan archiving</h3>
+            <p class="text-[13px] text-[var(--grayscale-60)]" th:text="#{settings.diagnostics.archive.description}">Deletes the component/CVE detail of old completed scans beyond the retain count, keeping only aggregate counts. Irreversible — download the export first if you need a copy.</p>
+        </div>
+
+        <div x-show="archError" x-cloak
+             class="bg-red-50 border border-red-200 rounded-[8px] px-[16px] py-[12px] text-red-700 text-[13px] flex items-center justify-between gap-[12px]">
+            <span x-text="archError"></span>
+            <button @click="loadProjects()" class="shrink-0 font-bold underline" th:text="#{common.retry}">Retry</button>
+        </div>
+
+        <div x-show="projectsLoading" class="text-[13px] text-[var(--grayscale-60)]" th:text="#{settings.diagnostics.archive.loading}">Loading projects…</div>
+
+        <div x-show="!projectsLoading && !projects.length && !archError" class="text-[13px] text-[var(--grayscale-60)]" th:text="#{settings.diagnostics.archive.noProjects}">
+            No active projects to archive.
+        </div>
+
+        <div x-show="!projectsLoading && projects.length" class="flex flex-col gap-[16px]">
+            <div class="flex flex-wrap items-end gap-[16px]">
+                <label class="flex flex-col gap-[6px] min-w-[240px]">
+                    <span class="text-[13px] font-medium text-[var(--grayscale-90)]" th:text="#{settings.diagnostics.archive.field.project}">Project</span>
+                    <select x-model="projectId" @change="resetRun()"
+                            class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[10px] text-[13px] bg-white">
+                        <option value="" th:text="#{settings.diagnostics.archive.selectProject}">Select a project…</option>
+                        <template x-for="p in projects" :key="p.id">
+                            <option :value="p.id" x-text="p.name"></option>
+                        </template>
+                    </select>
+                </label>
+                <label class="flex flex-col gap-[6px] w-[180px]">
+                    <span class="text-[13px] font-medium text-[var(--grayscale-90)]" th:text="#{settings.diagnostics.archive.field.retainCount}">Scans to keep</span>
+                    <input type="number" min="1" x-model="retainCount" @input="resetRun()"
+                           th:placeholder="#{settings.diagnostics.archive.retainCount.placeholder}" placeholder="Server default"
+                           class="border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[10px] text-[13px]" />
+                </label>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-[12px]">
+                <button @click="previewExport()" :disabled="!projectId || previewing || archiving"
+                        class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] disabled:opacity-60 transition-colors"
+                        x-text="previewing ? _archI18n.previewing : _archI18n.preview">Preview &amp; Download export</button>
+                <button @click="archiveNow()" :disabled="!projectId || previewing || archiving"
+                        class="bg-[#b91c1c] hover:bg-[#991b1b] text-white text-[13px] font-bold px-[20px] py-[10px] rounded-[8px] disabled:opacity-60 transition-colors"
+                        x-text="archiving ? _archI18n.archiving : _archI18n.archive">Archive now</button>
+            </div>
+
+            <div x-show="preview" x-cloak class="text-[13px] text-[var(--grayscale-90)]"
+                 x-text="previewText()"></div>
+
+            <div x-show="result" x-cloak class="bg-[rgba(34,197,94,0.08)] border border-[rgba(34,197,94,0.3)] rounded-[8px] px-[16px] py-[12px] text-[13px] text-[#15803d]"
+                 x-text="result"></div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div x-show="toast" x-cloak
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 translate-y-2"
+         x-transition:enter-end="opacity-100 translate-y-0"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 translate-y-0"
+         x-transition:leave-end="opacity-0 translate-y-2"
+         role="status" class="oswl-toast pointer-events-none fixed bottom-[32px] left-1/2 -translate-x-1/2 z-[120] flex gap-[16px] items-center pl-[16px] pr-[24px] py-[16px] rounded-[100px]"
+         style="background: linear-gradient(90deg, rgba(0,29,53,0.7) 0%, rgba(0,29,53,0.95) 40%, rgba(0,29,53,0.95) 60%, rgba(0,29,53,0.7) 100%); backdrop-filter: blur(6px);">
+        <div class="relative shrink-0 size-[32px]">
+            <div class="absolute inset-0 rounded-full" style="background: rgba(34,239,195,0.25);"></div>
+            <svg class="absolute" style="inset: 6px;" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#22efc3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="4,10 8,14 16,6"></polyline>
+            </svg>
+        </div>
+        <span class="font-medium text-[14px] text-[#f4fefc] tracking-[-0.14px] whitespace-nowrap" x-text="toast"></span>
+    </div>
+
+    <script th:inline="javascript">
+    const _diagI18n = {
+        diskSpace: /*[[#{settings.diagnostics.diskSpace}]]*/ '{0} free / {1} total ({2}%)',
+        copyFailed: /*[[#{settings.diagnostics.copyFailed}]]*/ 'Could not copy.',
+        label_db: /*[[#{settings.diagnostics.label.db}]]*/ 'Database',
+        label_disk: /*[[#{settings.diagnostics.label.disk}]]*/ 'Disk space',
+        label_snapshot: /*[[#{settings.diagnostics.label.snapshot}]]*/ 'Offline data',
+        label_sidecar: /*[[#{settings.diagnostics.label.sidecar}]]*/ 'Embedded AI',
+        run:        /*[[#{settings.diagnostics.btn.run}]]*/ 'Run diagnostics',
+        running:    /*[[#{settings.diagnostics.btn.running}]]*/ 'Running…',
+        copied:     /*[[#{settings.diagnostics.copied}]]*/ 'Copied to clipboard.',
+        loadFailed: /*[[#{settings.diagnostics.error.loadFailed}]]*/ 'Diagnostics run failed.',
+        up:         /*[[#{settings.diagnostics.status.up}]]*/ 'UP',
+        down:       /*[[#{settings.diagnostics.status.down}]]*/ 'DOWN',
+        skipped:    /*[[#{settings.diagnostics.status.skipped}]]*/ 'SKIPPED',
+        unknown:    /*[[#{settings.diagnostics.status.unknown}]]*/ 'UNKNOWN'
+    };
+    </script>
+
+    <script th:inline="javascript">
+    const _archI18n = {
+        preview:          /*[[#{settings.diagnostics.archive.btn.preview}]]*/ 'Preview & Download export',
+        previewing:       /*[[#{settings.diagnostics.archive.btn.previewing}]]*/ 'Loading…',
+        archive:          /*[[#{settings.diagnostics.archive.btn.archive}]]*/ 'Archive now',
+        archiving:        /*[[#{settings.diagnostics.archive.btn.archiving}]]*/ 'Archiving…',
+        previewSummary:   /*[[#{settings.diagnostics.archive.preview.summary}]]*/ '{0} scan(s) pending archival, {1} component(s) total. Export downloaded.',
+        previewEmpty:     /*[[#{settings.diagnostics.archive.preview.empty}]]*/ 'No scans pending archival for this project.',
+        confirm:          /*[[#{settings.diagnostics.archive.confirm}]]*/ 'Archive {0} scan(s) of this project? Their component/CVE detail will be permanently deleted.',
+        confirmNoExport:  /*[[#{settings.diagnostics.archive.confirmNoExport}]]*/ 'WARNING: you have not downloaded the export in this session. Archiving {0} scan(s) permanently deletes their component/CVE detail with no copy kept. Continue?',
+        result:           /*[[#{settings.diagnostics.archive.result}]]*/ 'Archived {0} scan(s). {1} completed scan(s) total, {2} retained in full detail.',
+        projectsFailed:   /*[[#{settings.diagnostics.archive.error.projectsFailed}]]*/ 'Could not load projects.',
+        loadFailed:       /*[[#{settings.diagnostics.archive.error.loadFailed}]]*/ 'Request failed.'
+    };
+    </script>
+    <script th:src="@{/js/settings/diagnostics.min.js(v='1.0.5.1')}"></script>
+</div>
+</body>
+</html>

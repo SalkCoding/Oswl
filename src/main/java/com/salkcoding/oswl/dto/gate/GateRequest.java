@@ -22,6 +22,12 @@ public record GateRequest(
         Boolean failOnLicenseViolation,
         @Schema(description = "Consider only findings absent from the previous completed scan", example = "true")
         Boolean onlyNew,
+        @Schema(description = "Opt-in CVE filter: evaluate libraries referenced by bytecode or supported source imports. " +
+                "UNKNOWN is excluded; static references do not prove runtime execution. Default false includes UNKNOWN.",
+                example = "false")
+        Boolean onlyReachable,
+        @Schema(description = "Fail on any CRITICAL/HIGH-severity secret finding", example = "false")
+        Boolean failOnSecrets,
         @Schema(description = "Optional GitHub target — when present, the result is posted as a PR comment and/or Check Run")
         GitHubTarget github
 ) {

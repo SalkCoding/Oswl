@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.service.ai;
 
-import com.salkcoding.oswl.domain.entity.AiPreferences;
+import com.salkcoding.oswl.domain.entity.ai.AiPreferences;
 import com.salkcoding.oswl.exception.InvalidRequestException;
-import com.salkcoding.oswl.repository.AiPreferencesRepository;
+import com.salkcoding.oswl.repository.ai.AiPreferencesRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,4 +58,17 @@ class AiPreferencesServiceTest {
 
         assertThat(saved.getCveSeverities()).isEqualTo("CRITICAL,HIGH");
     }
+
+    @Test void rejectsInvalidModelParametersWithoutSaving() {
+        for (double temperature : new double[]{-0.1, 2.1, Double.NaN, Double.POSITIVE_INFINITY}) {
+            assertThatThrownBy(() -> service.save("en", 10, 8, "HIGH", temperature, 1200, 0, null, null))
+                    .isInstanceOf(InvalidRequestException.class);
+        }
+        for (int tokens : new int[]{-1, 0, 255, 8193}) {
+            assertThatThrownBy(() -> service.save("en", 10, 8, "HIGH", 0.15, tokens, 0, null, null))
+                    .isInstanceOf(InvalidRequestException.class);
+        }
+        verify(repository, never()).save(any());
+    }
+
 }

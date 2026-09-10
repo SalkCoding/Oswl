@@ -31,6 +31,24 @@ class GlobalExceptionHandlerTest {
 
     @InjectMocks GlobalExceptionHandler handler;
 
+    @Test void permissionAndMembershipDenialsKeepForbiddenHtmlStatus() {
+        var request = new org.springframework.mock.web.MockHttpServletRequest("GET", "/projects/1/security-center");
+        request.addHeader("Accept", "text/html");
+        for (RuntimeException denial : java.util.List.of(new ForbiddenException("private project"),
+                new org.springframework.security.access.AccessDeniedException("missing permission"))) {
+            ModelAndView result = (ModelAndView) handler.handleAccessDenied(denial, request);
+            assertThat(result.getViewName()).isEqualTo("error/403");
+            assertThat(result.getStatus()).isEqualTo(HttpStatus.FORBIDDEN);
+        }
+    }
+
+    @Test void apiMembershipDenialReturnsJsonEvenWithoutAcceptHeader() {
+        var request = new org.springframework.mock.web.MockHttpServletRequest("GET", "/api/projects/1/keys");
+        ResponseEntity<?> result = (ResponseEntity<?>) handler.handleAccessDenied(new ForbiddenException("private detail"), request);
+        assertThat(result.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(result.getBody()).isEqualTo(Map.of("error", "Access Denied", "status", 403));
+    }
+
     // ── handleNotFound ───────────────────────────────────────────────────────
 
     @Test

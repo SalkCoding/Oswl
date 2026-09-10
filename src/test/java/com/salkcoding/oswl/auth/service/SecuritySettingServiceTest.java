@@ -6,6 +6,7 @@ import com.salkcoding.oswl.auth.enums.MailMode;
 import com.salkcoding.oswl.auth.enums.TwoFaMode;
 import com.salkcoding.oswl.auth.repository.SecuritySettingRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
+import com.salkcoding.oswl.service.config.CacheInvalidationService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +26,7 @@ class SecuritySettingServiceTest {
 
     @Mock SecuritySettingRepository repository;
     @Mock EncryptionService         encryptionService;
+    @Mock CacheInvalidationService  cacheInvalidationService;
 
     @InjectMocks SecuritySettingService securitySettingService;
 

@@ -53,6 +53,12 @@
         page-break-inside: avoid;
     }
 
+    /* content-visibility:auto skips off-screen rows for the on-screen list, but print has no
+       "off-screen" — force every row to actually render so nothing is missing from the PDF. */
+    .component-row {
+        content-visibility: visible !important;
+    }
+
     /* ── 그림자 제거 ────────────────────────────────── */
     * { box-shadow: none !important; }
 }
@@ -61,362 +67,22 @@
 .component-row:has(input[name="selectedComponent"]:checked) {
     background-color: #d3fcf3;
 }
+
+/* Large component lists (thousands of rows for a big project) previously paid full layout/paint
+   cost for every row regardless of scroll position. content-visibility:auto tells the browser to
+   skip layout/style/paint work for rows currently off-screen — the DOM nodes and all existing
+   Alpine/HTMX behavior (filters, bulk select, detail panel) are unchanged, only the rendering cost
+   of off-screen rows drops. contain-intrinsic-size gives the browser a size estimate so the
+   scrollbar doesn't jump before an off-screen row has ever been measured (48px content + 1px
+   border-bottom, matching h-[48px] + border-b on .component-row). */
+.component-row {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 49px;
+}
 </style>
 <body class="bg-[var(--grayscale-5)] m-0 p-0 min-h-screen flex flex-col relative"
       th:data-project-id="${projectId}"
-      x-data="{
-          componentPanelOpen: false,
-          activeCompId: null,
-          searchQuery: '',
-          bulkActionsOpen: false,
-          exportOpen: false,
-          sortOpen: false,
-          sortMode: 'risk',
-          // Injected via the th:inline script block below (attribute values are not JS-inlined).
-          sortLabels: window.securityCenterData.sortLabels,
-          selectedComponents: [],
-          selectAll: false,
-          filters: {
-              reviewed: false,
-              nonReviewed: false,
-              ignored: false,
-              nonIgnored: true,
-              deferred: false,
-              secCritical: false,
-              secHigh: false,
-              secMedium: false,
-              secLow: false,
-              secUnknown: false,
-              licRestricted: false,
-              licCaution: false,
-              licUnknown: false,
-              licPermitted: false,
-              patchable: false,
-              nonPatchable: false,
-              patchDeprecated: false,
-              patchOutdated: false,
-              patchUpToDate: false,
-              hideNonRuntime: true
-          },
-          filterVersion: 0,
-          scanStatus: window.securityCenterData.scanStatus,
-          latestScanId: window.securityCenterData.latestScanId,
-          currentScanId: window.securityCenterData.currentScanId,
-          aiStatus: window.securityCenterData.aiStatus,
-          aiPostureInsight: window.securityCenterData.securityPostureInsight,
-          aiRetrying: false,
-          scanPollTimer: null,
-          aiPollTimer: null,
-          rowVisible(el) {
-              // Track filterVersion so that manual DOM attribute updates (ignored, deferred)
-              // trigger re-evaluation of this function via filterVersion++.
-              void this.filterVersion;
-              const f = this.filters;
-              const q = this.searchQuery.trim().toLowerCase();
-
-              // Noise cut: hide test/dev/provided components unless the toggle is off.
-              if (f.hideNonRuntime && el.dataset.runtimeScope === 'false') return false;
-
-              const anyFilter = Object.entries(f).some(([k, v]) => v && k !== 'hideNonRuntime');
-              if (!anyFilter && !q) return true;
-
-              if (q) {
-                  const name = (el.dataset.compName || '').toLowerCase();
-                  if (!name.includes(q)) return false;
-              }
-
-              // Reviewed / non-reviewed (both can't be true simultaneously — treat as OR group)
-              if (f.reviewed || f.nonReviewed) {
-                  const rev = el.dataset.reviewed === 'true';
-                  if (f.reviewed && !f.nonReviewed && !rev) return false;
-                  if (!f.reviewed && f.nonReviewed && rev) return false;
-              }
-
-              // Ignore Status group: Ignored / Non-Ignored / Deferred are OR'd together.
-              // Deferred items only match the Deferred filter (not Ignored/NonIgnored).
-              // Non-deferred items only match Ignored/NonIgnored (not Deferred).
-              const isDef = el.dataset.deferred === 'true';
-              const anyIgnoreStatusFilter = f.ignored || f.nonIgnored || f.deferred;
-              if (anyIgnoreStatusFilter) {
-                  const ign = el.dataset.ignored === 'true';
-                  const matchDeferred   = f.deferred   &&  isDef;
-                  const matchIgnored    = f.ignored    &&  ign  && !isDef;
-                  const matchNonIgnored = f.nonIgnored && !ign  && !isDef;
-                  if (!matchDeferred && !matchIgnored && !matchNonIgnored) return false;
-              }
-
-              // Security severity filters — if any active, row must match at least one active
-              const anySec = f.secCritical || f.secHigh || f.secMedium || f.secLow || f.secUnknown;
-              if (anySec) {
-                  const secC = parseInt(el.dataset.secCritical) || 0;
-                  const secH = parseInt(el.dataset.secHigh)     || 0;
-                  const secM = parseInt(el.dataset.secMedium)   || 0;
-                  const secL = parseInt(el.dataset.secLow)      || 0;
-                  const secN = parseInt(el.dataset.secUnscored)   || 0;
-                  const match = (f.secCritical && secC > 0) ||
-                                (f.secHigh     && secH > 0) ||
-                                (f.secMedium   && secM > 0) ||
-                                (f.secLow      && secL > 0) ||
-                                (f.secUnknown  && secN > 0);
-                  if (!match) return false;
-              }
-
-              // License status filters
-              const anyLic = f.licRestricted || f.licCaution || f.licUnknown || f.licPermitted;
-              if (anyLic) {
-                  const ls = el.dataset.licenseStatus || '';
-                  const match = (f.licRestricted && ls === 'RESTRICTED') ||
-                                (f.licCaution    && ls === 'CAUTION')      ||
-                                (f.licUnknown    && ls === 'UNKNOWN')   ||
-                                (f.licPermitted  && ls === 'PERMITTED');
-                  if (!match) return false;
-              }
-
-              // Patchability / version-health filter
-              const anyPatch = f.nonPatchable || f.patchDeprecated || f.patchable || f.patchOutdated || f.patchUpToDate;
-              if (anyPatch) {
-                  const p    = el.dataset.patchability || '';
-                  const dep  = el.dataset.deprecated === 'true';
-                  const lat  = el.dataset.isLatest;
-                  const hasVuln = (parseInt(el.dataset.secCritical) || 0) +
-                                  (parseInt(el.dataset.secHigh)     || 0) +
-                                  (parseInt(el.dataset.secMedium)   || 0) +
-                                  (parseInt(el.dataset.secLow)      || 0) +
-                                  (parseInt(el.dataset.secUnscored)   || 0) > 0;
-                  const isUpToDate  = !hasVuln && !dep && lat === 'true';
-                  const isOutdated  = !hasVuln && !dep && lat === 'false';
-                  const match = (f.nonPatchable   && hasVuln && p === 'non-patchable') ||
-                                (f.patchDeprecated && dep)                              ||
-                                (f.patchable      && hasVuln && p === 'patchable')     ||
-                                (f.patchOutdated  && isOutdated)                       ||
-                                (f.patchUpToDate  && isUpToDate);
-                  if (!match) return false;
-              }
-
-              return true;
-          },
-          startPolling() {
-              if (this.scanPollTimer) return;
-              this.scanPollTimer = setInterval(async () => {
-                  if (!this.latestScanId) return;
-                  const r = await fetch('/api/scan/' + this.latestScanId + '/status');
-                  if (!r.ok) return;
-                  const d = await r.json();
-                  this.scanStatus = d.status;
-                  if (d.status === 'COMPLETED' || d.status === 'FAILED') {
-                      clearInterval(this.scanPollTimer);
-                      this.scanPollTimer = null;
-                      // The CVE/license data pipeline just finished — reload once to show it.
-                      // AI summaries (aiStatus) may still be generating; startAiPolling() on the
-                      // freshly-reloaded page fills those in without a second reload.
-                      if (d.status === 'COMPLETED') { location.reload(); }
-                  }
-              }, 2500);
-          },
-          // Polls AI enrichment progress for the scan being viewed. Only runs after the data
-          // pipeline is already COMPLETED (see init()) — never triggers a reload; the posture
-          // insight is filled in reactively via aiPostureInsight once aiStatus reaches COMPLETED.
-          startAiPolling() {
-              if (this.aiPollTimer || !this.currentScanId) return;
-              this.aiPollTimer = setInterval(async () => {
-                  const r = await fetch('/api/scan/' + this.currentScanId + '/status');
-                  if (!r.ok) return;
-                  const d = await r.json();
-                  if (d.securityPostureInsight) {
-                      this.aiPostureInsight = d.securityPostureInsight;
-                  }
-                  if (['COMPLETED', 'FAILED', 'NOT_APPLICABLE'].includes(d.aiStatus)) {
-                      clearInterval(this.aiPollTimer);
-                      this.aiPollTimer = null;
-                      // One more read a moment later: the insight and the status are written in
-                      // two separate transactions, so a poll can land between them and see
-                      // COMPLETED with the insight column still empty. Without this the card
-                      // would claim nothing was produced for an insight that did arrive.
-                      if (!this.aiPostureInsight) {
-                          setTimeout(() => this.refetchAiInsight(), 1500);
-                      }
-                  }
-                  // Assigned last so the generating card is only torn down once the insight
-                  // that goes in its place has been read.
-                  this.aiStatus = d.aiStatus;
-              }, 2500);
-          },
-          // Single non-looping read of the current scan's insight.
-          async refetchAiInsight() {
-              try {
-                  const r = await fetch('/api/scan/' + this.currentScanId + '/status');
-                  if (!r.ok) return;
-                  const d = await r.json();
-                  if (d.securityPostureInsight) this.aiPostureInsight = d.securityPostureInsight;
-                  this.aiStatus = d.aiStatus;
-              } catch (e) { /* leave the empty state in place */ }
-          },
-          // Re-runs insight generation for the scan being viewed.
-          async retryAiInsight() {
-              if (!this.currentScanId) return;
-              this.aiRetrying = true;
-              try {
-                  const projectId = document.body.dataset.projectId;
-                  const r = await fetch('/projects/' + projectId + '/security-center/refresh-insights?scanId='
-                                        + this.currentScanId, { method: 'POST', headers: oswlJsonHeaders() });
-                  const d = await r.json().catch(() => ({}));
-                  if (!r.ok || !d.success) {
-                      alert(d.message || window.securityCenterData.i18n.actionFailed);
-                      return;
-                  }
-                  await this.refetchAiInsight();
-                  if (!this.aiPostureInsight) alert(window.securityCenterData.i18n.aiRetryEmpty);
-              } catch (e) {
-                  alert(window.securityCenterData.i18n.actionFailed);
-              } finally {
-                  this.aiRetrying = false;
-              }
-          },
-          applySort(mode) {
-              this.sortMode = mode;
-              this.sortOpen = false;
-              const container = document.querySelector('.component-row')?.parentElement;
-              if (!container) return;
-              const rows = Array.from(container.querySelectorAll('.component-row'));
-              const licRank = { RESTRICTED: 0, CAUTION: 1, UNKNOWN: 2, PERMITTED: 3 };
-              const num = (el, key) => parseInt(el.dataset[key]) || 0;
-              const name = el => (el.dataset.compName || '').toLowerCase();
-              rows.sort((a, b) => {
-                  if (mode === 'name') return name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0;
-                  if (mode === 'license') {
-                      const d = (licRank[a.dataset.licenseStatus] ?? 4) - (licRank[b.dataset.licenseStatus] ?? 4);
-                      if (d !== 0) return d;
-                      return name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0;
-                  }
-                  // risk (default): critical > high > medium > low, all descending
-                  for (const key of ['secCritical', 'secHigh', 'secMedium', 'secLow']) {
-                      const d = num(b, key) - num(a, key);
-                      if (d !== 0) return d;
-                  }
-                  return name(a) < name(b) ? -1 : name(a) > name(b) ? 1 : 0;
-              });
-              rows.forEach(r => container.appendChild(r));
-          },
-          applyBulkAction(action) {
-              if (!this.selectedComponents.length) return;
-              const projectId = document.body.dataset.projectId;
-              const ids = this.selectedComponents.map(Number);
-              this.bulkActionsOpen = false;
-
-              const clearSelection = () => {
-                  this.selectedComponents = [];
-                  this.selectAll = false;
-              };
-              // fetch resolves even on 403/500 — treat non-OK and network errors as failure
-              const onFailure = () => alert(window.securityCenterData.i18n.actionFailed);
-
-              if (action === 'reviewed' || action === 'unreviewed') {
-                  const value = action === 'reviewed';
-                  const idStrings = ids.map(String);
-                  fetch('/projects/' + projectId + '/security-center/bulk-status', {
-                      method: 'PATCH',
-                      headers: oswlJsonHeaders(),
-                      body: JSON.stringify({ids: ids, reviewed: value})
-                  }).then(r => {
-                      if (!r.ok) { onFailure(); return; }
-                      window.dispatchEvent(new CustomEvent('bulk-review', {
-                          detail: {ids: idStrings, value: value}
-                      }));
-                      clearSelection();
-                  }).catch(onFailure);
-              } else if (action === 'ignore' || action === 'unignore') {
-                  const value = action === 'ignore';
-                  const idStrings = ids.map(String);
-                  fetch('/projects/' + projectId + '/security-center/bulk-status', {
-                      method: 'PATCH',
-                      headers: oswlJsonHeaders(),
-                      body: JSON.stringify({ids: ids, ignored: value})
-                  }).then(r => {
-                      if (!r.ok) { onFailure(); return; }
-                      window.dispatchEvent(new CustomEvent('bulk-ignore', {
-                          detail: {ids: idStrings, value: value}
-                      }));
-                      // When ignoring, automatically show non-ignored items so
-                      // the user can see the list update in real time.
-                      if (action === 'ignore') {
-                          this.filters.nonIgnored = true;
-                          this.filterVersion++;
-                      }
-                      clearSelection();
-                  }).catch(onFailure);
-              }
-          },
-          async batchUpgradePrs() {
-              const projectId = document.body.dataset.projectId;
-              const i18n = window.securityCenterData.i18n || {};
-              const branch = prompt(i18n.batchPrPrompt || 'Base branch for the upgrade PRs:', 'main');
-              if (!branch || !branch.trim()) return;
-              try {
-                  const r = await fetch('/projects/' + projectId + '/security-center/batch-pr', {
-                      method: 'POST', headers: oswlJsonHeaders(),
-                      body: JSON.stringify({ targetBranch: branch.trim() })
-                  });
-                  const body = await r.json().catch(() => ({}));
-                  if (!r.ok) { alert(body.error || (i18n.actionFailed || 'Failed.')); return; }
-                  if (body.candidates === 0) { alert(i18n.batchPrNone || 'No patchable components found.'); return; }
-                  const tmpl = i18n.batchPrResult || 'Batch PRs: {0} created, {1} failed (of {2} candidates).';
-                  alert(tmpl.replace('{0}', body.created).replace('{1}', body.failed).replace('{2}', body.candidates));
-              } catch (e) {
-                  alert((window.securityCenterData.i18n || {}).actionFailed || 'Failed.');
-              }
-          },
-          exportAs(format) {
-              this.exportOpen = false;
-              const projectId = document.body.dataset.projectId;
-              if (format === 'pdf') {
-                  let url = '/projects/' + projectId + '/security-center/print';
-                  const scanId = new URLSearchParams(window.location.search).get('scanId');
-                  if (scanId) url += '?scanId=' + scanId;
-                  window.open(url, '_blank');
-                  return;
-              }
-              if (format === 'sbom') {
-                  window.location.href = '/api/projects/' + projectId + '/sbom?format=json';
-                  return;
-              }
-              if (format === 'vex') {
-                  window.location.href = '/api/projects/' + projectId + '/vex?format=json';
-                  return;
-              }
-              if (format === 'sarif') {
-                  window.location.href = '/api/projects/' + projectId + '/sarif';
-                  return;
-              }
-              if (format === 'compliance') {
-                  window.open('/projects/' + projectId + '/security-center/compliance-report', '_blank');
-                  return;
-              }
-              // CSV download
-              let url = '/projects/' + projectId + '/security-center/export?format=csv';
-              if (this.latestScanId) url += '&scanId=' + this.latestScanId;
-              window.location.href = url;
-          },
-          toggleSelectAll() {
-              if (this.selectAll) {
-                  const values = Array.from(document.querySelectorAll('input[name=selectedComponent]')).map(el => el.value);
-                  this.selectedComponents = values;
-              } else {
-                  this.selectedComponents = [];
-              }
-          },
-          clearSelected() {
-              this.selectedComponents = [];
-              this.selectAll = false;
-          },
-          init() {
-              if (['SCANNING', 'ANALYZING', 'PENDING'].includes(this.scanStatus)) {
-                  this.startPolling();
-              } else if (['PENDING', 'RUNNING'].includes(this.aiStatus)) {
-                  this.startAiPolling();
-              }
-          }
-      }"
-      x-init="init()">
+      x-data="securityCenterPage()">
 
     <!-- Attribute values are not JS-inlined by Thymeleaf, so model/message values
          for the Alpine component are injected here (th:inline) and read from x-data. -->
@@ -427,6 +93,8 @@
         currentScanId: /*[[${currentScanId}]]*/ null,
         aiStatus: /*[[${aiStatus}]]*/ 'NOT_APPLICABLE',
         securityPostureInsight: /*[[${securityPostureInsight}]]*/ null,
+        totalComponentCount: /*[[${totalComponentCount}]]*/ 0,
+        hasMoreComponents: /*[[${hasMoreComponents}]]*/ false,
         sortLabels: {
             risk:    /*[[#{securityCenter.sort.risk}]]*/ 'Risk (default)',
             name:    /*[[#{securityCenter.sort.name}]]*/ 'Name',
@@ -434,15 +102,22 @@
         },
         i18n: {
             actionFailed: /*[[#{securityCenter.error.actionFailed}]]*/ 'Failed to apply the change. Please try again.',
+            unauthenticated: /*[[#{common.http.unauthenticated}]]*/ 'Please sign in again.',
+            forbidden: /*[[#{common.http.forbidden}]]*/ 'Access denied.',
+            timeout: /*[[#{common.http.timeout}]]*/ 'Request timed out.',
+            network: /*[[#{common.http.network}]]*/ 'Connection failed.',
+            viewsLoadFailed: /*[[#{securityCenter.views.loadFailed}]]*/ 'Saved views could not be loaded. Check your connection and try again.',
             batchPrPrompt: /*[[#{securityCenter.batchPr.prompt}]]*/ 'Base branch for the upgrade PRs:',
             batchPrNone: /*[[#{securityCenter.batchPr.none}]]*/ 'No patchable components found.',
             batchPrResult: /*[[#{securityCenter.batchPr.result}]]*/ 'Batch PRs: {0} created, {1} failed (of {2} candidates).',
             aiRetry: /*[[#{securityCenter.aiRetry}]]*/ 'Generate now',
             aiRetrying: /*[[#{securityCenter.aiRetrying}]]*/ 'Generating…',
-            aiRetryEmpty: /*[[#{securityCenter.aiRetryEmpty}]]*/ 'The AI provider returned nothing for this scan. Check Settings → AI (daily cap, model, and token limit) and try again.'
+            aiRetryEmpty: /*[[#{securityCenter.aiRetryEmpty}]]*/ 'The AI provider returned nothing for this scan. Check Settings → AI (daily cap, model, and token limit) and try again.',
+            showingCount: /*[[#{securityCenter.table.showingCount}]]*/ 'Showing {0} of {1} components'
         }
     };
     </script>
+    <script th:src="@{/js/security-center/page.min.js(v='1.0.5.1')}"></script>
 
     <header th:replace="~{fragments/topbar :: project-topbar(${projectId}, ${projectName}, ${projectVersion}, 'security-center')}"></header>
 
@@ -450,18 +125,18 @@
     <div x-show="['SCANNING','ANALYZING','PENDING'].includes(scanStatus)"
          x-cloak
          class="w-full px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] py-[10px] bg-[var(--primary-10)] border-b border-[var(--primary-40)] flex items-center gap-[10px]">
-        <svg class="w-[16px] h-[16px] text-[var(--primary-120)] animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+        <svg class="w-[16px] h-[16px] text-[var(--text-accent)] animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>
-        <p class="text-[13px] text-[var(--primary-120)] font-medium tracking-[-0.13px] m-0" th:text="#{securityCenter.scanning}">
+        <p class="text-[13px] text-[var(--text-accent)] font-medium tracking-[-0.13px] m-0" th:text="#{securityCenter.scanning}">
             Analysis in progress — results will update automatically when complete.
         </p>
         <span x-text="'(' + scanStatus.toLowerCase() + ')'"
               class="text-[11px] text-[var(--primary-80)] font-mono"></span>
     </div>
 
-    <!-- Air-gapped definitions-as-of banner (E7): only rendered in offline mode with provenance -->
+    <!-- Air-gapped definitions-as-of banner: only rendered in offline mode with provenance -->
     <div th:if="${airgappedDefinitionsAsOf != null}"
          class="w-full px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] py-[10px] bg-[rgba(245,145,38,0.06)] border-b border-[rgba(245,145,38,0.3)] flex items-center gap-[10px]">
         <svg class="w-[16px] h-[16px] text-[#91400D] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -482,15 +157,15 @@
                     <div class="flex items-center gap-[12px] shrink-0">
                         <img src="/icon/icon-notification.svg" class="w-[24px] h-[24px] shrink-0" alt="" aria-hidden="true">
                         <div class="flex items-center gap-[8px]">
-                            <span class="font-bold text-[16px] text-[#141616] tracking-[-0.16px] leading-[1.3] whitespace-nowrap" th:text="${updateFromVersion}">v1.2.4</span>
-                            <svg class="w-[20px] h-[20px] text-[#141616] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <span class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3] whitespace-nowrap" th:text="${updateFromVersion}">v1.2.4</span>
+                            <svg class="w-[20px] h-[20px] text-[var(--grayscale-100)] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
                             </svg>
-                            <span class="font-bold text-[16px] text-[#141616] tracking-[-0.16px] leading-[1.3] whitespace-nowrap" th:text="${updateToVersion}">v1.2.5</span>
-                            <span class="font-bold text-[16px] text-[#141616] tracking-[-0.16px] leading-[1.3] whitespace-nowrap" th:text="#{securityCenter.updateDetected}">update detected.</span>
+                            <span class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3] whitespace-nowrap" th:text="${updateToVersion}">v1.2.5</span>
+                            <span class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3] whitespace-nowrap" th:text="#{securityCenter.updateDetected}">update detected.</span>
                         </div>
                     </div>
-                    <span class="text-[14px] text-[#5e6b70] tracking-[-0.14px] leading-[1.3] whitespace-nowrap" th:text="#{securityCenter.updateChangeMessage}">Library changes found. Please review.</span>
+                    <span class="text-[14px] text-[var(--grayscale-60)] tracking-[-0.14px] leading-[1.3] whitespace-nowrap" th:text="#{securityCenter.updateChangeMessage}">Library changes found. Please review.</span>
                 </a>
             </div>
 
@@ -522,12 +197,12 @@
             </div>
 
             <!-- AI insight generating skeleton — shown while the scan's data results are already
-                 visible but AI summaries are still running in the background (D1). -->
+                 visible but AI summaries are still running in the background. -->
             <div x-show="!aiPostureInsight && ['PENDING','RUNNING'].includes(aiStatus)" x-cloak
                  class="mb-[24px] flex flex-col gap-[10px] p-[20px] rounded-[10px] bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] animate-pulse">
                 <div class="flex items-center gap-[6px]">
                     <img src="/icon/icon-lightbulb.svg" class="w-[24px] h-[24px] shrink-0 opacity-40" alt="" aria-hidden="true">
-                    <p class="font-bold text-[16px] text-[var(--grayscale-50)] tracking-[-0.16px] m-0" th:text="#{securityCenter.aiGenerating}">Generating AI summary…</p>
+                    <p class="font-bold text-[16px] text-[var(--grayscale-60)] tracking-[-0.16px] m-0" th:text="#{securityCenter.aiGenerating}">Generating AI summary…</p>
                 </div>
                 <div class="h-[14px] w-3/4 rounded bg-[var(--grayscale-15)]"></div>
                 <div class="h-[14px] w-1/2 rounded bg-[var(--grayscale-15)]"></div>
@@ -555,6 +230,17 @@
             </div>
         </section>
 
+        <!-- Secret / IaC findings -->
+        <th:block th:if="${hasCompletedScan}">
+            <div th:replace="~{security-center/fragments/findings :: findings}"></div>
+        </th:block>
+        <div th:unless="${hasCompletedScan}"
+             data-no-print="true"
+             class="w-full px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] pb-[24px]">
+            <div class="rounded-[10px] border border-dashed border-[var(--grayscale-20)] bg-[var(--grayscale-5)] px-[20px] py-[24px] text-[13px] text-[var(--grayscale-60)]"
+                 th:text="#{securityCenter.findings.notRun}">No completed scan is available yet. Run a scan to populate security findings.</div>
+        </div>
+
         <!-- Table & Action area -->
         <section class="flex flex-col flex-1 mt-[12px] bg-white border-t border-[var(--border-default)] min-h-0">
             <div th:replace="~{security-center/fragments/actions :: actions}"></div>
@@ -581,7 +267,7 @@
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
          class="fixed inset-0 bg-black/50 z-[100]"
-         @click="componentPanelOpen = false; activeCompId = null"
+         @click="componentPanelOpen = false; activeCompId = null; oswlReleaseFocus()"
          style="display: none;"></div>
 
     <!-- Component Detail Panel -->
@@ -593,14 +279,37 @@
          x-transition:leave-start="translate-x-0"
          x-transition:leave-end="translate-x-full"
          class="fixed top-0 right-0 h-screen w-full max-w-[920px] z-[110] bg-white shadow-2xl flex flex-col"
-         @open-component-panel.window="componentPanelOpen = true; activeCompId = String($event.detail.id)"
-         @close-component-panel.window="componentPanelOpen = false; activeCompId = null"
+         role="dialog" aria-modal="true" th:aria-label="#{securityCenter.componentPanel.ariaLabel}"
+         @open-component-panel.window="componentPanelOpen = true; activeCompId = String($event.detail.id); $nextTick(() => oswlTrapFocus($el))"
+         @close-component-panel.window="componentPanelOpen = false; activeCompId = null; oswlReleaseFocus()"
+         @keydown.escape.window="if (componentPanelOpen) { componentPanelOpen = false; activeCompId = null; oswlReleaseFocus(); }"
          style="display: none;">
          
          <div id="slideout-content" class="flex-1 overflow-y-auto custom-scrollbar w-full relative" style="overscroll-behavior: contain;">
               <!-- HTMX will inject the component detail here -->
          </div>
+
+         <!-- Shown while HTMX fetches the detail — the panel opens instantly on row click,
+              so without this the user stares at the previous component (or a blank panel). -->
+         <div id="slideout-loading" style="display:none"
+              class="absolute inset-0 z-[5] bg-white/80 items-center justify-center">
+              <svg class="animate-spin w-[24px] h-[24px] text-[var(--text-accent)] m-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+         </div>
+
+         <!-- Detail fetch failed — offer a retry instead of leaving stale/blank content. -->
+         <div id="slideout-error" style="display:none"
+              class="absolute inset-x-0 top-[64px] z-[6] justify-center px-[24px]">
+              <div class="bg-white border border-red-200 rounded-[10px] shadow-lg px-[20px] py-[16px] flex items-center gap-[12px]">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-red-500 shrink-0" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  <span class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]" th:text="#{securityCenter.panel.loadFailed}">Could not load the component detail.</span>
+                  <button type="button" id="slideout-retry"
+                          class="shrink-0 text-[13px] font-semibold text-[var(--text-accent)] hover:underline"
+                          th:text="#{common.retry}">Retry</button>
+              </div>
+         </div>
     </div>
+
+    <script th:src="@{/js/security-center/slideout.min.js(v='1.0.5.1')}"></script>
 
     <footer th:replace="~{fragments/footer :: site-footer}"></footer>
 

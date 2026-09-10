@@ -47,6 +47,9 @@ public class GitCloneExecutor {
     @Value("${oswl.quick-import.allow-build-exec:false}")
     private boolean allowBuildExec;
 
+    @Value("${oswl.clone.include-source:false}")
+    private boolean includeSource;
+
     /**
      * @param credentials {@code null} for anonymous HTTPS clone (public repositories).
      */
@@ -54,7 +57,7 @@ public class GitCloneExecutor {
                       Path targetDir, String jobId) throws Exception {
         Path askpass = credentials != null ? writeAskpassScript() : null;
         try {
-            if (sparseEnabled && !allowBuildExec) {
+            if (sparseEnabled && !allowBuildExec && !includeSource) {
                 try {
                     cloneSparse(repositoryUrl, branch, targetDir, jobId, askpass, credentials);
                     return;
@@ -76,7 +79,7 @@ public class GitCloneExecutor {
         }
     }
 
-    /** Plain shallow clone — the pre-A4 behavior, kept for build-exec mode and as fallback. */
+    /** Plain shallow clone — the original behavior, kept for build-exec mode and as fallback. */
     private void cloneFull(String repositoryUrl, String branch, Path targetDir, String jobId,
                            Path askpass, GitCloneCredentials credentials) throws Exception {
         List<String> cmd = gitBase();

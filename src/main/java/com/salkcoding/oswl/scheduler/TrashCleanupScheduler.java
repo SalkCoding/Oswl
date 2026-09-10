@@ -1,9 +1,10 @@
 package com.salkcoding.oswl.scheduler;
 
-import com.salkcoding.oswl.domain.entity.Project;
-import com.salkcoding.oswl.repository.ProjectRepository;
+import com.salkcoding.oswl.domain.entity.project.Project;
+import com.salkcoding.oswl.repository.project.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,7 +23,13 @@ public class TrashCleanupScheduler {
 
     private final ProjectRepository projectRepository;
 
+    /**
+     * {@code @SchedulerLock} is a no-op unless {@code oswl.scheduler-lock.enabled=true}
+     * (see {@link SchedulerLockConfig}) — a single instance is unaffected.
+     */
     @Scheduled(cron = "0 0 2 * * *")
+    @SchedulerLock(name = "TrashCleanupScheduler_purgeExpiredTrash",
+            lockAtLeastFor = "PT1M", lockAtMostFor = "PT10M")
     @Transactional
     public void purgeExpiredTrash() {
         LocalDateTime cutoff = LocalDateTime.now().minusDays(30);

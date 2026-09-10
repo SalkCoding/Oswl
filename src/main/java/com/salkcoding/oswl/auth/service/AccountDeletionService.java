@@ -3,7 +3,8 @@ package com.salkcoding.oswl.auth.service;
 import com.salkcoding.oswl.auth.entity.User;
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
-import com.salkcoding.oswl.repository.ProjectMemberRepository;
+import com.salkcoding.oswl.repository.project.ProjectMemberRepository;
+import com.salkcoding.oswl.repository.org.TeamMemberRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -21,6 +22,7 @@ public class AccountDeletionService {
 
     private final UserRepository userRepository;
     private final ProjectMemberRepository projectMemberRepository;
+    private final TeamMemberRepository teamMemberRepository;
     private final UserVcsConnectionRepository vcsConnectionRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
@@ -54,6 +56,7 @@ public class AccountDeletionService {
         auditLogService.log("USER.SELF_DELETE", "USER", userId.toString(), email, displayName);
 
         projectMemberRepository.deleteByUserId(userId);
+        teamMemberRepository.deleteByUserId(userId);
         vcsConnectionRepository.deleteByUser_Id(userId);
         user.getRoleTemplates().clear();
         userRepository.delete(user);

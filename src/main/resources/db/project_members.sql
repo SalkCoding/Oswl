@@ -1,4 +1,4 @@
--- Project-scoped ACL (Sprint 3). Run once on PostgreSQL before deploy with ddl-auto=validate.
+-- Project-scoped ACL. Run once on PostgreSQL before deploy with ddl-auto=validate.
 
 CREATE TABLE IF NOT EXISTS project_members (
     id          BIGSERIAL PRIMARY KEY,

@@ -8,6 +8,17 @@
 
     <main class="flex flex-col flex-1 px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] py-[40px] gap-[28px] max-w-[1200px] w-full mx-auto">
 
+        <section class="bg-white border border-[var(--grayscale-15)] rounded-[12px] px-[24px] py-[20px] flex flex-col gap-[8px]">
+            <h2 class="text-[16px] font-semibold text-[var(--grayscale-100)]" th:text="#{ossNotices.embedded.title}">Embedded AI</h2>
+            <p class="text-[13px] text-[var(--grayscale-60)] leading-[1.5]" th:text="#{ossNotices.embedded.description}"></p>
+            <p class="text-[13px] text-[var(--grayscale-80)]">Qwen3.5-2B Q4_K_M — Qwen / Alibaba Cloud · Unsloth AI · Apache 2.0</p>
+            <p class="text-[13px] text-[var(--grayscale-80)]">Gemma 4 E2B Q4_K_M — Google DeepMind · Unsloth AI · Apache 2.0</p>
+            <p class="text-[13px] text-[var(--grayscale-80)]">llama.cpp — The ggml authors · MIT</p>
+            <a href="https://github.com/SalkCoding/Oswl/blob/main/THIRD_PARTY_LICENSES.md#embedded-ai-runtime-and-models"
+               target="_blank" rel="noopener noreferrer" class="text-[13px] text-[var(--primary-120)]"
+               th:text="#{ossNotices.embedded.licenseLink}">Full licenses and distribution notices</a>
+        </section>
+
         <!-- Filter + Search -->
         <div class="flex items-center gap-[12px] flex-wrap">
             <div class="flex items-center gap-[6px]">
@@ -103,7 +114,7 @@
         <div class="flex flex-col gap-[10px]">
             <div class="flex flex-col gap-[2px]">
                 <h2 class="text-[15px] font-bold text-[var(--grayscale-100)] tracking-[-0.15px] m-0" th:text="#{ossNotices.dataSources.title}">External Data Sources</h2>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] m-0 leading-[1.6]" th:text="#{ossNotices.dataSources.subtitle}">OsWL enriches component data live from these public feeds — data, not bundled code. Full attribution detail for each is in THIRD_PARTY_LICENSES.md.</p>
+                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] m-0 leading-[1.6]" th:text="#{ossNotices.dataSources.subtitle}">Sources include remote feeds and bundled reference data. See THIRD_PARTY_LICENSES.md and packaged META-INF notices for attribution and unresolved redistribution terms.</p>
             </div>
 
             <div class="bg-white border border-[var(--grayscale-15)] rounded-[12px] overflow-hidden">
@@ -185,14 +196,24 @@
             { slug: 'micrometer', abbr: 'MM', color: '#1a7f5a', url: 'https://micrometer.io/', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['micrometer']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.micrometer.name}]]*/ '', description: /*[[#{ossNotices.lib.micrometer.description}]]*/ '' },
             { slug: 'flyway', abbr: 'FW', color: '#cc0000', url: 'https://flywaydb.org/', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['flyway']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.flyway.name}]]*/ '', description: /*[[#{ossNotices.lib.flyway.description}]]*/ '' },
             { slug: 'springOauth2', abbr: 'OA', color: '#4a6f24', url: 'https://spring.io/projects/spring-security', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['springOauth2']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.springOauth2.name}]]*/ '', description: /*[[#{ossNotices.lib.springOauth2.description}]]*/ '' },
+            { slug: 'springSessionJdbc', abbr: 'SJ2', color: '#4a6f24', url: 'https://spring.io/projects/spring-session', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['springSessionJdbc']} ?: '-']]*/ '4.1.0', name: /*[[#{ossNotices.lib.springSessionJdbc.name}]]*/ '', description: /*[[#{ossNotices.lib.springSessionJdbc.description}]]*/ '' },
+            { slug: 're2j', abbr: 'RE', color: '#006060', url: 'https://github.com/google/re2j/blob/re2j-1.8/LICENSE', license: 'BSD 3-Clause', licenseGroup: 'bsd', categoryKey: 'backend', version: /*[[${ossVersions['re2j']} ?: '-']]*/ '-', name: /*[[#{ossNotices.lib.re2j.name}]]*/ '', description: /*[[#{ossNotices.lib.re2j.description}]]*/ '' },
+            { slug: 'webPush', abbr: 'WE', color: '#006060', url: 'https://github.com/web-push-libs/webpush-java', license: 'MIT', licenseGroup: 'mit', categoryKey: 'backend', version: /*[[${ossVersions['webPush']} ?: '-']]*/ '-', name: /*[[#{ossNotices.lib.webPush.name}]]*/ '', description: /*[[#{ossNotices.lib.webPush.description}]]*/ '' },
+            { slug: 'bouncyCastle', abbr: 'BO', color: '#006060', url: 'https://www.bouncycastle.org/licence.html', license: 'MIT', licenseGroup: 'mit', categoryKey: 'backend', version: /*[[${ossVersions['bouncyCastle']} ?: '-']]*/ '-', name: /*[[#{ossNotices.lib.bouncyCastle.name}]]*/ '', description: /*[[#{ossNotices.lib.bouncyCastle.description}]]*/ '' },
+            { slug: 'jose4j', abbr: 'JO', color: '#006060', url: 'https://bitbucket.org/b_c/jose4j', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['jose4j']} ?: '-']]*/ '-', name: /*[[#{ossNotices.lib.jose4j.name}]]*/ '', description: /*[[#{ossNotices.lib.jose4j.description}]]*/ '' },
+            { slug: 'shedlock', abbr: 'SD', color: '#7e57c2', url: 'https://github.com/lukas-krecan/ShedLock', license: 'Apache 2.0', licenseGroup: 'apache', categoryKey: 'backend', version: /*[[${ossVersions['shedlock']} ?: '-']]*/ '7.7.0', name: /*[[#{ossNotices.lib.shedlock.name}]]*/ '', description: /*[[#{ossNotices.lib.shedlock.description}]]*/ '' },
+            { slug: 'cvssV4Lookup', abbr: 'C4', color: '#8a4b3b', url: 'https://github.com/FIRSTdotorg/cvss-v4-calculator', license: 'BSD 2-Clause', licenseGroup: 'bsd', categoryKey: 'backend', version: '270-entry table, vendored', name: /*[[#{ossNotices.lib.cvssV4Lookup.name}]]*/ '', description: /*[[#{ossNotices.lib.cvssV4Lookup.description}]]*/ '' },
         ];
 
         const dataSources = [
-            { slug: 'osv', url: 'https://osv.dev/', license: /*[[#{ossNotices.data.osv.license}]]*/ 'CC-BY 4.0 / CC0 1.0 (varies)', licenseGroup: 'ccby', name: /*[[#{ossNotices.data.osv.name}]]*/ '', usedFor: /*[[#{ossNotices.data.osv.usedFor}]]*/ '' },
+            { slug: 'osv', url: 'https://osv.dev/', license: /*[[#{ossNotices.data.osv.license}]]*/ 'Varies by source, including CC-BY-SA 4.0', licenseGroup: 'other', name: /*[[#{ossNotices.data.osv.name}]]*/ '', usedFor: /*[[#{ossNotices.data.osv.usedFor}]]*/ '' },
             { slug: 'ghsa', url: 'https://github.com/github/advisory-database', license: /*[[#{ossNotices.data.ghsa.license}]]*/ 'CC-BY 4.0', licenseGroup: 'ccby', name: /*[[#{ossNotices.data.ghsa.name}]]*/ '', usedFor: /*[[#{ossNotices.data.ghsa.usedFor}]]*/ '' },
-            { slug: 'epss', url: 'https://www.first.org/epss/', license: /*[[#{ossNotices.data.epss.license}]]*/ 'Free access, attribution requested', licenseGroup: 'ccby', name: /*[[#{ossNotices.data.epss.name}]]*/ '', usedFor: /*[[#{ossNotices.data.epss.usedFor}]]*/ '' },
+            { slug: 'epss', url: 'https://www.first.org/epss/', license: /*[[#{ossNotices.data.epss.license}]]*/ 'Free access, attribution requested', licenseGroup: 'other', name: /*[[#{ossNotices.data.epss.name}]]*/ '', usedFor: /*[[#{ossNotices.data.epss.usedFor}]]*/ '' },
             { slug: 'kev', url: 'https://www.cisa.gov/known-exploited-vulnerabilities-catalog', license: /*[[#{ossNotices.data.kev.license}]]*/ 'CC0 1.0 (Public Domain)', licenseGroup: 'cc0', name: /*[[#{ossNotices.data.kev.name}]]*/ '', usedFor: /*[[#{ossNotices.data.kev.usedFor}]]*/ '' },
-            { slug: 'depsdev', url: 'https://deps.dev/', license: /*[[#{ossNotices.data.depsdev.license}]]*/ 'CC-BY 4.0 (generated data)', licenseGroup: 'ccby', name: /*[[#{ossNotices.data.depsdev.name}]]*/ '', usedFor: /*[[#{ossNotices.data.depsdev.usedFor}]]*/ '' },
+            { slug: 'depsdev', url: 'https://deps.dev/', license: /*[[#{ossNotices.data.depsdev.license}]]*/ 'CC-BY 4.0 (generated); upstream terms also apply', licenseGroup: 'other', name: /*[[#{ossNotices.data.depsdev.name}]]*/ '', usedFor: /*[[#{ossNotices.data.depsdev.usedFor}]]*/ '' },
+            { slug: 'nvd', url: 'https://nvd.nist.gov/', license: /*[[#{ossNotices.data.nvd.license}]]*/ 'NIST / CVE source terms; redistribution review pending', licenseGroup: 'other', name: /*[[#{ossNotices.data.nvd.name}]]*/ '', usedFor: /*[[#{ossNotices.data.nvd.usedFor}]]*/ '' },
+            { slug: 'cocoapods', url: 'https://github.com/CocoaPods/Specs', license: /*[[#{ossNotices.data.cocoapods.license}]]*/ 'MIT (specifications; each pod has its own license)', licenseGroup: 'mit', name: /*[[#{ossNotices.data.cocoapods.name}]]*/ '', usedFor: /*[[#{ossNotices.data.cocoapods.usedFor}]]*/ '' },
+            { slug: 'conda', url: 'https://github.com/conda-forge/conda-forge-bot-data/blob/main/License', license: /*[[#{ossNotices.data.conda.license}]]*/ 'Combined BSD-style / BSD 3-Clause / MIT notices', licenseGroup: 'other', name: /*[[#{ossNotices.data.conda.name}]]*/ '', usedFor: /*[[#{ossNotices.data.conda.usedFor}]]*/ '' },
         ];
 
         const allFilters = [

@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Profile;
 public class OpenApiConfig {
 
     private static final String BEARER_SCHEME = "BearerAuth";
+    private static final String SCIM_BEARER_SCHEME = "ScimBearerAuth";
 
     @Bean
     public OpenAPI openAPI() {
@@ -52,6 +53,11 @@ public class OpenApiConfig {
                                 .type(SecurityScheme.Type.HTTP)
                                 .scheme("bearer")
                                 .bearerFormat("oswl_<token>")
-                                .description("API key issued via POST /api/projects/{projectId}/keys")));
+                                .description("API key issued via POST /api/projects/{projectId}/keys"))
+                        .addSecuritySchemes(SCIM_BEARER_SCHEME, new SecurityScheme()
+                                .type(SecurityScheme.Type.HTTP)
+                                .scheme("bearer")
+                                .bearerFormat("oswl_<token>")
+                                .description("Dedicated SCIM provisioning token issued via ApiKeyService#issueScimToken")));
     }
 }

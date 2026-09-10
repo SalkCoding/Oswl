@@ -136,6 +136,7 @@ class OtpVerifyControllerTest {
         when(otpService.isPending(session)).thenReturn(true);
         when(otpService.verify(session, "123456")).thenReturn(true);
         when(otpService.getPendingPrincipal(session)).thenReturn(p);
+        when(loginCompletionService.resolvePostLoginDestination(p)).thenReturn("/projects");
 
         ResponseEntity<Map<String, String>> resp = controller.verifyOtp(
                 Map.of("code", "123456", "trustDevice", false), request, response);
@@ -154,6 +155,7 @@ class OtpVerifyControllerTest {
         when(otpService.isPending(session)).thenReturn(true);
         when(otpService.verify(session, "654321")).thenReturn(true);
         when(otpService.getPendingPrincipal(session)).thenReturn(p);
+        when(loginCompletionService.resolvePostLoginDestination(p)).thenReturn("/projects");
 
         controller.verifyOtp(Map.of("code", "654321", "trustDevice", true), request, response);
 
@@ -168,6 +170,7 @@ class OtpVerifyControllerTest {
         when(otpService.isPending(session)).thenReturn(true);
         when(otpService.verify(session, "111111")).thenReturn(true);
         when(otpService.getPendingPrincipal(session)).thenReturn(p);
+        when(loginCompletionService.resolvePostLoginDestination(p)).thenReturn("/change-password");
 
         ResponseEntity<Map<String, String>> resp = controller.verifyOtp(
                 Map.of("code", "111111"), request, response);
