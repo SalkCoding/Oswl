@@ -325,6 +325,9 @@
 - **2026-09-10 EPSS 경로 일관성:** live 클라이언트도 오프라인과 동일하게 유한한 0~1 점수만 반환한다. 손상 점수만 제외하고 다른 정상 응답 행은 유지한다. bulk 생성기는 잘못된 점수나 잘린 데이터 행을 건너뛰어 부분 성공으로 처리하지 않고 IOException으로 수집 실패를 전달한다. 확률 범위는 [FIRST 공식 EPSS 설명](https://www.first.org/epss/)의 계약에 따른다.
 - **점수 경로 회귀:** mock HTTP live 응답과 실제 임시 gzip/cache bulk 입력의 오류 12건 중 수정 전 11건 실패를 확인했다. 수정 후 0/0.5/1 정상 경계값과 보강 서비스 검사를 포함한 `test --tests '*Epss*Test' --tests '*Vdb*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 48건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-epss-paths-before.log`, `build/roadmap-epss-paths-after.log`. 커밋 제목 `fix: validate epss probabilities across collection paths`. 자체 합성 입력이며 새 외부 데이터/라이브러리와 UI 변경 없음. EPSS 실제 자료 재배포 조건은 부록 A의 미확인 상태를 유지한다. bulk 헤더/원 기준일, 중복 CVE 충돌, live 요청 ID 대조·페이지/부분 실패 상태 전파는 잔여다.
 
+- **2026-09-11 EPSS bulk 근거 검증:** [FIRST 데이터 안내](https://www.first.org/epss/data)의 일별 CSV URL에서 앞 두 줄만 메모리로 읽어 `score_date:2026-09-10T12:00:22Z`와 `cve,epss,percentile` 헤더를 확인했다. 실제 점수 행을 fixture/배포 자료로 도입하지 않았다. 파서는 헤더와 3개 열을 검증하고, score_date의 날짜/offset timestamp를 완전히 파싱한다. 누락·손상·미래·서로 다른 기준일과 점수가 없는 데이터셋은 수집 실패이며 오늘 날짜로 대체하지 않는다. 현재 일별 수집 경로의 계약이며 날짜 주석이 없는 초기 EPSS v1 역사 파일 지원을 의미하지 않는다.
+- **bulk 근거 회귀:** 날짜/헤더/빈 파일 오류 8건은 수정 전 모두 실패했다. 정상 날짜·UTC Z·offset timestamp의 원 기준일 보존과 기존 점수/보강 검사까지 `test --tests '*Epss*Test' --tests '*Vdb*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 59건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-epss-evidence-before.log`, `build/roadmap-epss-evidence-after.log`. 커밋 제목 `fix: require dated complete epss input`. 자체 합성 gzip 입력이며 새 외부 데이터/의존성 및 UI 변경 없음. FIRST 안내는 bulk CSV 사용 방식과 필드 의미의 근거이며 고객 재배포 조건의 미확인 상태는 유지한다. 중복 CVE 점수 충돌, 전체 데이터 건수/원천 서명 및 live 부분 실패 상태 전파는 잔여다.
+
 ### 33. 조회 캐시와 전체 advisory 로컬 판정 구분 — P1 · [지원 범위별 필수]
 
 - 현재·대상: [AirgappedSnapshotService](src/main/java/com/salkcoding/oswl/service/snapshot/AirgappedSnapshotService.java)의 기존 조회 결과 export는 전체 원천 DB가 아니다.

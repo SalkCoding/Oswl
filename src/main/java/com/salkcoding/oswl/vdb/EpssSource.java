@@ -30,7 +30,7 @@ final class EpssSource {
     Result fetch(HttpCache cache) throws IOException, InterruptedException {
         byte[] gz = cache.getOrFetch("epss_scores-current.csv.gz", EPSS_BULK_URL);
         Map<String, Double> scores = new LinkedHashMap<>();
-        LocalDate asOf = LocalDate.now();
+        LocalDate asOf = null;
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(
                 new GZIPInputStream(new ByteArrayInputStream(gz)), StandardCharsets.UTF_8))) {
             String line;
@@ -42,11 +42,12 @@ final class EpssSource {
                     continue;
                 }
                 if (!headerSeen) {
-                    headerSeen = true; // "cve,epss,percentile" header row
+                    if (!line.strip().equals("cve,epss,percentile")) throw new IOException("Unexpected EPSS CSV header");
+                    headerSeen = true;
                     continue;
                 }
                 String[] parts = line.split(",", -1);
-                if (parts.length < 2) throw new IOException("Malformed EPSS row; source coverage is unknown");
+                if (parts.length != 3) throw new IOException("Malformed EPSS row; source coverage is unknown");
                 try {
                     double score = Double.parseDouble(parts[1].strip());
                     if (!Double.isFinite(score) || score < 0 || score > 1)
@@ -57,19 +58,24 @@ final class EpssSource {
                 }
             }
         }
+        if (asOf == null || scores.isEmpty()) throw new IOException("EPSS source has no dated score data");
         return new Result(scores, asOf);
     }
 
-    private static LocalDate parseScoreDate(String commentLine, LocalDate fallback) {
+    private static LocalDate parseScoreDate(String commentLine, LocalDate previous) throws IOException {
         int idx = commentLine.indexOf("score_date:");
-        if (idx < 0) return fallback;
+        if (idx < 0) return previous;
         String rest = commentLine.substring(idx + "score_date:".length());
         int end = rest.indexOf(',');
         String dateStr = (end >= 0 ? rest.substring(0, end) : rest).strip();
         try {
-            return LocalDate.parse(dateStr.length() >= 10 ? dateStr.substring(0, 10) : dateStr);
-        } catch (Exception e) {
-            return fallback;
+            LocalDate date = dateStr.length() == 10 ? LocalDate.parse(dateStr)
+                    : java.time.OffsetDateTime.parse(dateStr).toLocalDate();
+            if (date.isAfter(LocalDate.now()) || (previous != null && !previous.equals(date)))
+                throw new IOException("Future or conflicting EPSS score date");
+            return date;
+        } catch (java.time.DateTimeException e) {
+            throw new IOException("Invalid EPSS score date", e);
         }
     }
 }
