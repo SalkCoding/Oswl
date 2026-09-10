@@ -111,6 +111,18 @@ public class GitHubAdvisoryClient {
     public record GitHubAdvisory(String ghsaId, String cveId, String summary, RiskLevel severity,
                                   Double cvssScore, String cvss3Vector, String fixVersion) {}
 
+    /** A failed complete lookup can still contain independently verified advisory nodes. */
+    public static final class IncompleteLookupException extends IllegalStateException {
+        private final List<GitHubAdvisory> findings;
+
+        private IncompleteLookupException(List<GitHubAdvisory> findings) {
+            super("GitHub Advisory lookup is incomplete");
+            this.findings = List.copyOf(findings);
+        }
+
+        public List<GitHubAdvisory> findings() { return findings; }
+    }
+
     public boolean canLookup(String ecosystem) {
         return !airgapped && token != null && !token.isBlank() && toGitHubEcosystem(ecosystem) != null;
     }
@@ -139,6 +151,7 @@ public class GitHubAdvisoryClient {
         } catch (Exception e) {
             recordApiCall(isRateLimited(e) ? OswlMetrics.OUTCOME_RATE_LIMITED : OswlMetrics.OUTCOME_FAILURE);
             log.warn("[GitHubAdvisory] Lookup failed for {}:{} — {}", name, version, e.getMessage());
+            if (e instanceof IncompleteLookupException incomplete) throw incomplete;
             throw new IllegalStateException("GitHub Advisory lookup unavailable", e);
         }
     }
@@ -202,26 +215,32 @@ public class GitHubAdvisoryClient {
 
         if (response == null) throw new IllegalStateException("Empty GraphQL response");
         Object errors = response.get("errors");
-        if (errors instanceof List<?> errorList && !errorList.isEmpty()) {
-            throw new IllegalStateException("GraphQL response contains errors");
-        }
+        boolean incomplete = errors != null && (!(errors instanceof List<?> errorList) || !errorList.isEmpty());
         Object data = response.get("data");
         if (!(data instanceof Map<?, ?> dataMap)) throw new IllegalStateException("Missing GraphQL data");
         Object sv = dataMap.get("securityVulnerabilities");
         if (!(sv instanceof Map<?, ?> svMap)) throw new IllegalStateException("Missing vulnerability connection");
-        if (svMap.get("pageInfo") instanceof Map<?, ?> pageInfo && Boolean.TRUE.equals(pageInfo.get("hasNextPage")))
-            throw new IllegalStateException("Incomplete advisory pagination");
+        if (!(svMap.get("pageInfo") instanceof Map<?, ?> pageInfo) || !Boolean.FALSE.equals(pageInfo.get("hasNextPage")))
+            incomplete = true;
         Object nodes = svMap.get("nodes");
         if (!(nodes instanceof List<?> nodeList)) throw new IllegalStateException("Missing advisory nodes");
 
         List<GitHubAdvisory> result = new ArrayList<>();
         for (Object nodeObj : nodeList) {
-            if (!(nodeObj instanceof Map<?, ?> node) || !(node.get("advisory") instanceof Map<?, ?>))
-                throw new IllegalStateException("Malformed advisory node");
-            String range = (String) node.get("vulnerableVersionRange");
-            if (!isVersionAffected(ghEcosystem, version, range)) continue;
-            result.add(parseAdvisoryNode(node));
+            try {
+                if (!(nodeObj instanceof Map<?, ?> node) || !(node.get("advisory") instanceof Map<?, ?>))
+                    throw new IllegalArgumentException("Malformed advisory node");
+                String range = (String) node.get("vulnerableVersionRange");
+                if (!isVersionAffected(ghEcosystem, version, range)) continue;
+                GitHubAdvisory advisory = parseAdvisoryNode(node);
+                if (advisory.ghsaId() == null || advisory.ghsaId().isBlank())
+                    throw new IllegalArgumentException("Missing advisory identity");
+                result.add(advisory);
+            } catch (IllegalArgumentException | ClassCastException invalid) {
+                incomplete = true;
+            }
         }
+        if (incomplete) throw new IncompleteLookupException(result);
         return result;
     }
 
