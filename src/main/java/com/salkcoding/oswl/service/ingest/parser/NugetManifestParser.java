@@ -111,7 +111,28 @@ public class NugetManifestParser {
         } catch (Exception e) {
             log.error("[DependencyParser][NuGet] Failed to parse .csproj/packages.config: {}", e.getMessage());
         }
-        return new ParseResult("NUGET", comps);
+        return new ParseResult("NUGET", mergeDeclarations(comps));
+    }
+
+    private List<ScanPayload.ComponentPayload> mergeDeclarations(List<ScanPayload.ComponentPayload> components) {
+        Map<String, Set<String>> declarations = new LinkedHashMap<>();
+        for (var component : components) {
+            if (isDeclaration(component)) declarations.computeIfAbsent(component.getName(), ignored -> new LinkedHashSet<>())
+                    .add(component.getDependencyInfo());
+        }
+        List<ScanPayload.ComponentPayload> result = new ArrayList<>();
+        Set<String> emitted = new HashSet<>();
+        for (var component : components) {
+            if (!isDeclaration(component)) result.add(component);
+            else if (emitted.add(component.getName())) result.add(ScanPayload.ComponentPayload.create(
+                    component.getName(), null, "NUGET", String.join("; ", declarations.get(component.getName())), List.of()));
+        }
+        return result;
+    }
+
+    private boolean isDeclaration(ScanPayload.ComponentPayload component) {
+        return component.getVersion() == null && component.getDependencyInfo() != null
+                && component.getDependencyInfo().startsWith("PackageReference ");
     }
 
     public ParseResult parseNuGetStatic(Path dir, String repoName) {
@@ -177,11 +198,17 @@ public class NugetManifestParser {
             if (propsVersions.containsKey(name) && (ver == null || ver.isBlank() || ver.startsWith("$("))) {
                 ver = propsVersions.get(name);
             }
-            String key = name + ":" + (ver != null ? ver : "");
+            StringBuilder declaration = new StringBuilder("PackageReference Version=\"")
+                    .append(ver != null ? ver : "").append('"');
+            for (Node node = ref; node instanceof Element element; node = node.getParentNode()) {
+                if (element.hasAttribute("Condition")) declaration.append(" ").append(element.getTagName())
+                        .append(" Condition=\"").append(element.getAttribute("Condition")).append('"');
+            }
+            String key = name + ":" + declaration;
             if (seen.add(key)) {
                 // PackageReference constrains restore; even an exact constraint does not prove installation.
                 comps.add(ScanPayload.ComponentPayload.create(name, null, "NUGET",
-                        "PackageReference Version=\"" + (ver != null ? ver : "") + "\"", List.of()));
+                        declaration.toString(), List.of()));
             }
         }
     }

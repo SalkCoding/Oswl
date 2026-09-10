@@ -15,6 +15,30 @@ import static org.mockito.Mockito.mock;
 
 class NuGetDeclarationTest {
     @ParameterizedTest
+    @ValueSource(strings = {"8.0.3", "8.0.4"})
+    void sharedPackageKeepsEveryUnevaluatedCondition(String secondVersion, @TempDir Path directory) throws Exception {
+        Files.writeString(directory.resolve("A.csproj"), """
+                <Project><ItemGroup Condition="'$(TargetFramework)' == 'net8.0' And '$(RuntimeIdentifier)' == 'win-x64'">
+                  <PackageReference Include="System.Text.Json" Version="8.0.3" Condition="'$(UseFirst)' == 'true'" />
+                </ItemGroup></Project>
+                """);
+        Files.writeString(directory.resolve("B.csproj"), """
+                <Project><ItemGroup Condition="'$(TargetFramework)' == 'net9.0' And '$(RuntimeIdentifier)' == 'linux-x64'">
+                  <PackageReference Include="System.Text.Json" Version="%s" Condition="'$(UseSecond)' == 'true'" />
+                </ItemGroup></Project>
+                """.formatted(secondVersion));
+        var service = new com.salkcoding.oswl.service.ingest.DependencyManifestParserService(
+                mock(com.salkcoding.oswl.service.ingest.MavenBomVersionResolver.class),
+                mock(com.salkcoding.oswl.service.ingest.CondaPypiMappingService.class));
+        var components = service.parseDependencies(directory, "fixture").components();
+        assertThat(components).hasSize(1);
+        assertThat(components.getFirst().getVersion()).isNull();
+        assertThat(components.getFirst().getDependencyInfo()).contains("8.0.3", secondVersion,
+                "net8.0", "net9.0", "$(UseFirst)", "$(UseSecond)");
+        assertThat(components.getFirst().getDependencyInfo().length()).isGreaterThan(300);
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"8.0.3", "8.*", "[8.0.3,9.0)", "[8.0.3]", "$(UnresolvedVersion)"})
     void declarationDoesNotBecomeAnInstalledVersion(String requested, @TempDir Path directory) throws Exception {
         Files.writeString(directory.resolve("App.csproj"),

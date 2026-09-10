@@ -45,7 +45,7 @@ public class ScanComponent {
      * Human-readable dependency summary. Example: "Direct (2) + Transitive (5)"
      * Populated by the CLI at scan time for faster display.
      */
-    @Column(name = "dependency_info", length = 300)
+    @Column(name = "dependency_info", columnDefinition = "TEXT")
     private String dependencyInfo;
 
     /**
