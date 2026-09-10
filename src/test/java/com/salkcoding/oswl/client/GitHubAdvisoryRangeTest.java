@@ -17,6 +17,31 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class GitHubAdvisoryRangeTest {
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"active", "withdrawn", "invalid-date", "wrong-name", "wrong-ecosystem", "missing-package"})
+    void respectsIdentityAndWithdrawal(String condition) throws Exception {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
+                Duration.ofSeconds(1), Duration.ofSeconds(1));
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var response = mapper.readTree(page("GHSA-fixture", false, "end"));
+        var node = (com.fasterxml.jackson.databind.node.ObjectNode) response.path("data").path("securityVulnerabilities").path("nodes").get(0);
+        node.putObject("package").put("name", condition.equals("wrong-name") ? "other" : "fixture")
+                .put("ecosystem", condition.equals("wrong-ecosystem") ? "PIP" : "NPM");
+        if (condition.equals("missing-package")) node.remove("package");
+        var advisory = (com.fasterxml.jackson.databind.node.ObjectNode) node.path("advisory");
+        if (condition.equals("withdrawn")) advisory.put("withdrawnAt", "2026-01-01T00:00:00Z");
+        else if (condition.equals("invalid-date")) advisory.put("withdrawnAt", "not-a-date");
+        else advisory.putNull("withdrawnAt");
+        server.expect(requestTo("https://api.github.com/graphql")).andRespond(withSuccess(mapper.writeValueAsString(response), MediaType.APPLICATION_JSON));
+        var result = new GitHubAdvisorySource(client).lookup("npm", "fixture", "1.0.0", List.of());
+        assertThat(result.lookupFailed()).isEqualTo(!condition.equals("active") && !condition.equals("withdrawn"));
+        assertThat(result.findings()).hasSize(condition.equals("active") ? 1 : 0);
+        server.verify();
+    }
+
     @org.junit.jupiter.api.Test
     void pageBudgetStopsRequestsWithoutClaimingCompletion() throws Exception {
         var builder = RestClient.builder();
@@ -59,6 +84,7 @@ class GitHubAdvisoryRangeTest {
     private String page(String id, boolean more, String cursor) throws Exception {
         return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("data", Map.of("securityVulnerabilities",
                 Map.of("pageInfo", Map.of("hasNextPage", more, "endCursor", cursor), "nodes", List.of(Map.of(
+                        "package", Map.of("name", "fixture", "ecosystem", "NPM"),
                         "vulnerableVersionRange", "< 2.0.0", "advisory", Map.of("identifiers", List.of(Map.of("type", "GHSA", "value", id)))))))));
     }
 
@@ -70,7 +96,7 @@ class GitHubAdvisoryRangeTest {
         var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
                 Duration.ofSeconds(1), Duration.ofSeconds(1));
         ReflectionTestUtils.setField(client, "restClient", builder.build());
-        var valid = Map.of("vulnerableVersionRange", "< 2.0.0", "advisory",
+        var valid = Map.of("package", Map.of("name", "fixture", "ecosystem", "NPM"), "vulnerableVersionRange", "< 2.0.0", "advisory",
                 Map.of("identifiers", List.of(Map.of("type", "GHSA", "value", "GHSA-confirmed"))));
         List<?> nodes = switch (failure) {
             case "bad-first" -> List.of(Map.of(), valid);
@@ -107,6 +133,7 @@ class GitHubAdvisoryRangeTest {
         ReflectionTestUtils.setField(client, "restClient", builder.build());
         var node = new java.util.LinkedHashMap<String, Object>();
         node.put("vulnerableVersionRange", range);
+        node.put("package", Map.of("name", "fixture", "ecosystem", "NPM"));
         node.put("advisory", Map.of("identifiers", List.of(Map.of("type", "GHSA", "value", "GHSA-fixture"))));
         String body = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("data",
                 Map.of("securityVulnerabilities", Map.of("pageInfo", Map.of("hasNextPage", false), "nodes", List.of(node)))));

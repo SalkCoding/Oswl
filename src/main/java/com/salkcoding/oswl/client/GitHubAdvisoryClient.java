@@ -46,6 +46,7 @@ public class GitHubAdvisoryClient {
                   advisory {
                     identifiers { type value }
                     summary
+                    withdrawnAt
                     cvss { score vectorString }
                   }
                   package { name ecosystem }
@@ -267,13 +268,24 @@ public class GitHubAdvisoryClient {
             try {
                 if (!(nodeObj instanceof Map<?, ?> node) || !(node.get("advisory") instanceof Map<?, ?>))
                     throw new IllegalArgumentException("Malformed advisory node");
+                if (!(node.get("package") instanceof Map<?, ?> pkg)
+                        || !name.equals(pkg.get("name")) || !ghEcosystem.equals(pkg.get("ecosystem")))
+                    throw new IllegalArgumentException("Advisory package identity does not match the query");
+                Map<?, ?> rawAdvisory = (Map<?, ?>) node.get("advisory");
+                Object withdrawn = rawAdvisory.get("withdrawnAt");
+                if (withdrawn != null) {
+                    if (!(withdrawn instanceof String date)) throw new IllegalArgumentException("Malformed withdrawal date");
+                    java.time.Instant withdrawnAt = java.time.Instant.parse(date);
+                    if (withdrawnAt.isAfter(java.time.Instant.now())) throw new IllegalArgumentException("Future withdrawal date");
+                    continue;
+                }
                 String range = (String) node.get("vulnerableVersionRange");
                 if (!isVersionAffected(ghEcosystem, version, range)) continue;
                 GitHubAdvisory advisory = parseAdvisoryNode(node);
                 if (advisory.ghsaId() == null || advisory.ghsaId().isBlank())
                     throw new IllegalArgumentException("Missing advisory identity");
                 result.add(advisory);
-            } catch (IllegalArgumentException | ClassCastException invalid) {
+            } catch (IllegalArgumentException | ClassCastException | java.time.DateTimeException invalid) {
                 incomplete = true;
             }
         }
