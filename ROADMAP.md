@@ -265,6 +265,7 @@
 
 ### 24. Cargo alias·feature·target·source 식별 — P1 · [지원 범위별 필수]
 
+- 2026-09-11 부분 보강: GHSA의 Rust 확정 버전 비교와 수정 후보 검증에 기존 strict SemVer 비교기를 연결했다. OSV `crates.io`의 `SEMVER` 경계와 prerelease 숫자 순서·정식 버전·build metadata 결과를 대조하고, 잘못된 확정 버전·지원하지 않는 범위·다른 취약 구간에 포함된 수정 후보는 보류한다. `CargoAdvisoryComparisonTest`, `GoAdvisoryComparisonTest`, `Osv*Test`, `GitHubAdvisoryRangeTest` 161건 통과(실패/오류/skip 0). [Cargo 버전 규칙](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html)은 참고만 했으며 외부 코드/데이터나 의존성을 추가하지 않았다. Cargo 의존성 선택의 prerelease 제외 규칙을 advisory의 명시적 경계 비교로 일반화하지 않는다. native Cargo 실행 환경은 없으며 RustSec 실제 데이터 대조, lock/metadata source·alias·feature·target·checksum 수집은 미완료다.
 - 현재·대상: [CargoManifestParser](src/main/java/com/salkcoding/oswl/service/ingest/parser/CargoManifestParser.java)의 선언 alias/package·source 처리.
 - [ ] 수정: Cargo.lock/cargo metadata에서 실제 crate name/version/source/checksum을 확보한다. registry/git/path, 활성 feature/target, 중복 버전을 연결하고 patched/unaffected와 yanked/unmaintained 경고를 구분한다.
 - 선행: 4단계 공통 계약. RustSec record별 라이선스는 2번.

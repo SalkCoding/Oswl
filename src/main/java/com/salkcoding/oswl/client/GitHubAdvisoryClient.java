@@ -239,7 +239,7 @@ public class GitHubAdvisoryClient {
     private static List<GitHubAdvisory> confirmedFixes(String ecosystem, String installed,
             List<GitHubAdvisory> findings, Map<String, List<String>> ranges) {
         java.util.Comparator<String> comparator = switch (ecosystem) {
-            case "NPM" -> SemVerVersionComparator::compare;
+            case "NPM", "RUST" -> SemVerVersionComparator::compare;
             case "GO" -> GoVersionComparator::compare;
             case "MAVEN" -> MavenVersionComparator::compare;
             case "PIP" -> Pep440VersionComparator::compare;
@@ -398,7 +398,7 @@ public class GitHubAdvisoryClient {
             if (ver.isBlank() || ver.chars().anyMatch(c -> Character.isWhitespace(c) || "|<>=~^*".indexOf(c) >= 0))
                 throw new IllegalArgumentException("Unsupported advisory range syntax");
             int cmp = switch (ecosystem) {
-                case "NPM" -> SemVerVersionComparator.compare(normalizedVersion, ver);
+                case "NPM", "RUST" -> SemVerVersionComparator.compare(normalizedVersion, ver);
                 case "GO" -> GoVersionComparator.compare(normalizedVersion, ver);
                 case "MAVEN" -> MavenVersionComparator.compare(normalizedVersion, ver);
                 case "PIP" -> Pep440VersionComparator.compare(normalizedVersion, ver);
