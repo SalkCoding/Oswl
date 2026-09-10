@@ -173,6 +173,8 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 원문 기반 온라인·오프라인 상세 일치:** 원문으로 영향 여부·수정 버전을 재판정하면서 식별자·설명·CWE·심각도·CVSS는 오래된 요약 필드를 사용하는 불일치를 재현했다(CVSS 미상/0/9.8의 수정 전 3건 실패). 원문이 있는 오프라인 결과에도 온라인 파서를 사용하고, 문자열이 아닌 설명은 미상으로 처리한다. 원문 없는 레코드와 오래된 출처의 수정 제안 보류는 유지한다. 수정 후 OSV·스냅샷 반입·취약점 보강 기존 검사와 신규 회귀 검사 416건 중 415건 통과·기존 선택 실행 skip 1건·실패/오류 0. 명령 `gradlew.bat test --tests '*Osv*Test' --tests '*SnapshotImportTransactionTest' --tests '*VulnerabilityEnrichmentServiceTest'`; 로그 `build/roadmap-offline-original-details-before.log`, `build/roadmap-offline-original-details-after.log`. 커밋 제목 `fix: derive offline vulnerability details from original advisories`. 자체 합성 자료와 모의 HTTP/H2를 사용했으며 외부 데이터·라이브러리 추가 없음. 3개 언어 관리 문서를 갱신했다. 전체 build·UI·실제 PostgreSQL은 이번에 재실행하지 않았다. 자동 원문 수집·재내보내기 및 공통 수정의 화면/PR 연결은 남아 있다.
+
 - **2026-09-11 MERGE 중복 키의 배치 경계 의존 제거:** 같은 신규 컴포넌트 키가 한 500행 저장 배치 안에 두 번 나오면 새 엔티티 두 개를 INSERT하여 무결성 오류가 발생했으나, 경계를 넘으면 기존 ID를 사용해 성공했다. 실제 H2에서 앞선 행 0/499 조건 중 0 조건이 수정 전 실패했다. MERGE 청크를 키별 마지막 전체 레코드로 정리한 뒤 저장하여 입력 순서의 마지막 payload를 사용한다. 두 조건 모두 마지막 OSV 원문·credits·수정 버전 3.0.0, 키당 1행, 기존 EPSS 보존을 확인했다. 스냅샷·CocoaPods·OSV 검사 341건 중 339건 통과·기존 skip 2건·실패/오류 0. 로그 `build/roadmap-snapshot-merge-duplicates-before.log`, `build/roadmap-snapshot-merge-duplicates-after.log`. 커밋 제목 `fix: apply snapshot merge updates consistently across batches`. 3개 언어 관리 문서에 전체 payload 대체 계약을 명시했다. 자체 합성 자료이며 외부 자료·라이브러리·UI 변경 없음. 실제 PostgreSQL·전체 build/UI는 이번에 재실행하지 않았다. 공통 수정의 수집·재내보내기·화면/PR 연결 등 기존 잔여는 유지한다.
 
 - **미래 offline revision 검증:** Windows/Java 25에서 `test --tests '*Osv*Test' --tests '*SnapshotImportTransactionTest' --tests '*VulnerabilityEnrichmentServiceTest'` 410건 중 409건 통과·opt-in skip 1건·실패/오류 0. 상기 미래 revision 수정의 대상/연결 검사 결과다.

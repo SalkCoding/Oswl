@@ -22,6 +22,40 @@ class OsvRevisionTest {
     OsvRevisionTest() { ReflectionTestUtils.setField(client, "restClient", builder.build()); }
 
     @ParameterizedTest
+    @CsvSource({"missing", "zero", "critical", "malformed-summary"})
+    void originalAdvisoryDetailsAreIdenticalAcrossModesDespiteStaleProjection(String scoreState) throws Exception {
+        var raw = (com.fasterxml.jackson.databind.node.ObjectNode) new com.fasterxml.jackson.databind.ObjectMapper().readTree("""
+                {"id":"OSV-fixture","modified":"2026-01-01T00:00:00Z","aliases":["CVE-2026-0001"],
+                "summary":"source summary","database_specific":{"cwe_ids":["CWE-79"]},
+                "affected":[{"package":{"ecosystem":"npm","name":"example"},
+                "ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"1.2.4"}]}]}]}
+                """);
+        if (scoreState.equals("malformed-summary")) raw.putObject("summary").put("unexpected", "object");
+        if (scoreState.equals("zero") || scoreState.equals("critical")) {
+            raw.putArray("severity").addObject().put("type", "CVSS_V3").put("score", scoreState.equals("zero")
+                    ? "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:N" : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H");
+        }
+        batch("{\"results\":[{\"vulns\":[" + stub("2026-01-01T00:00:00Z") + "]}]}");
+        server.expect(requestTo("https://api.osv.dev/v1/vulns/OSV-fixture")).andRespond(withSuccess(raw.toString(), MediaType.APPLICATION_JSON));
+        var online = client.queryBatch(List.of(query())).getFirst();
+        var snapshots = org.mockito.Mockito.mock(com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.class);
+        String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey("npm", "example", query().version());
+        org.mockito.Mockito.when(snapshots.findOsvVulns(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(key, List.of(
+                new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln("OSV-fixture", "CVE-WRONG", "stale summary",
+                        "99.0.0", "CWE-999", "HIGH", 8.1, "stale-vector", null, java.util.Set.of(), raw))));
+        var offline = new OsvClient(snapshots, true).queryBatch(List.of(query())).getFirst();
+        assertThat(offline).isEqualTo(online);
+        assertThat(offline.vulns()).singleElement().satisfies(v -> {
+            assertThat(v.cveId()).isEqualTo("CVE-2026-0001");
+            assertThat(v.summary()).isEqualTo(scoreState.equals("malformed-summary") ? null : "source summary");
+            assertThat(v.cweId()).isEqualTo("CWE-79");
+            Double expectedScore = switch (scoreState) { case "zero" -> 0.0; case "critical" -> 9.8; default -> null; };
+            assertThat(v.cvssScore()).isEqualTo(expectedScore);
+        });
+        server.verify();
+    }
+
+    @ParameterizedTest
     @CsvSource({"2026-01-01T00:00:00Z,false,true", "9999-01-01T00:00:00Z,false,false", "9999-01-01T00:00:00Z,true,false"})
     void offlineOriginalDatesFollowTheOnlineRevisionClockCheck(String modified, boolean withdrawn, boolean complete) throws Exception {
         var raw = new com.fasterxml.jackson.databind.ObjectMapper().readTree("""

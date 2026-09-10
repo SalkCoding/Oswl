@@ -183,7 +183,7 @@ public class OsvClient {
         return results;
     }
 
-    private static OsvResult snapshotResult(List<SnapshotVuln> vulns, OsvQuery query, boolean current, boolean resolved) {
+    private OsvResult snapshotResult(List<SnapshotVuln> vulns, OsvQuery query, boolean current, boolean resolved) {
         List<OsvVuln> findings = new ArrayList<>();
         List<SnapshotVuln> evidence = new ArrayList<>();
         Map<String, SnapshotVuln> revisions = new java.util.LinkedHashMap<>();
@@ -223,7 +223,9 @@ public class OsvClient {
                 }
                 evidence.add(vuln);
                 if (membership == OsvRangeEvaluator.Result.NOT_AFFECTED) continue;
-                fix = OsvFixVersionSelector.select(advisory, query.ecosystem(), query.name(), query.version()).version();
+                findings.add(parseVuln(JSON.convertValue(advisory,
+                        new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}), query));
+                continue;
             } else {
                 evidence.add(vuln);
             }
@@ -463,7 +465,7 @@ public class OsvClient {
 
     OsvVuln parseVuln(Map<String, Object> vuln, OsvQuery query) {
         String osvId  = (String) vuln.get("id");
-        String summary = (String) vuln.get("summary");
+        String summary = vuln.get("summary") instanceof String value ? value : null;
 
         // Extract the CVE ID from aliases
         String cveId = osvId != null && osvId.startsWith("CVE-") ? osvId : null;
