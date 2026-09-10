@@ -336,6 +336,9 @@
 - 선행: 2·12~13·32번.
 - DoD: malformed meta/미래 schema/미등록 파일/누락 hash·필드/전부 거부된 REPLACE를 거부한다. 기존 정상 자료를 보존하고 실패 이유를 제공한다.
 
+- **2026-09-10 취약점 목록 반입 검증:** OSV/GHSA/NVD 스냅샷의 누락·null·배열 아닌 vulns와 잘못된 목록 원소/공지 ID 누락을 가져오기 오류로 처리한다. 기존처럼 무시하거나 빈 목록으로 저장하지 않는다. 컴포넌트 identity 누락과 boolean 아닌 삭제 표시도 거부한다. 명시적 빈 배열, 미확인 상태 전용 레코드 및 정상 삭제 형식은 유지한다. 예외를 반입 트랜잭션 밖으로 전달해 실패 시 기존 데이터를 보존한다.
+- **반입 회귀:** 수정 전 6개 오류 입력 모두 거부되지 않았다. 수정 후 실제 ZIP→Spring 서비스→H2 저장소 경로에서 세 소스의 잘못된 목록 거부/기존 payload 보존, 누락 목록 거부, 명시적 빈 목록·unresolved 레코드 허용을 검증했다. `.\gradlew.bat test --tests '*SnapshotImportTransactionTest' --tests '*CocoaPodsSnapshotTest' --tests '*Osv*Test'` 105건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-snapshot-vulns-before.log`, `build/roadmap-snapshot-vulns-after.log`. 커밋 제목 `fix: reject malformed vulnerability snapshot records`. 자체 합성 자료이며 외부 데이터/라이브러리 및 UI 변경 없음. 전체 manifest/schema/고지 검증과 다른 소스의 의미 검증, 이미 저장된 손상 데이터 정정은 잔여다.
+
 ### 35. 오프라인 서명·신뢰 루트·이전 세대 방어 — P0 · [설계]
 
 - 현재·대상: checksum은 파일과 hash를 함께 바꾼 위조를 막지 못한다. 최초 trust root와 signer scope가 필요하다.

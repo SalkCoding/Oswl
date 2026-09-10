@@ -32,6 +32,31 @@ class SnapshotImportTransactionTest {
         entries.save(SnapshotEntry.builder().source("epss").entryKey("CVE-OLD").payload("0.25").build());
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"null", "false", "{}", "[null]", "[1]", "[{}]"})
+    void malformedVulnerabilityListsCannotReplaceExistingFindings(String vulns) throws Exception {
+        for (String source : List.of("osv", "github-advisory", "nvd")) {
+            String key = "NPM|fixture|1.0.0";
+            String old = "[{\"osvId\":\"GHSA-old\",\"fixVersion\":\"2.0.0\"}]";
+            entries.saveAndFlush(SnapshotEntry.builder().source(source).entryKey(key).payload(old).build());
+            String line = "{\"ecosystem\":\"npm\",\"name\":\"fixture\",\"version\":\"1.0.0\",\"vulns\":" + vulns + "}";
+            assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of(source + ".jsonl", line)))))
+                    .isInstanceOf(InvalidRequestException.class);
+            assertThat(entries.findBySourceAndEntryKeyIn(source, List.of(key))).singleElement()
+                    .extracting(SnapshotEntry::getPayload).isEqualTo(old);
+        }
+    }
+
+    @Test void missingVulnsIsRejectedButExplicitEmptyAndUnresolvedRecordsRemainValid() throws Exception {
+        String identity = "\"ecosystem\":\"npm\",\"name\":\"fixture\",\"version\":\"1.0.0\"";
+        assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of("osv.jsonl", "{" + identity + "}")))))
+                .isInstanceOf(InvalidRequestException.class);
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("osv.jsonl", "{" + identity + ",\"vulns\":[]}",
+                "unresolved.jsonl", "{" + identity + "}"))));
+        assertThat(service.findOsvVulns(List.of("NPM|fixture|1.0.0"))).containsEntry("NPM|fixture|1.0.0", List.of());
+        assertThat(service.findUnresolvedKeys(List.of("NPM|fixture|1.0.0"))).containsExactly("NPM|fixture|1.0.0");
+    }
+
     @Test void importsMultipleChunksAndCleansStagingFiles() throws Exception {
         Set<Path> before = stagedFiles();
         StringBuilder lines = new StringBuilder();

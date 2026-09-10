@@ -609,23 +609,27 @@ public class AirgappedSnapshotService {
             JsonNode node = objectMapper.readTree(line);
             String key = componentKey(text(node, "ecosystem"), text(node, "name"), text(node, "version"));
             if (key == null) {
-                log.warn("[Snapshot] Skipping osv line with missing ecosystem/name/version");
-                return;
+                throw new InvalidRequestException("Snapshot record requires ecosystem/name/version");
             }
+            if (node.has("_deleted") && !node.path("_deleted").isBoolean())
+                throw new InvalidRequestException("Snapshot deletion marker must be boolean");
             if (node.path("_deleted").asBoolean(false)) {
                 buffer.add(new ParsedLine(key, null, true));
                 return;
             }
             List<SnapshotVuln> vulns = new ArrayList<>();
+            if (!SOURCE_UNRESOLVED.equals(buffer.source) && !node.path("vulns").isArray())
+                throw new InvalidRequestException("Snapshot vulnerability record requires a vulns array");
             for (JsonNode v : node.path("vulns")) {
-                if (!v.isObject()) continue;
+                if (!v.isObject() || (isBlank(text(v, "osvId")) && isBlank(text(v, "cveId"))))
+                    throw new InvalidRequestException("Snapshot vulnerability requires an advisory identity");
                 vulns.add(new SnapshotVuln(text(v, "osvId"), text(v, "cveId"),
                         text(v, "summary"), text(v, "fixVersion"), text(v, "cweId"),
                         text(v, "severity"), number(v, "cvssScore"), text(v, "cvss3Vector"), text(v, "matchConfidence")));
             }
             buffer.add(new ParsedLine(key, objectMapper.writeValueAsString(vulns), false));
         } catch (Exception e) {
-            log.warn("[Snapshot] Skipping malformed osv line: {}", e.getMessage());
+            throw new InvalidRequestException("Malformed snapshot vulnerability record: " + e.getMessage());
         }
     }
 
