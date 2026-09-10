@@ -322,6 +322,9 @@
 - 선행: 1~2·5·12~13번.
 - DoD: 404/부분 수집/손상 행이 정상 clean DB를 만들지 않는다. upstream 오류와 데이터 coverage가 표시된다. 대용량 dump의 실제 다운로드/형식 검증을 기록한다. [OSV 배포 안내](https://google.github.io/osv.dev/data/).
 
+- **2026-09-10 EPSS 경로 일관성:** live 클라이언트도 오프라인과 동일하게 유한한 0~1 점수만 반환한다. 손상 점수만 제외하고 다른 정상 응답 행은 유지한다. bulk 생성기는 잘못된 점수나 잘린 데이터 행을 건너뛰어 부분 성공으로 처리하지 않고 IOException으로 수집 실패를 전달한다. 확률 범위는 [FIRST 공식 EPSS 설명](https://www.first.org/epss/)의 계약에 따른다.
+- **점수 경로 회귀:** mock HTTP live 응답과 실제 임시 gzip/cache bulk 입력의 오류 12건 중 수정 전 11건 실패를 확인했다. 수정 후 0/0.5/1 정상 경계값과 보강 서비스 검사를 포함한 `test --tests '*Epss*Test' --tests '*Vdb*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 48건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-epss-paths-before.log`, `build/roadmap-epss-paths-after.log`. 커밋 제목 `fix: validate epss probabilities across collection paths`. 자체 합성 입력이며 새 외부 데이터/라이브러리와 UI 변경 없음. EPSS 실제 자료 재배포 조건은 부록 A의 미확인 상태를 유지한다. bulk 헤더/원 기준일, 중복 CVE 충돌, live 요청 ID 대조·페이지/부분 실패 상태 전파는 잔여다.
+
 ### 33. 조회 캐시와 전체 advisory 로컬 판정 구분 — P1 · [지원 범위별 필수]
 
 - 현재·대상: [AirgappedSnapshotService](src/main/java/com/salkcoding/oswl/service/snapshot/AirgappedSnapshotService.java)의 기존 조회 결과 export는 전체 원천 DB가 아니다.

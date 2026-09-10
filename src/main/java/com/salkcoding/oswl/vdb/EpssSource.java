@@ -46,11 +46,14 @@ final class EpssSource {
                     continue;
                 }
                 String[] parts = line.split(",", -1);
-                if (parts.length < 2) continue;
+                if (parts.length < 2) throw new IOException("Malformed EPSS row; source coverage is unknown");
                 try {
-                    scores.put(parts[0].strip().toUpperCase(Locale.ROOT), Double.parseDouble(parts[1].strip()));
-                } catch (NumberFormatException ignored) {
-                    // malformed row — skip rather than fail the whole bulk parse
+                    double score = Double.parseDouble(parts[1].strip());
+                    if (!Double.isFinite(score) || score < 0 || score > 1)
+                        throw new NumberFormatException("Invalid EPSS probability");
+                    scores.put(parts[0].strip().toUpperCase(Locale.ROOT), score);
+                } catch (NumberFormatException invalid) {
+                    throw new IOException("Invalid EPSS score; source coverage is unknown", invalid);
                 }
             }
         }

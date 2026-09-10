@@ -84,8 +84,9 @@ public class EpssClient {
                     Object epss = map.get("epss");
                     if (cve != null && epss != null) {
                         try {
-                            result.put(cve.toString().strip().toUpperCase(),
-                                    Double.parseDouble(epss.toString()));
+                            double score = Double.parseDouble(epss.toString());
+                            if (Double.isFinite(score) && score >= 0 && score <= 1)
+                                result.put(cve.toString().strip().toUpperCase(java.util.Locale.ROOT), score);
                         } catch (NumberFormatException ignored) {
                             // skip malformed row
                         }
