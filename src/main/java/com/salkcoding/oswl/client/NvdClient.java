@@ -35,6 +35,7 @@ public class NvdClient {
     private static final String BASE_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0";
     private static final int MAX_RETRIES = 3;
     private static final int MAX_PAGES = 20;
+    private static final java.util.regex.Pattern CVE_ID = java.util.regex.Pattern.compile("CVE-[0-9]{4}-[0-9]{4,}");
     private static final long UNAUTH_INTERVAL_MS = 6_500;
     private static final long AUTH_INTERVAL_MS = 650;
     private static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(5);
@@ -255,7 +256,8 @@ public class NvdClient {
                 Map<String, Object> cve = (Map<String, Object>) v.get("cve");
                 if (cve == null) throw new IllegalArgumentException("Missing NVD CVE");
                 String id = (String) cve.get("id");
-                if (id == null) throw new IllegalArgumentException("Missing NVD identifier");
+                if (id == null || !CVE_ID.matcher(id).matches())
+                    throw new IllegalArgumentException("Invalid NVD identifier");
                 Cvss cvss = extractCvss(cve);
                 result.add(new NvdCve(id, extractDescription(cve), cvss.severity, cvss.score, cvss.vector, confidence));
             } catch (RuntimeException e) {

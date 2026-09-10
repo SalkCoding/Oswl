@@ -30,7 +30,7 @@ class NvdLookupOutcomeTest {
         String vector = "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:H/VI:H/VA:H/SC:N/SI:N/SA:N";
         var builder = RestClient.builder(); var server = MockRestServiceServer.bindTo(builder).build();
         var client = new NvdClient(); ReflectionTestUtils.setField(client, "restClient", builder.build());
-        server.expect(anything()).andRespond(withSuccess("{\"startIndex\":0,\"resultsPerPage\":2000,\"totalResults\":1,\"vulnerabilities\":[{\"cve\":{\"id\":\"CVE-FIXTURE\",\"metrics\":{\"cvssMetricV40\":[{\"cvssData\":{\"baseScore\":9.3,\"vectorString\":\"" + vector + "\"}}]}}}]}", MediaType.APPLICATION_JSON));
+        server.expect(anything()).andRespond(withSuccess("{\"startIndex\":0,\"resultsPerPage\":2000,\"totalResults\":1,\"vulnerabilities\":[{\"cve\":{\"id\":\"CVE-2026-0001\",\"metrics\":{\"cvssMetricV40\":[{\"cvssData\":{\"baseScore\":9.3,\"vectorString\":\"" + vector + "\"}}]}}}]}", MediaType.APPLICATION_JSON));
         var result = client.findByCpeName("cpe:fixture", MatchConfidence.HIGH).getFirst();
         assertThat(result.cvss3Vector()).isEqualTo(vector);
         assertThat(result.severity()).isEqualTo(RiskLevel.CRITICAL);

@@ -137,6 +137,10 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 NVD 온라인 식별값 검증:** 빈 문자열·공백·잘못된 접두사/연도/일련번호·소문자·비 ASCII 숫자·후행 개행을 정상 CVE ID로 수용하지 않는다. 같은 응답의 정상 행은 보존하고 조회 미완료로 전달한다. ID를 추정 보정하지 않으며 공급자 스키마에 없는 일련번호 상한도 추가하지 않았다. 커밋 제목 `fix: reject malformed nvd finding identifiers`.
+- **검증·근거:** [NIST API 스키마](https://csrc.nist.gov/schema/nvd/api/2.0/cve_api_json_2.0.schema)의 `cve_id` 형식을 2026-09-11 재확인했다. 자체 합성 회귀 14건 중 수정 전 9건 실패, 수정 후 Windows/Java 25의 `test --tests '*Nvd*Test' --tests '*Advisory*Test' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*SnapshotImportTransactionTest'` 356건 통과·실패/오류/skip 0. 기존 CVSS 4.0 테스트의 임의 ID만 형식에 맞게 바꾸고 점수·벡터·등급 기대값은 유지했다. 로그 `build/roadmap-nvd-identifier-before.log`, `build/roadmap-nvd-identifier-after.log`. 이번 단위에서는 전체 build/UI 검증을 다시 실행하지 않았다.
+- **권리·잔여:** 외부 취약점 전문이나 코드·데이터셋을 복사하지 않았으며 신규 라이브러리/배포 자료는 없다. 스키마 계약 확인은 원천 데이터 재배포 허가가 아니다. 기존 오프라인 저장 자료의 동일 식별값 검증 및 부분 결과/불확실성 전달은 아직 잔여이며, 이 변경만으로 온라인·오프라인 일관성이 완료됐다고 표시하지 않는다.
+
 - **2026-09-11 NVD 후속 페이지 수집:** 실제 수신 행 수를 다음 `startIndex`로 사용해 최대 20페이지를 수집한다. 전체 건수 변경, 잘못된 offset, 중복 ID, 진행 없는 빈 페이지, 한도 초과, 후속 HTTP/JSON/구조 오류에서는 이미 받은 발견 결과를 보존하면서 조회 미완료를 유지한다. CPE URL을 RestClient에 URI로 전달해 이미 인코딩된 콜론의 이중 인코딩도 수정했다. 커밋 제목 `fix: collect nvd pages without losing incomplete evidence`.
 - **누적 검증:** Windows/Java 25에서 `build verifyProdJar` 성공. 신규 페이지 회귀 10건을 포함한 전체 3,087건 중 3,078건 통과·기존 환경 의존 skip 9건·실패/오류 0. 운영 JAR의 local controller 제외 검사도 통과했다. 로그 `build/roadmap-nvd-pagination-build.log`; 관련 테스트 묶음 로그 `build/roadmap-nvd-pagination-after.log`.
 - **회귀 근거·범위:** 자체 합성 HTTP 응답으로 정상 후속 페이지, 중간 실패·응답 불일치·중복, 페이지 한도 및 실제 행 수 기준 offset을 검사한다. 최초 7건의 실패 원인은 정확한 URL 검사에서 드러난 이중 인코딩이었다. 페이지 수집만의 수정 전 실패로 해석하지 않는다. 기존 부분 페이지 테스트에는 후속 요청 실패를 명시해 발견 결과와 다음 CPE 후보의 보존 검증을 유지했다. 새 외부 원문·라이브러리·UI 변경은 없다. 페이지 사이 동일 건수의 데이터 교체까지 감지하는 snapshot 일관성, 응답 크기/총 실행 시간 제한, 공급자 실환경 CPE 검증 및 원천별 재배포 조건은 잔여다.
