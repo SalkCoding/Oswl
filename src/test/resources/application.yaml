@@ -1,6 +1,7 @@
 spring:
   datasource:
-    url: "jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT"
+    # Cached Spring contexts must not drop another context's tables during shutdown.
+    url: "jdbc:h2:mem:oswl-test-${random.uuid};DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT"
     driver-class-name: org.h2.Driver
     username: sa
     password:
