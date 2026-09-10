@@ -37,6 +37,8 @@ For production, the sample sets `SERVER_ADDRESS=0.0.0.0` inside the container wh
 
 ## Existing installations
 
+Before deploying code that persists remediation conflicts, apply [`V36__fix_version_conflict_candidates.sql`](../src/main/resources/db/migration/V36__fix_version_conflict_candidates.sql) through the installation's migration workflow. It adds `library_cve_fix_conflicts` and preserves existing CVE rows. Production schema validation requires this table. Older application versions do not consult the stored conflicts, so rolling back the application does not preserve the new remediation safeguards.
+
 Both files use `name: oswl` to retain the default project name of the original `Oswl` checkout instead of deriving `docker` from their new directory. Service names, database versions, volume keys, ports and profiles are unchanged.
 
 If your installation used another checkout directory name, `-p`, or `COMPOSE_PROJECT_NAME`, keep that original project name. Inspect `docker compose ls` and `docker volume ls` before switching commands; use `-p YOUR_EXISTING_PROJECT` with the new file path. A different project name can create new empty volumes instead of reconnecting the existing database. Do not remove existing volumes during this path migration.
