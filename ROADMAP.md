@@ -397,6 +397,9 @@
 
 ### 25. NuGet TFM·RID·정규화 버전과 publish 결과 — P1 · [지원 범위별 필수]
 
+- **2026-09-11 선언 근거 실제 JPA 왕복:** 자체 csproj의 조건부 선언 10개를 실제 공용 파서→ScanIngestService→H2 JPA로 저장하고 flush/clear 후 repository로 다시 읽었다. 300자를 넘는 dependencyInfo가 원문과 같고 모든 버전/조건 문자열이 남으며 library.version=null과 vulnerabilitiesAnalyzed=false를 보존했다. 기존 라이브러리 행을 사용해 이번 검증을 scan-context 증거 저장에 한정했으며 누락 라이브러리 생성 경로는 별도다. 테스트 트랜잭션 롤백으로 after-commit 외부 보강은 실행하지 않았다.
+- **검증 범위:** 선언 파서/JPA/컬럼 migration/ScanIngest 관련 23건 통과·실패/오류/skip 0. 로그 `build/roadmap-nuget-declaration-jpa.log`. 커밋 제목 `test: verify nuget declaration evidence through jpa`. 제품 코드·새 외부 자료 도입 없이 자체 fixture로 검증했다. 실제 PostgreSQL/V37 운영 업그레이드·화면 검증과 전체 build 재실행은 이번 범위에 포함하지 않았다.
+
 - **2026-09-11 복수 선언 근거 보존:** 동일 패키지의 같은/다른 버전 선언과 서로 다른 PackageReference/상위 ItemGroup 조건이 공용 병합 후 누락되는 2조건을 수정 전 재현했다. 정적 파서에서 선언별 조건 문자열을 보존하고 이름별로 합쳐 넘기며 version=null을 유지한다. 조건문을 실제 TFM/RID 선택 결과로 평가하지 않는다. 서로 다른 프레임워크/RID와 패키지 조건이 300자를 넘어도 남는 회귀를 포함한다. 파일별 provenance·조건부 Version 자식 전체 해석·중앙 버전 관리의 정확한 평가 모델은 잔여다.
 - **저장·배포:** scan_components.dependency_info의 varchar(300) 제약 때문에 긴 근거가 저장되지 않는 점을 확인해 TEXT로 확장하는 V37과 entity 매핑을 추가했다. H2 PostgreSQL mode에서 확장 전 긴 입력 거부, migration 2회 적용, 기존 값/NULL 보존, 긴 값의 정확한 왕복을 검증했다. [PostgreSQL ALTER TABLE 문법](https://www.postgresql.org/docs/15/sql-altertable.html)을 확인했고 [배포 안내](deploy/README.md)에 사전 migration과 300자로 되돌릴 때의 데이터 처리 필요성을 기록했다. 실제 PostgreSQL 업그레이드/잠금 시간, 기존 설치 데이터와 긴 문자열의 실제 화면은 미검증이다. 자체 fixture와 기존 라이브러리만 사용했다.
 - **누적 검증:** Windows/Java 25의 `build verifyProdJar` 성공. 4,150건 중 4,140건 통과·기존 환경 의존 9건/기본 비활성 OSV live 1건 skip·실패/오류 0. 로그 `build/roadmap-nuget-declaration-merge-before.log`, `build/roadmap-nuget-declaration-merge-after.log`, `build/roadmap-nuget-declaration-storage.log`, `build/roadmap-nuget-declaration-merge-build.log`. 커밋 제목 `fix: preserve conditional nuget declaration evidence`. 실제 운영 DB에는 migration을 적용하지 않았다.
