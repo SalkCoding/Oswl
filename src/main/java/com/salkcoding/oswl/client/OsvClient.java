@@ -177,9 +177,20 @@ public class OsvClient {
     // ── Internal ─────────────────────────────────────────────────────────
 
     private static boolean hasQueryIdentity(OsvQuery query) {
-        return query != null && query.ecosystem() != null && !query.ecosystem().isBlank()
+        boolean present = query != null && query.ecosystem() != null && !query.ecosystem().isBlank()
                 && query.name() != null && !query.name().isBlank()
                 && query.version() != null && !query.version().isBlank();
+        if (!present) return false;
+        if ("NUGET".equalsIgnoreCase(query.ecosystem().strip())) {
+            try {
+                com.salkcoding.oswl.vdb.AdvisoryPackageNames.canonical("NUGET", query.name());
+                com.salkcoding.oswl.vdb.NuGetVersionComparator.compare(query.version(), query.version());
+            } catch (IllegalArgumentException unsupportedIdentity) {
+                // An empty provider response cannot resolve a declaration or an unknown identity.
+                return false;
+            }
+        }
+        return true;
     }
 
     public Set<String> findUnresolvedComponentKeys(java.util.Collection<String> keys) {
