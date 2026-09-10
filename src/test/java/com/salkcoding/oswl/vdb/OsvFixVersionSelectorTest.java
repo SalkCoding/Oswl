@@ -15,6 +15,39 @@ class OsvFixVersionSelectorTest {
     private final ObjectMapper mapper = new ObjectMapper();
 
     @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void commonFixIsCheckedAgainstEveryAdvisoryRegardlessOfOrder(boolean reverse) {
+        var first = document(entry("target", "SEMVER", List.of(Map.of("introduced", "0"), Map.of("fixed", "2.0.0"))));
+        var second = document(entry("target", "SEMVER", List.of(Map.of("introduced", "0"), Map.of("fixed", "3.0.0"))));
+        var input = reverse ? List.of(second, first) : List.of(first, second);
+        assertThat(OsvFixVersionSelector.selectAcrossAdvisories(input, "npm", "target", "1.0.0").version()).isEqualTo("3.0.0");
+        // A later affected interval makes even the larger individual fix unsafe.
+        var reintroduced = document(entry("target", "SEMVER", List.of(Map.of("introduced", "0"),
+                Map.of("fixed", "2.0.0"), Map.of("introduced", "2.5.0"))));
+        input = reverse ? List.of(second, reintroduced) : List.of(reintroduced, second);
+        assertThat(OsvFixVersionSelector.selectAcrossAdvisories(input, "npm", "target", "1.0.0").version()).isNull();
+        var fixedAgain = document(entry("target", "SEMVER", List.of(Map.of("introduced", "0"),
+                Map.of("fixed", "2.0.0"), Map.of("introduced", "2.5.0"), Map.of("fixed", "4.0.0"))));
+        input = reverse ? List.of(second, fixedAgain) : List.of(fixedAgain, second);
+        assertThat(OsvFixVersionSelector.selectAcrossAdvisories(input, "npm", "target", "1.0.0").version()).isEqualTo("4.0.0");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"missing", "unsupported", "unfixed", "foreign", "withdrawn"})
+    void incompleteEvidenceCannotAuthorizeACommonFix(String state) {
+        var known = document(entry("target", "SEMVER", List.of(Map.of("introduced", "0"), Map.of("fixed", "2.0.0"))));
+        JsonNode other = switch (state) {
+            case "missing" -> mapper.nullNode();
+            case "unsupported" -> document(entry("target", "GIT", List.of(Map.of("introduced", "0"))));
+            case "unfixed" -> document(entry("target", "SEMVER", List.of(Map.of("introduced", "0"))));
+            case "foreign" -> document(entry("other", "SEMVER", List.of(Map.of("introduced", "0"), Map.of("fixed", "2.0.0"))));
+            default -> ((com.fasterxml.jackson.databind.node.ObjectNode) known.deepCopy()).put("withdrawn", "2026-01-01T00:00:00Z");
+        };
+        assertThat(OsvFixVersionSelector.selectAcrossAdvisories(List.of(known, other), "npm", "target", "1.0.0").version()).isNull();
+        assertThat(OsvFixVersionSelector.selectAcrossAdvisories(List.of(), "npm", "target", "1.0.0").version()).isNull();
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"null", "false", "{}", "[1]", "[null]", "[\"\"]", "[\" \"]"})
     void malformedVersionListsCannotConfirmAFix(String versions) throws Exception {
         var advisory = mapper.readTree("""

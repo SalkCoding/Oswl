@@ -16,6 +16,44 @@ public final class OsvFixVersionSelector {
     private OsvFixVersionSelector() { }
 
     public static Selection select(JsonNode advisory, String ecosystem, String name, String installed) {
+        return selectAcrossAdvisories(java.util.Collections.singletonList(advisory), ecosystem, name, installed);
+    }
+
+    /**
+     * Selects a source fixed event excluded by every supplied advisory's affected data.
+     * Callers must supply the complete, current evidence set for the package; this method
+     * cannot establish source coverage or freshness from a collection of JSON documents.
+     */
+    public static Selection selectAcrossAdvisories(List<JsonNode> advisories, String ecosystem, String name, String installed) {
+        if (ecosystem == null || name == null || installed == null || installed.isBlank()) return unavailable("MISSING_IDENTITY");
+        if (advisories == null || advisories.isEmpty()) return unavailable("NO_ADVISORY_EVIDENCE");
+        var combined = JsonNodeFactory.instance.objectNode();
+        var affected = combined.putArray("affected");
+        try {
+            for (JsonNode advisory : advisories) {
+                if (advisory == null || !advisory.isObject() || !advisory.path("affected").isArray()) return unavailable("MALFORMED_ADVISORY");
+                OsvWithdrawal withdrawal = OsvWithdrawal.from(advisory);
+                if (withdrawal == OsvWithdrawal.WITHDRAWN) return unavailable("WITHDRAWN");
+                if (withdrawal == OsvWithdrawal.UNKNOWN) return unavailable("MALFORMED_WITHDRAWAL");
+                boolean matched = false;
+                for (JsonNode entry : advisory.path("affected")) {
+                    JsonNode pkg = entry.path("package");
+                    if (ecosystem.equals(pkg.path("ecosystem").asText())
+                            && AdvisoryPackageNames.canonical(ecosystem, name).equals(
+                            AdvisoryPackageNames.canonical(ecosystem, pkg.path("name").asText()))) {
+                        affected.add(entry);
+                        matched = true;
+                    }
+                }
+                if (!matched) return unavailable("NO_MATCHING_PACKAGE");
+            }
+        } catch (IllegalArgumentException unsupported) {
+            return unavailable("UNSUPPORTED_VERSION");
+        }
+        return selectCombined(combined, ecosystem, name, installed);
+    }
+
+    private static Selection selectCombined(JsonNode advisory, String ecosystem, String name, String installed) {
         if (ecosystem == null || name == null || installed == null || installed.isBlank()) return unavailable("MISSING_IDENTITY");
         if (advisory == null || !advisory.isObject() || !advisory.path("affected").isArray()) return unavailable("MALFORMED_ADVISORY");
         OsvWithdrawal withdrawal = OsvWithdrawal.from(advisory);
