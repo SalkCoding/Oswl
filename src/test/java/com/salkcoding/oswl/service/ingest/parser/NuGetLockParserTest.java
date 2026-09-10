@@ -23,6 +23,21 @@ import static org.mockito.Mockito.mock;
 
 class NuGetLockParserTest {
     @ParameterizedTest
+    @ValueSource(strings = {
+            "{\"dependencies\":{\"net8.0\":{\"Fixture\":{\"resolved\":\"8.0.3\",\"resolved\":\"8.0.4\"}}}}",
+            "{\"dependencies\":{\"net8.0\":{\"Fixture\":{\"resolved\":\"8.0.3\"},\"Fixture\":{\"resolved\":\"8.0.4\"}}}}",
+            "{\"dependencies\":{\"net8.0\":{\"Fixture\":{\"resolved\":\"8.0.3\"}},\"net8.0\":{}}}",
+            "{\"dependencies\":{\"net8.0\":{\"Fixture\":{\"resolved\":\"8.0.3\"}}},\"dependencies\":{}}",
+            "{\"dependencies\":{}} {\"dependencies\":{\"net8.0\":{\"Fixture\":{\"resolved\":\"8.0.3\"}}}}",
+            "{\"dependencies\":{}} trailing-data"})
+    void ambiguousJsonCannotEraseAnInstalledVersion(String json, @TempDir Path directory) throws Exception {
+        Files.writeString(directory.resolve("packages.lock.json"), json);
+        var service = new DependencyManifestParserService(mock(MavenBomVersionResolver.class), mock(CondaPypiMappingService.class));
+        assertThatThrownBy(() -> service.parseDependencies(directory, "fixture"))
+                .isInstanceOf(com.salkcoding.oswl.exception.InvalidRequestException.class);
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"1.*", "[1,2)", "[1.0.0]", ">=1.0.0", "1..0", "1.0.0.0.0",
             "2147483648.0.0", "1.0.0-01", "1.0.0-alpha.01", "1.0.0+", "v1.0.0"})
     void resolvedMustBeAConcreteNugetVersion(String version, @TempDir Path directory) throws Exception {

@@ -397,6 +397,9 @@
 
 ### 25. NuGet TFM·RID·정규화 버전과 publish 결과 — P1 · [지원 범위별 필수]
 
+- **2026-09-11 JSON 중복·추가 데이터 차단:** resolved/package/framework/dependencies 중복 키로 앞선 버전 기록을 덮어쓰거나 첫 JSON 뒤의 추가 객체/문자열을 무시하던 6종을 실패 회귀로 재현했다. NuGet lock reader에 중복 tree key와 trailing token 거부를 적용하고 입력 스트림을 닫는다. 모호한 파일은 공용 파싱 서비스의 명시적 실패로 전달하며 뒤쪽 값을 임의로 정답으로 선택하지 않는다. 다른 생태계 reader의 정책은 이번에 변경하지 않았다.
+- **검증:** NuGet/QuickImportService/공용 파서/ScanController 관련 1,048건 중 1,047건 통과·환경 의존 MAUI skip 1건·실패/오류 0. 로그 `build/roadmap-nuget-json-before.log`, `build/roadmap-nuget-json-after.log`. 처음 ObjectReader의 File overload 부재로 난 컴파일 오류는 스트림 입력으로 해결했다. 커밋 제목 `fix: reject ambiguous nuget lock json`. 자체 합성 입력과 기존 Jackson 기능을 사용했고 외부 자료/라이브러리를 추가하지 않았다. 전체 build·실제 SDK 및 lock schema/revision 전체 검증은 잔여다.
+
 - **2026-09-11 resolved 구체 버전 검사:** lock의 resolved 문자열을 공통 NuGet 버전 엔진으로 검사한다. 1.*·[1,2)·[1.0.0]·>=1.0.0 등 범위 표현과 무효 버전 11종이 수정 전 설치 버전으로 수집됐고 실패 회귀로 재현했다. 수정 후 파싱 실패로 전달하며 requested를 대신 사용하지 않는다. 08.0.03.0·1.0·1.0.0-alpha.10·1.0.0+build·1.0.0.1의 5종은 허용하고 입력 표기를 그대로 보존한다. 로컬 공식 NuGet.Versioning 7.9.0의 NuGetVersion.Parse로 동일 16개 입력을 직접 실행해 거부 11/허용 5를 대조했다.
 - **검증·권리·범위:** NuGet/QuickImportService/공용 파서/ScanController 관련 1,042건 중 1,041건 통과·환경 의존 MAUI skip 1건·실패/오류 0. 로그 `build/roadmap-nuget-concrete-lock-before.log`, `build/roadmap-nuget-concrete-lock-after.log`. 커밋 제목 `fix: require concrete nuget lock versions`. 기존 [native oracle 출처/해시/Apache-2.0 고지](src/test/resources/version-oracles/README.md)의 로컬 검증 DLL을 재사용했고 새 외부 자료·런타임 의존성을 추가하지 않았다. 전체 build, SDK restore 및 lock schema/revision 전체 검증은 이번 실행에 포함하지 않았다.
 

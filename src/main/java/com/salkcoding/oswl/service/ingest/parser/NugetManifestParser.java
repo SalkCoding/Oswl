@@ -2,6 +2,7 @@ package com.salkcoding.oswl.service.ingest.parser;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
 import com.salkcoding.oswl.service.ingest.DependencyManifestParserService.ParseResult;
 import lombok.extern.slf4j.Slf4j;
@@ -17,8 +18,11 @@ public class NugetManifestParser {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public List<ScanPayload.ComponentPayload> parseNuGetLockFile(Path dir, String repoName) {
-        try {
-            JsonNode root = new ObjectMapper().readTree(dir.resolve("packages.lock.json").toFile());
+        try (var input = Files.newInputStream(dir.resolve("packages.lock.json"))) {
+            JsonNode root = OBJECT_MAPPER.reader()
+                    .with(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
+                    .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                    .readTree(input);
             Set<List<String>> seen = new LinkedHashSet<>();
             List<ScanPayload.ComponentPayload> comps = new ArrayList<>();
             if (root == null || !root.isObject()) throw new IllegalArgumentException("Invalid NuGet lock root");
