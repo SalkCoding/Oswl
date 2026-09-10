@@ -397,6 +397,9 @@
 
 ### 25. NuGet TFM·RID·정규화 버전과 publish 결과 — P1 · [지원 범위별 필수]
 
+- **2026-09-11 resolved 구체 버전 검사:** lock의 resolved 문자열을 공통 NuGet 버전 엔진으로 검사한다. 1.*·[1,2)·[1.0.0]·>=1.0.0 등 범위 표현과 무효 버전 11종이 수정 전 설치 버전으로 수집됐고 실패 회귀로 재현했다. 수정 후 파싱 실패로 전달하며 requested를 대신 사용하지 않는다. 08.0.03.0·1.0·1.0.0-alpha.10·1.0.0+build·1.0.0.1의 5종은 허용하고 입력 표기를 그대로 보존한다. 로컬 공식 NuGet.Versioning 7.9.0의 NuGetVersion.Parse로 동일 16개 입력을 직접 실행해 거부 11/허용 5를 대조했다.
+- **검증·권리·범위:** NuGet/QuickImportService/공용 파서/ScanController 관련 1,042건 중 1,041건 통과·환경 의존 MAUI skip 1건·실패/오류 0. 로그 `build/roadmap-nuget-concrete-lock-before.log`, `build/roadmap-nuget-concrete-lock-after.log`. 커밋 제목 `fix: require concrete nuget lock versions`. 기존 [native oracle 출처/해시/Apache-2.0 고지](src/test/resources/version-oracles/README.md)의 로컬 검증 DLL을 재사용했고 새 외부 자료·런타임 의존성을 추가하지 않았다. 전체 build, SDK restore 및 lock schema/revision 전체 검증은 이번 실행에 포함하지 않았다.
+
 - **2026-09-11 Quick Import 파싱 실패 상태:** 공개 startImport→실제 가상 스레드 작업 실행→실제 공용 NuGet 파서를 연결해 손상 JSON과 resolved 누락 2조건을 검증했다. 작업이 FAILED/PARSE_FAILED로 종료되고 projectId/scanResultId/componentCount는 없으며 프로젝트·API 키·스캔 생성 서비스는 호출되지 않는다. 실행 슬롯 반환과 해당 복제 경로의 정리 요청도 확인했다. Git 복제는 자체 fixture 작성 대역, 정리는 호출 관찰 대역이고 임시 경로의 최종 제거는 JUnit이 담당한다.
 - **검증 범위:** QuickImportService/NuGetLockParser 29건 통과·실패/오류/skip 0. 로그 `build/roadmap-nuget-quick-import.log`. 커밋 제목 `test: verify nuget parse failures stop quick import`. 외부 연결/자료 도입과 제품 코드 변경은 없다. 실제 VCS·durable job DB·SSE/화면과 별도 삭제 worker 검증, 전체 build는 이번 실행에 포함하지 않았다.
 

@@ -37,6 +37,7 @@ public class NugetManifestParser {
                     if (!resolved.isTextual() || resolved.asText().isBlank())
                         throw new IllegalArgumentException("NuGet lock package has no resolved version");
                     String ver = resolved.asText();
+                    com.salkcoding.oswl.vdb.NuGetVersionComparator.compare(ver, ver);
                     // Different frameworks can resolve the same package to different versions.
                     if (seen.add(List.of(name, ver))) comps.add(buildComponent(name, ver, "NUGET"));
                 }

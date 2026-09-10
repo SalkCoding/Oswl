@@ -23,6 +23,30 @@ import static org.mockito.Mockito.mock;
 
 class NuGetLockParserTest {
     @ParameterizedTest
+    @ValueSource(strings = {"1.*", "[1,2)", "[1.0.0]", ">=1.0.0", "1..0", "1.0.0.0.0",
+            "2147483648.0.0", "1.0.0-01", "1.0.0-alpha.01", "1.0.0+", "v1.0.0"})
+    void resolvedMustBeAConcreteNugetVersion(String version, @TempDir Path directory) throws Exception {
+        writeResolved(directory, version);
+        var service = new DependencyManifestParserService(mock(MavenBomVersionResolver.class), mock(CondaPypiMappingService.class));
+        assertThatThrownBy(() -> service.parseDependencies(directory, "fixture"))
+                .isInstanceOf(com.salkcoding.oswl.exception.InvalidRequestException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"08.0.03.0", "1.0", "1.0.0-alpha.10", "1.0.0+build", "1.0.0.1"})
+    void concreteResolvedVersionsKeepTheirOriginalEvidence(String version, @TempDir Path directory) throws Exception {
+        writeResolved(directory, version);
+        var components = new NugetManifestParser().parseNuGetLockFile(directory, "fixture");
+        assertThat(components).singleElement().extracting(ScanPayload.ComponentPayload::getVersion).isEqualTo(version);
+    }
+
+    private static void writeResolved(Path directory, String version) throws Exception {
+        Files.writeString(directory.resolve("packages.lock.json"), new ObjectMapper().writeValueAsString(
+                Map.of("version", 1, "dependencies", Map.of("net8.0", Map.of("Fixture",
+                        Map.of("type", "Direct", "requested", "[1.0.0, )", "resolved", version))))));
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"{", "null", "[]", "{}", "{\"dependencies\":[]}",
             "{\"dependencies\":{\"net8.0\":[]}}",
             "{\"dependencies\":{\"net8.0\":{\"Fixture\":null}}}",
