@@ -8,6 +8,7 @@ import com.salkcoding.oswl.service.metrics.OswlMetrics;
 import com.salkcoding.oswl.vdb.SimpleVersionComparator;
 import com.salkcoding.oswl.vdb.SemVerVersionComparator;
 import com.salkcoding.oswl.vdb.MavenVersionComparator;
+import com.salkcoding.oswl.vdb.Pep440VersionComparator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
@@ -356,6 +357,7 @@ public class GitHubAdvisoryClient {
             int cmp = switch (ecosystem) {
                 case "NPM" -> SemVerVersionComparator.compare(normalizedVersion, ver);
                 case "MAVEN" -> MavenVersionComparator.compare(normalizedVersion, ver);
+                case "PIP" -> Pep440VersionComparator.compare(normalizedVersion, ver);
                 default -> SimpleVersionComparator.compare(normalizedVersion, ver);
             };
             boolean ok = switch (op) {

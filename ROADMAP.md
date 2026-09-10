@@ -229,6 +229,12 @@
 - 선행: 4단계 공통 계약.
 - DoD: -_. 이름 변형, epoch/dev/post, marker로 미설치된 의존성, local 패치본을 올바르게 구분한다. requirements 범위를 배포 버전으로 사용하지 않는다. [Python 버전 명세](https://packaging.python.org/en/latest/specifications/version-specifiers/).
 
+- **2026-09-10 PEP 440 비교:** 자체 `Pep440VersionComparator`를 OSV PyPI ECOSYSTEM 영향 범위·공통 fixed 선택과 GHSA PIP 비교에 연결했다. epoch/zero padding/pre·post·dev/local 순서, alias 정규화, 큰 정수를 처리하고 잘못된 문법은 비교 불능으로 남긴다. [PyPA version scheme](https://packaging.python.org/en/latest/specifications/version-specifiers/)을 기준으로 작성했으며 dependency specifier/환경 marker 해석과는 별개다.
+- **PyPI 회귀/oracle:** 초기 공통 판정 8건은 전부 UNKNOWN으로 실패했다. 로컬 Python 3.14의 pip vendored packaging 26.2로 자체 버전 38개의 교차 비교 1,444개를 생성해 Java 결과와 모두 일치함을 확인했다. 무효 버전 9건과 공통 영향/fixed/GHSA 경로 8건도 검증했다. 기존 PyPI 미지원 검사는 실제 지원에 맞춰 PyPI AFFECTED 및 미지원 NuGet UNKNOWN을 별도로 확인하도록 보완했다. Windows/Java 25에서 `.\gradlew.bat test --tests '*Pep440VersionComparatorTest' --tests '*PyPiAdvisoryComparisonTest' --tests '*Osv*Test' --tests '*GitHubAdvisoryRangeTest'` 1,552건 통과·실패/skip 0. 로그 `build/roadmap-pypi-before.log`, `build/roadmap-pypi-after.log`. 커밋 제목 `fix: share pep440 ordering across advisory paths`.
+- **oracle 권리/잔여:** packaging의 로컬 원문 LICENSE/APACHE/BSD와 [공식 LICENSE](https://github.com/pypa/packaging/blob/main/LICENSE)를 확인했다(2026-09-10). Python 도구는 검증에만 사용했으며 해당 구현 코드를 복제하거나 새 runtime 의존성을 추가하지 않았다. `src/test/resources/version-oracles/README.md`에 도구 버전·재생성 방법·출처를 기록했다. 기대값은 자체 입력의 계산 결과이며 취약점 데이터 재배포가 아니다. 실제 공지 대규모 검증, PEP 503 이름 정규화/설치 환경·marker·specifier·local patch 근거, enumerated version의 정규화는 잔여이며 UI 변경은 없다.
+
+- **PEP 440 도입 전체 검사:** `.\gradlew.bat build verifyProdJar` 성공, 전체 2,633건 중 2,624건 통과·9건 skip·실패/오류 0. 로그 `build/roadmap-pypi-build.log`. 1,444개 oracle 조합이 각각 parameterized test로 집계되므로 테스트 수 증가를 신규 기능 수나 실데이터 coverage 증가로 해석하지 않는다. 기존 외부 환경/저장소/모델/대형 heap 조건 skip은 통과 근거에서 제외한다.
+
 ### 23. Go checksum 기록을 실제 module graph와 분리 — P1 · [코드 확인/지원 범위별 필수]
 
 - 현재·대상: [GoManifestParser.parseGoSum](src/main/java/com/salkcoding/oswl/service/ingest/parser/GoManifestParser.java)은 이름으로 중복 제거해 첫 버전을 선택한다.

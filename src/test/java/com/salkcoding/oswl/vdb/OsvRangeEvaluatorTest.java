@@ -62,7 +62,8 @@ class OsvRangeEvaluatorTest {
         assertThat(OsvRangeEvaluator.evaluate("NPM", "abc123", null, git)).isEqualTo(UNKNOWN);
         assertThat(OsvRangeEvaluator.evaluate("NPM", "abc123", Set.of("abc123"), git)).isEqualTo(AFFECTED);
         var ecosystem = range("ECOSYSTEM", "[{\"introduced\":\"0\"}]");
-        assertThat(OsvRangeEvaluator.evaluate("PYPI", "1.0", Set.of("0.9"), ecosystem)).isEqualTo(UNKNOWN);
+        assertThat(OsvRangeEvaluator.evaluate("NUGET", "1.0", Set.of("0.9"), ecosystem)).isEqualTo(UNKNOWN);
+        assertThat(OsvRangeEvaluator.evaluate("PYPI", "1.0", Set.of("0.9"), ecosystem)).isEqualTo(AFFECTED);
     }
 
     @Test

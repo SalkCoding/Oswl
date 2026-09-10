@@ -38,6 +38,9 @@ public final class OsvRangeEvaluator {
     }
 
     static Comparator<String> comparator(String ecosystem, String type) {
+        if ("PYPI".equalsIgnoreCase(ecosystem) && "ECOSYSTEM".equals(type)) {
+            return Pep440VersionComparator::compare;
+        }
         if ("MAVEN".equalsIgnoreCase(ecosystem) && "ECOSYSTEM".equals(type)) {
             return MavenVersionComparator::compare;
         }
