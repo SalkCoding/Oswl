@@ -114,7 +114,16 @@ public class GitHubAdvisoryClient {
 
     /** One GitHub advisory relevant to a specific package/version. */
     public record GitHubAdvisory(String ghsaId, String cveId, String summary, RiskLevel severity,
-                                  Double cvssScore, String cvss3Vector, String fixVersion) {}
+                                  Double cvssScore, String cvss3Vector, String fixVersion, java.util.Set<String> fixVersionConflictCandidates) {
+        public GitHubAdvisory {
+            fixVersionConflictCandidates = fixVersionConflictCandidates == null ? java.util.Set.of() : java.util.Set.copyOf(fixVersionConflictCandidates);
+            if (!fixVersionConflictCandidates.isEmpty()) fixVersion = null;
+        }
+        public GitHubAdvisory(String ghsaId, String cveId, String summary, RiskLevel severity,
+                Double cvssScore, String cvss3Vector, String fixVersion) {
+            this(ghsaId, cveId, summary, severity, cvssScore, cvss3Vector, fixVersion, java.util.Set.of());
+        }
+    }
 
     /** A failed complete lookup can still contain independently verified advisory nodes. */
     public static final class IncompleteLookupException extends IllegalStateException {
@@ -193,7 +202,7 @@ public class GitHubAdvisoryClient {
             } else {
                 result.put(key, vulns.stream()
                         .map(v -> new GitHubAdvisory(v.osvId(), v.cveId(), v.summary(),
-                                parseSeverity(v.severity()), v.cvssScore(), v.cvss3Vector(), v.fixVersion()))
+                                parseSeverity(v.severity()), v.cvssScore(), v.cvss3Vector(), v.fixVersion(), v.fixVersionConflictCandidates()))
                         .toList());
             }
         }
@@ -233,7 +242,7 @@ public class GitHubAdvisoryClient {
 
     private static GitHubAdvisory withFix(GitHubAdvisory finding, String fixed) {
         return new GitHubAdvisory(finding.ghsaId(), finding.cveId(), finding.summary(), finding.severity(),
-                finding.cvssScore(), finding.cvss3Vector(), fixed);
+                finding.cvssScore(), finding.cvss3Vector(), fixed, finding.fixVersionConflictCandidates());
     }
 
     private static List<GitHubAdvisory> confirmedFixes(String ecosystem, String installed,

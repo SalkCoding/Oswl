@@ -135,7 +135,18 @@ public class AirgappedSnapshotService {
      * NVD matches in the same offline JSON array.
      */
     public record SnapshotVuln(String osvId, String cveId, String summary, String fixVersion, String cweId,
-                                String severity, Double cvssScore, String cvss3Vector, String matchConfidence) {
+                                String severity, Double cvssScore, String cvss3Vector, String matchConfidence,
+                                Set<String> fixVersionConflictCandidates) {
+        public SnapshotVuln {
+            fixVersionConflictCandidates = fixVersionConflictCandidates == null ? Set.of() : Set.copyOf(fixVersionConflictCandidates);
+            if (fixVersionConflictCandidates.stream().anyMatch(v -> v.isBlank() || v.length() > 100))
+                throw new IllegalArgumentException("Invalid conflicting fix candidate");
+            if (!fixVersionConflictCandidates.isEmpty()) fixVersion = null;
+        }
+        public SnapshotVuln(String osvId, String cveId, String summary, String fixVersion, String cweId,
+                String severity, Double cvssScore, String cvss3Vector, String matchConfidence) {
+            this(osvId, cveId, summary, fixVersion, cweId, severity, cvssScore, cvss3Vector, matchConfidence, Set.of());
+        }
         public SnapshotVuln(String osvId, String cveId, String summary, String fixVersion, String cweId) {
             this(osvId, cveId, summary, fixVersion, cweId, null, null, null, null);
         }
@@ -260,7 +271,10 @@ public class AirgappedSnapshotService {
         Map<String, List<SnapshotVuln>> result = new LinkedHashMap<>();
         findPayloads(source, keys).forEach((key, payload) -> {
             try {
-                List<SnapshotVuln> vulns = objectMapper.readValue(payload, new TypeReference<>() {});
+                JsonNode rawVulns = objectMapper.readTree(payload);
+                if (rawVulns == null || !rawVulns.isArray()) throw new IllegalArgumentException("Invalid stored vulnerability list");
+                for (JsonNode raw : rawVulns) readFixConflicts(raw);
+                List<SnapshotVuln> vulns = objectMapper.convertValue(rawVulns, new TypeReference<>() {});
                 if (vulns == null || vulns.stream().anyMatch(v -> v == null
                         || (isBlank(v.osvId()) && isBlank(v.cveId())))) {
                     throw new IllegalArgumentException("Invalid stored vulnerability list");
@@ -652,12 +666,25 @@ public class AirgappedSnapshotService {
                     throw new InvalidRequestException("Snapshot vulnerability requires an advisory identity");
                 vulns.add(new SnapshotVuln(text(v, "osvId"), text(v, "cveId"),
                         text(v, "summary"), text(v, "fixVersion"), text(v, "cweId"),
-                        text(v, "severity"), number(v, "cvssScore"), text(v, "cvss3Vector"), text(v, "matchConfidence")));
+                        text(v, "severity"), number(v, "cvssScore"), text(v, "cvss3Vector"), text(v, "matchConfidence"), readFixConflicts(v)));
             }
             buffer.add(new ParsedLine(key, objectMapper.writeValueAsString(vulns), false));
         } catch (Exception e) {
             throw new InvalidRequestException("Malformed snapshot vulnerability record: " + e.getMessage());
         }
+    }
+
+    private static Set<String> readFixConflicts(JsonNode vuln) {
+        if (!vuln.has("fixVersionConflictCandidates")) return Set.of();
+        JsonNode values = vuln.path("fixVersionConflictCandidates");
+        if (!values.isArray()) throw new IllegalArgumentException("Fix conflict candidates must be an array");
+        Set<String> candidates = new LinkedHashSet<>();
+        for (JsonNode value : values) {
+            if (!value.isTextual() || value.asText().isBlank() || value.asText().length() > 100)
+                throw new IllegalArgumentException("Invalid fix conflict candidate");
+            candidates.add(value.asText());
+        }
+        return candidates;
     }
 
     private void ingestDepsDevLine(String line, SourceIngestBuffer versionBuffer, SourceIngestBuffer advisoryBuffer) {
@@ -1059,7 +1086,7 @@ public class AirgappedSnapshotService {
                         c.getFixVersion(), c.getCweId(),
                         c.getSeverity() != null ? c.getSeverity().name() : null,
                         c.getCvssScore(), c.getCvss3Vector(),
-                        c.getMatchConfidence() != null ? c.getMatchConfidence().name() : null))
+                        c.getMatchConfidence() != null ? c.getMatchConfidence().name() : null, c.getFixVersionConflictCandidates()))
                 .toList();
         ObjectNode line = objectMapper.createObjectNode();
         line.put("ecosystem", lib.getEcosystem());

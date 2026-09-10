@@ -21,6 +21,19 @@ import static org.assertj.core.api.Assertions.*;
 
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:snapshot-budget;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT")
 class SnapshotImportTransactionTest {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"null", "false", "{}", "[null]", "[1]", "[\"\"]"})
+    void malformedFixConflictsRollBackTheImport(String candidates) throws Exception {
+        String record = "{\"ecosystem\":\"npm\",\"name\":\"fixture\",\"version\":\"1.0.0\",\"vulns\":[" +
+                "{\"osvId\":\"GHSA-fixture\",\"fixVersionConflictCandidates\":" + candidates + "}]}";
+        assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of("osv.jsonl", record)))))
+                .isInstanceOf(InvalidRequestException.class);
+        assertThat(service.findEpssScores(List.of("CVE-OLD"))).containsEntry("CVE-OLD", 0.25);
+        String key = AirgappedSnapshotService.componentKey("npm", "fixture", "1.0.0");
+        entries.save(SnapshotEntry.builder().source("osv").entryKey(key).payload(
+                "[{\"osvId\":\"GHSA-fixture\",\"fixVersionConflictCandidates\":" + candidates + "}]").build());
+        assertThat(service.findOsvVulns(List.of(key))).doesNotContainKey(key);
+    }
     @Autowired AirgappedSnapshotService service;
     @Autowired SnapshotEntryRepository entries;
     @Autowired SnapshotMetaRepository metadata;

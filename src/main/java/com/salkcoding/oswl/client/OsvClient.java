@@ -90,7 +90,15 @@ public class OsvClient {
             String cweId,
             com.salkcoding.oswl.domain.enums.RiskLevel severity,
             Double cvssScore,
-            String cvssVector) {
+            String cvssVector, Set<String> fixVersionConflictCandidates) {
+        public OsvVuln {
+            fixVersionConflictCandidates = fixVersionConflictCandidates == null ? Set.of() : Set.copyOf(fixVersionConflictCandidates);
+            if (!fixVersionConflictCandidates.isEmpty()) fixVersion = null;
+        }
+        public OsvVuln(String osvId, String cveId, String summary, String fixVersion, String cweId,
+                com.salkcoding.oswl.domain.enums.RiskLevel severity, Double cvssScore, String cvssVector) {
+            this(osvId, cveId, summary, fixVersion, cweId, severity, cvssScore, cvssVector, Set.of());
+        }
         public OsvVuln(String osvId, String cveId, String summary, String fixVersion, String cweId) {
             this(osvId, cveId, summary, fixVersion, cweId, null, null, null);
         }
@@ -152,7 +160,7 @@ public class OsvClient {
             } else {
                 hits++;
                 results.add(new OsvResult(vulns.stream()
-                        .map(v -> new OsvVuln(v.osvId(), v.cveId(), v.summary(), v.fixVersion(), v.cweId(), risk(v.severity(), v.cvssScore()), v.cvssScore(), v.cvss3Vector()))
+                        .map(v -> new OsvVuln(v.osvId(), v.cveId(), v.summary(), v.fixVersion(), v.cweId(), risk(v.severity(), v.cvssScore()), v.cvssScore(), v.cvss3Vector(), v.fixVersionConflictCandidates()))
                         .toList(), !unresolved.contains(key)));
             }
         }
