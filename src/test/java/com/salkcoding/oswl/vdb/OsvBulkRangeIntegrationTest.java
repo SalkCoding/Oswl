@@ -19,6 +19,29 @@ class OsvBulkRangeIntegrationTest {
     private final OsvBulkSource source = new OsvBulkSource(new ObjectMapper());
 
     @Test
+    void withdrawnEntryDoesNotProduceAnActiveFinding() {
+        Map<String, List<SnapshotVuln>> findings = new LinkedHashMap<>();
+        Set<String> unknown = new LinkedHashSet<>();
+        process("""
+                {"id":"OSV-withdrawn","withdrawn":"2026-01-01T00:00:00Z","affected":[{
+                "package":{"ecosystem":"npm","name":"example"},"versions":["1.0.0"]}]}
+                """, Set.of("1.0.0"), findings, unknown);
+        assertThat(findings).isEmpty();
+        assertThat(unknown).isEmpty();
+    }
+
+    @Test
+    void malformedWithdrawalCannotProduceAConfirmedCleanResult() {
+        Map<String, List<SnapshotVuln>> findings = new LinkedHashMap<>();
+        Set<String> unknown = new LinkedHashSet<>();
+        process("""
+                {"id":"OSV-invalid","withdrawn":true,"affected":[{
+                "package":{"ecosystem":"npm","name":"example"},"versions":["1.0.0"]}]}
+                """, Set.of("1.0.0"), findings, unknown);
+        assertThat(unknown).containsExactly(key("1.0.0"));
+    }
+
+    @Test
     void unionMatchesAreActuallyWrittenToTheSnapshotResults() {
         String advisory = """
                 {"id":"OSV-fixture","affected":[{"package":{"ecosystem":"npm","name":"example"},

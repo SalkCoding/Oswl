@@ -2,6 +2,7 @@ package com.salkcoding.oswl.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.vdb.OsvFixVersionSelector;
+import com.salkcoding.oswl.vdb.OsvWithdrawal;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln;
 import com.salkcoding.oswl.service.metrics.OswlMetrics;
@@ -226,6 +227,14 @@ public class OsvClient {
                 for (Object vulnObj : vulnList) {
                     if (vulnObj instanceof Map<?, ?> vuln && vuln.get("id") instanceof String id && !id.isBlank()) {
                         Map<String, Object> detail = loadDetail(id, details);
+                        if (detail != null) {
+                            var withdrawal = OsvWithdrawal.from(JSON.valueToTree(detail));
+                            if (withdrawal == OsvWithdrawal.WITHDRAWN) continue;
+                            if (withdrawal == OsvWithdrawal.UNKNOWN) {
+                                resolved = false;
+                                continue;
+                            }
+                        }
                         vulns.add(parseVuln(detail != null ? detail : (Map<String, Object>) vuln, query));
                         if (detail == null) resolved = false;
                     } else resolved = false;

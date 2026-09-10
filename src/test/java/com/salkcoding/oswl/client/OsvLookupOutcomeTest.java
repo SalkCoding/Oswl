@@ -15,6 +15,39 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 class OsvLookupOutcomeTest {
+    @Test void withdrawingOneAdvisoryDoesNotWithdrawAnActiveAlias() {
+        var builder = RestClient.builder().baseUrl("https://api.osv.dev");
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new OsvClient();
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        server.expect(requestTo("https://api.osv.dev/v1/querybatch")).andRespond(withSuccess(
+                "{\"results\":[{\"vulns\":[{\"id\":\"OSV-withdrawn\"},{\"id\":\"OSV-active\"}]}]}", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://api.osv.dev/v1/vulns/OSV-withdrawn")).andRespond(withSuccess(
+                "{\"id\":\"OSV-withdrawn\",\"withdrawn\":\"2026-01-01T00:00:00Z\",\"aliases\":[\"CVE-2026-0001\"]}", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://api.osv.dev/v1/vulns/OSV-active")).andRespond(withSuccess(
+                "{\"id\":\"OSV-active\",\"aliases\":[\"CVE-2026-0001\"]}", MediaType.APPLICATION_JSON));
+        var result = client.queryBatch(List.of(new OsvClient.OsvQuery("npm", "example", "1.0.0"))).getFirst();
+        assertThat(result.resolved()).isTrue();
+        assertThat(result.vulns()).hasSize(1);
+        assertThat(result.vulns().getFirst().osvId()).isEqualTo("OSV-active");
+        server.verify();
+    }
+    @Test void withdrawalFromHydratedDetailControlsActiveFindings() {
+        for (String withdrawal : List.of("\"2026-01-01T00:00:00Z\"", "true", "null", "\"invalid\"")) {
+            var builder = RestClient.builder().baseUrl("https://api.osv.dev");
+            var server = MockRestServiceServer.bindTo(builder).build();
+            var client = new OsvClient();
+            ReflectionTestUtils.setField(client, "restClient", builder.build());
+            server.expect(requestTo("https://api.osv.dev/v1/querybatch")).andRespond(withSuccess(
+                    "{\"results\":[{\"vulns\":[{\"id\":\"OSV-withdrawn\"}]}]}", MediaType.APPLICATION_JSON));
+            server.expect(requestTo("https://api.osv.dev/v1/vulns/OSV-withdrawn")).andRespond(withSuccess(
+                    "{\"id\":\"OSV-withdrawn\",\"withdrawn\":" + withdrawal + "}", MediaType.APPLICATION_JSON));
+            var result = client.queryBatch(List.of(new OsvClient.OsvQuery("npm", "example", "1.0.0"))).getFirst();
+            assertThat(result.vulns()).as(withdrawal).isEmpty();
+            assertThat(result.resolved()).as(withdrawal).isEqualTo(withdrawal.startsWith("\"2026"));
+            server.verify();
+        }
+    }
     @Test void missingOfflineDataDoesNotBecomeASuccessfulEmptyLookup() {
         var snapshot = mock(AirgappedSnapshotService.class);
         String key = AirgappedSnapshotService.componentKey("PyPI", "present", "1");

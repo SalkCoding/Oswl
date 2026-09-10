@@ -18,7 +18,9 @@ public final class OsvFixVersionSelector {
     public static Selection select(JsonNode advisory, String ecosystem, String name, String installed) {
         if (ecosystem == null || name == null || installed == null || installed.isBlank()) return unavailable("MISSING_IDENTITY");
         if (advisory == null || !advisory.isObject() || !advisory.path("affected").isArray()) return unavailable("MALFORMED_ADVISORY");
-        if (advisory.hasNonNull("withdrawn")) return unavailable("WITHDRAWN");
+        OsvWithdrawal withdrawal = OsvWithdrawal.from(advisory);
+        if (withdrawal == OsvWithdrawal.WITHDRAWN) return unavailable("WITHDRAWN");
+        if (withdrawal == OsvWithdrawal.UNKNOWN) return unavailable("MALFORMED_WITHDRAWAL");
         List<JsonNode> entries = new ArrayList<>();
         Set<String> candidates = new LinkedHashSet<>();
         Comparator<String> ordering = null;

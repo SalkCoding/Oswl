@@ -175,6 +175,15 @@ final class OsvBulkSource {
         } catch (Exception e) {
             return; // malformed entry — skip, matches the ingest-side tolerance elsewhere in this codebase
         }
+        OsvWithdrawal withdrawal = OsvWithdrawal.from(vuln);
+        if (withdrawal == OsvWithdrawal.WITHDRAWN) return;
+        if (withdrawal == OsvWithdrawal.UNKNOWN) {
+            namesWanted.forEach((name, versions) -> versions.forEach(version -> {
+                String key = AirgappedSnapshotService.componentKey(ecosystem, name, version);
+                if (key != null) unresolvedKeys.add(key);
+            }));
+            return;
+        }
         JsonNode affectedList = vuln.path("affected");
         if (!affectedList.isArray()) return;
         boolean anyMatch = false;
