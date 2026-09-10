@@ -1,3 +1,13 @@
+## Apache Maven Artifact
+
+org.apache.maven:maven-artifact:3.9.15 — Apache License, Version 2.0.
+Copyright 2001-2026 The Apache Software Foundation.
+Used unmodified for ComparableVersion; Maven transitive dependencies are excluded.
+Original LICENSE and NOTICE from the distributed artifact are included at:
+META-INF/licenses/maven-artifact-LICENSE.txt
+META-INF/licenses/maven-artifact-NOTICE.txt
+Project: https://maven.apache.org/ref/3.9.15/maven-artifact/
+
 ## Vulnerability Data and Bundled Reference Resources
 
 Reviewed 2026-09-07. These notices identify sources; they are not a blanket

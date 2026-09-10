@@ -216,6 +216,12 @@
 - 선행: 4단계 공통 계약. BOM/parent POM은 5번의 승인 mirror만 사용.
 - DoD: 선언과 선택 버전이 다른 사례, BOM·profile·shading·사내 패치본에서 누락/오탐을 구분한다. 수정안이 실제 의존 경로와 연결된다. [Maven 버전 순서](https://maven.apache.org/pom.html#version-order-specification).
 
+- **2026-09-10 Maven native 비교:** `org.apache.maven:maven-artifact:3.9.15`의 `ComparableVersion`을 concrete version wrapper로 연결했다. Maven ECOSYSTEM OSV 범위/공통 fixed 선택과 GHSA Maven 범위 모두 같은 비교기를 사용한다. alpha/beta/RC/SNAPSHOT/정식/Final/ga/sp 순서와 정식 alias를 반영한다. Maven build/registry resolution은 실행하지 않는다. 빈/과도한 길이/공백/범위·property 입력을 concrete 비교로 오인하지 않도록 제한한다. 선언 range 전체 문법과 실제 resolver 결과 지원은 별도 잔여다.
+- **비교 검증:** Maven prerelease와 정식 alias의 8건은 수정 전 OSV에서 전부 UNKNOWN으로 실패했다. 수정 후 OSV 영향 판정→fixed 선택 및 GHSA 비교 결과가 일치한다. Windows/Java 25에서 `.\gradlew.bat test --tests '*MavenAdvisoryComparisonTest' --tests '*Osv*Test' --tests '*GitHubAdvisoryRangeTest'` 99건 통과·실패/skip 0. 로그 `build/roadmap-maven-before.log`, `build/roadmap-maven-after.log`. 회귀 입력은 자체 합성이며 실제 공지 대규모 oracle 검증을 뜻하지 않는다. 커밋 제목 `fix: use native maven ordering for advisory versions`.
+- **도입 권리/배포:** [공식 3.9.15 dependency/license 문서](https://maven.apache.org/ref/3.9.15/maven-artifact/dependencies.html)와 실제 Gradle 수신 JAR의 Apache-2.0 LICENSE 및 ASF NOTICE를 확인했다(2026-09-10). JAR은 수정 없이 포함하며 원문을 `META-INF/licenses/maven-artifact-LICENSE.txt`와 `maven-artifact-NOTICE.txt`에도 동봉하고 두 THIRD_PARTY_LICENSES 고지 및 OSS version manifest를 갱신했다. ComparableVersion 소스의 imports가 JDK만 사용함을 확인하고 transitive=false로 Maven 빌드용 의존성은 추가하지 않았다. 이 라이브러리 허가는 취약점 DB/아티팩트 내용의 재배포 허가와 별개다. 21번의 BOM/profile/shading·사내 패치본·의존 경로 증거는 미완료이며 UI 변경은 없다.
+
+- **Maven 도입 빌드/배포 검사:** `.\gradlew.bat build verifyProdJar` 성공, 전체 1,172건 중 1,163건 통과·9건 skip·실패/오류 0. 로그 `build/roadmap-maven-build.log`. 생성 운영 JAR에서 `BOOT-INF/lib/maven-artifact-3.9.15.jar`와 원문 LICENSE/NOTICE 자산을 확인했고 생성 OSS manifest의 mavenArtifact 값은 3.9.15다. 기존 외부 환경/저장소/모델/대형 heap 의존 skip 9건은 통과로 계산하지 않았다.
+
 ### 22. PyPI 이름·PEP 440·설치 환경 의미 — P1 · [지원 범위별 필수]
 
 - 현재·대상: [PythonManifestParser](src/main/java/com/salkcoding/oswl/service/ingest/parser/PythonManifestParser.java)의 선언·lock·설치 메타데이터 연결.

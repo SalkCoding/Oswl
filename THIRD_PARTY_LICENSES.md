@@ -2,6 +2,17 @@
 
 OsWL uses the following third-party libraries. This document lists each library, its license, and the full license text or a reference to where it can be found.
 
+## Apache Maven Artifact
+
+OsWL uses `org.apache.maven:maven-artifact:3.9.15` for concrete Maven version ordering (`ComparableVersion`).
+The unmodified library is distributed under Apache-2.0. Copyright 2001–2026 The Apache Software Foundation.
+The comparator uses JDK classes only; this dependency does not bring Maven's transitive build or resolution runtime into OsWL.
+The exact JAR's [LICENSE](src/main/resources/META-INF/licenses/maven-artifact-LICENSE.txt) and
+[NOTICE](src/main/resources/META-INF/licenses/maven-artifact-NOTICE.txt) are included in application resources,
+in addition to the originals in the dependency JAR. Preserve them in downstream redistributions.
+[Upstream coordinates and license](https://maven.apache.org/ref/3.9.15/maven-artifact/dependencies.html).
+This software license does not grant rights to third-party vulnerability records or artifact contents.
+
 ---
 
 ## Table of Contents

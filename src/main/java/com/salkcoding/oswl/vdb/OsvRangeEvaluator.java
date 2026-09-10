@@ -38,6 +38,9 @@ public final class OsvRangeEvaluator {
     }
 
     static Comparator<String> comparator(String ecosystem, String type) {
+        if ("MAVEN".equalsIgnoreCase(ecosystem) && "ECOSYSTEM".equals(type)) {
+            return MavenVersionComparator::compare;
+        }
         if ("SEMVER".equals(type) || ("ECOSYSTEM".equals(type) && "NPM".equalsIgnoreCase(ecosystem))) {
             return SemVerVersionComparator::compare;
         }

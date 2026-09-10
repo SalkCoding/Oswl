@@ -55,6 +55,8 @@ repositories {
 }
 
 dependencies {
+    // ComparableVersion is self-contained; no Maven build/resolution runtime is required.
+    implementation('org.apache.maven:maven-artifact:3.9.15') { transitive = false }
     implementation 'com.google.re2j:re2j:1.8'
     implementation('nl.martijndwars:web-push:5.1.2') {
         exclude group: 'org.bouncycastle', module: 'bcprov-jdk15on'
@@ -535,6 +537,7 @@ ext.trackedOssCoordinates = [
 	springSessionJdbc      : 'org.springframework.session:spring-session-jdbc',
 	shedlock               : 'net.javacrumbs.shedlock:shedlock-spring',
 	re2j                   : 'com.google.re2j:re2j',
+	mavenArtifact          : 'org.apache.maven:maven-artifact',
 	webPush                : 'nl.martijndwars:web-push',
 	bouncyCastle           : 'org.bouncycastle:bcprov-jdk18on',
 	jose4j                 : 'org.bitbucket.b_c:jose4j',

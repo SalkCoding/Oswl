@@ -7,6 +7,7 @@ import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
 import com.salkcoding.oswl.service.metrics.OswlMetrics;
 import com.salkcoding.oswl.vdb.SimpleVersionComparator;
 import com.salkcoding.oswl.vdb.SemVerVersionComparator;
+import com.salkcoding.oswl.vdb.MavenVersionComparator;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
@@ -352,9 +353,11 @@ public class GitHubAdvisoryClient {
             else { op = "="; ver = constraint; }
             if (ver.isBlank() || ver.chars().anyMatch(c -> Character.isWhitespace(c) || "|<>=~^*".indexOf(c) >= 0))
                 throw new IllegalArgumentException("Unsupported advisory range syntax");
-            int cmp = "NPM".equals(ecosystem)
-                    ? SemVerVersionComparator.compare(normalizedVersion, ver)
-                    : SimpleVersionComparator.compare(normalizedVersion, ver);
+            int cmp = switch (ecosystem) {
+                case "NPM" -> SemVerVersionComparator.compare(normalizedVersion, ver);
+                case "MAVEN" -> MavenVersionComparator.compare(normalizedVersion, ver);
+                default -> SimpleVersionComparator.compare(normalizedVersion, ver);
+            };
             boolean ok = switch (op) {
                 case ">=" -> cmp >= 0;
                 case "<=" -> cmp <= 0;
