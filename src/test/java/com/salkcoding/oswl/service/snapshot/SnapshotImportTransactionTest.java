@@ -21,6 +21,28 @@ import static org.assertj.core.api.Assertions.*;
 
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:snapshot-budget;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT")
 class SnapshotImportTransactionTest {
+    @Test void exportedManifestCarriesDataAttributionAndTransformationNotice() throws Exception {
+        byte[] exported = service.exportBundle();
+        com.fasterxml.jackson.databind.JsonNode meta = null;
+        try (var zip = new ZipInputStream(new ByteArrayInputStream(exported), StandardCharsets.UTF_8)) {
+            ZipEntry item;
+            while ((item = zip.getNextEntry()) != null) {
+                if (item.getName().equals("meta.json")) {
+                    meta = new com.fasterxml.jackson.databind.ObjectMapper().readTree(zip.readAllBytes());
+                }
+            }
+        }
+        assertThat(meta).isNotNull();
+        var notices = meta.path("dataNotices");
+        assertThat(notices.path("githubAdvisoryDatabase").path("license").asText()).isEqualTo("CC-BY-4.0");
+        assertThat(notices.path("githubAdvisoryDatabase").path("licenseUrl").asText())
+                .isEqualTo("https://creativecommons.org/licenses/by/4.0/");
+        assertThat(notices.path("githubAdvisoryDatabase").path("sourceUrl").asText())
+                .isEqualTo("https://github.com/github/advisory-database");
+        assertThat(notices.path("changes").asText()).contains("normalized", "not original advisory documents");
+        assertThat(notices.path("scope").asText()).contains("not a redistribution clearance");
+        service.importBundle(new ByteArrayInputStream(exported));
+    }
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(ints = {0, 8, 999})
     void officialNugetFindingSurvivesDatabaseImportWithoutRefreshingStaleFixes(int age) throws Exception {

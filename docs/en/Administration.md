@@ -253,6 +253,8 @@ For air-gapped deployments (`OSWL_AIRGAPPED_ENABLED=true`), vulnerability and th
 
 Bundles are v2 format: each JSONL file is checksummed in `meta.json`, and per-source provenance (`bundleId`, `builtAt`, `asOf`, `origin`) is stored. A checksum mismatch is rejected before any data is written.
 
+Scan exports also include `meta.json.dataNotices`: GitHub Advisory Database attribution and license links, normalization details, and the limits of these notices. This does not establish redistribution rights for the entire bundle or preserve all supplied record-level credits. Source-specific permissions and notice retention still need verification before redistribution; a GHSA alias alone does not identify the original source or license.
+
 | Action | Endpoint |
 |---|---|
 | Bundle status | `GET /api/admin/snapshot` |

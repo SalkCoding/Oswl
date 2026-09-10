@@ -864,6 +864,8 @@
 
 ## 부록 A — 데이터 권한 조사 근거와 미확인 범위
 
+- **2026-09-11 스캔 내보내기 고지 연결:** GitHub Advisory Database의 [공식 LICENSE](https://github.com/github/advisory-database/blob/main/LICENSE.md)와 [CC-BY 4.0 원문 §2~5](https://creativecommons.org/licenses/by/4.0/legalcode.en)를 다시 확인했다. 복제·가공·공유 허용에는 공급된 attribution·라이선스/비보증 고지·가능한 원문 링크·변경 표시 보존 등의 조건이 따른다. 기존 스캔 ZIP에 관련 고지가 없는 것을 새 검사 실패로 확인하고 `meta.json.dataNotices`에 DB/기여자 출처, 라이선스 URL, 정규화 및 다중 소스 결합 사실, 적용 한계를 넣었다. 이는 최소한의 고지 전달 개선이며 레코드별 creator/원문 URI/기존 변경 고지의 수집·저장·재내보내기나 전체 데이터 팩의 권리 확인 완료가 아니다. GHSA alias를 라이선스 판정에 사용하지 않는다. 실제 export ZIP 확인 및 H2 재반입을 포함한 Snapshot/CocoaPods 검사 121건 중 120건 통과·기존 대용량 skip 1건·실패/오류 0. 로그 `build/roadmap-snapshot-data-notice-before.log`, `build/roadmap-snapshot-data-notice-after.log`. 커밋 제목 `feat: include data notices in snapshot manifests`. 3개 언어 관리 문서를 갱신했고 신규 외부 데이터/라이브러리·UI 변경은 없다. 전체 build는 이번에 재실행하지 않았다. 원문 데이터 확장 저장과 고객 번들 배포를 일괄 승인하지 않으며 기존 공급자별 미확인 범위를 유지한다.
+
 **2026-09-07 조사 결과를 보존한 참고 근거**다. 실행 상태는 1~2번에서 관리한다. 아래 '확인/정정'은 이전 조사·고지 보완의 기록이며 이번 리팩토링에서 새 법률 검토나 데이터 도입을 완료한 뜻이 아니다. 채택 버전·반입 시점의 조건은 구현 착수 시 다시 확인한다.
 
 아래는 공식 자료에서 확인한 **기술·배포 설계용 검토 결과**다. 상용 온프레미스 제공, 고객에게 DB 전달, 보고서 공유, 공개 SaaS 표시, 사내 미러는 서로 다른 이용 형태다. **온프레미스가 항상 망분리인 것도 아니며, 사내 사용 허용이 고객 재배포 허용과 같은 것도 아니다.** 라이선스, 서비스 약관/API 접근 조건, 저작권·데이터베이스권, 공급자/개별 record 조건을 나누어 기록해야 한다. 공개 조회 가능성만으로 권한을 추정하지 않는다.
