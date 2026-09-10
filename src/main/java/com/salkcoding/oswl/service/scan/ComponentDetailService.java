@@ -78,6 +78,8 @@ public class ComponentDetailService {
     private final KevCatalogService                kevCatalogService;
     private final EpssClient                       epssClient;
     private final ProjectAccessService             projectAccessService;
+    private final com.salkcoding.oswl.service.vulnerability.RemediationTargetVerifier remediationTargetVerifier;
+    private final org.springframework.context.MessageSource messageSource;
 
     /** deferral_reason column allows at most 50 characters (see ScanComponent). */
     private static final int DEFERRAL_REASON_MAX_LENGTH = 50;
@@ -566,6 +568,15 @@ public class ComponentDetailService {
             throw new InvalidRequestException("Target branch is required.");
         }
         String base = req.getTargetBranch().strip();
+        try {
+            remediationTargetVerifier.requireVerifiedTarget(lib, newVer);
+        } catch (com.salkcoding.oswl.service.vulnerability.RemediationTargetVerifier.UnverifiedTargetException failure) {
+            log.info("[Remediation] PR target withheld for library={} reason={}", lib.getId(), failure.getMessage());
+            auditLogService.log("COMPONENT.CREATE_PR_WITHHELD", "COMPONENT", String.valueOf(componentId), libName,
+                    "targetVersion=" + newVer + " reason=" + failure.getMessage());
+            throw new InvalidRequestException(messageSource.getMessage("componentDetail.patch.targetUnverified", null,
+                    org.springframework.context.i18n.LocaleContextHolder.getLocale()));
+        }
         String prTitle = "chore: bump " + libName + " to " + newVer + " [OsWL]";
         String body    = req.getPrDescription() != null && !req.getPrDescription().isBlank()
                 ? req.getPrDescription()

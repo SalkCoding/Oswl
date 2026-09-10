@@ -20,7 +20,7 @@ const _patchI18n = {
     subtitle:        /*[[#{componentDetail.patch.subtitle}]]*/ 'Create Pull Request',
     description:     /*[[#{componentDetail.patch.description}]]*/ 'Enter the base branch for the pull request.',
     labelUpgrading:  /*[[#{componentDetail.patch.label.upgrading}]]*/ 'Upgrading',
-    labelWillResolve:/*[[#{componentDetail.patch.label.willResolve}]]*/ 'Will resolve',
+    labelCurrentFindings:/*[[#{componentDetail.patch.label.currentFindings}]]*/ 'Current findings',
     labelBranch:     /*[[#{componentDetail.patch.label.targetBranch}]]*/ 'Target Branch',
     hintBranch:      /*[[#{componentDetail.patch.hint.targetBranch}]]*/ 'Pre-filled from scan version.',
     placeholderBranch: /*[[#{componentDetail.patch.placeholder.targetBranch}]]*/ 'e.g. main, master',
@@ -203,7 +203,7 @@ function resolvePatchError(raw) {
 
             <!-- CVE + documented fix version -->
             <div th:if="${hasVulnerabilities and securityFixVersion != null}" class="flex flex-wrap gap-[12px] items-center">
-                <p class="font-normal text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]" th:text="#{componentDetail.patch.label.willResolve}">Will resolve</p>
+                <p class="font-normal text-[13px] text-[var(--grayscale-100)] tracking-[-0.13px]" th:text="#{componentDetail.patch.label.currentFindings}">Current findings</p>
                 <span class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex gap-[8px] items-center px-[12px] py-[5px] rounded-[40px]">
                     <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></span>
                     <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="|${securityCritical}${#messages.msg('componentDetail.patch.label.criticalSuffix')}|">8 Critical</span>

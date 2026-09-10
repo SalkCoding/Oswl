@@ -44,6 +44,7 @@ class ComponentDetailServiceTest {
 
     @Mock ProjectRepository           projectRepository;
     @Mock ScanComponentRepository     scanComponentRepository;
+    @Mock com.salkcoding.oswl.repository.scan.ScanResultRepository scanResultRepository;
     @Mock DependencyPathRepository    dependencyPathRepository;
     @Mock AuditLogService             auditLogService;
     @Mock GitHubService               gitHubService;
@@ -52,9 +53,83 @@ class ComponentDetailServiceTest {
     @Mock UserVcsConnectionRepository vcsConnectionRepository;
     @Mock EncryptionService           encryptionService;
     @Mock ProjectAccessService        projectAccessService;
+    @Mock com.salkcoding.oswl.service.vulnerability.RemediationTargetVerifier remediationTargetVerifier;
+    @Mock org.springframework.context.MessageSource messageSource;
 
     @InjectMocks
     ComponentDetailService componentDetailService;
+
+    @Test
+    void batchSkipsRejectedTargetsAndCreatesOnlyTheVerifiedItem() {
+        var rejected = Library.builder().id(10L).name("rejected").version("1.0.0").latestVersion("2.0.0").isLatestVersion(false).build();
+        var accepted = Library.builder().id(11L).name("accepted").version("1.0.0").latestVersion("3.0.0").isLatestVersion(false).build();
+        var project = Project.builder().id(1L).name("fixture").vcsProvider(VcsProvider.GITHUB).githubRepo("owner/repo").build();
+        var scan = ScanResult.builder().id(30L).project(project).status(ScanStatus.COMPLETED).build();
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(scanResultRepository.findRecentCompleted(1L, 1)).thenReturn(List.of(scan));
+        when(scanComponentRepository.findByScanResultId(30L)).thenReturn(List.of(
+                ScanComponent.builder().id(20L).library(rejected).build(), ScanComponent.builder().id(21L).library(accepted).build()));
+        doThrow(new com.salkcoding.oswl.service.vulnerability.RemediationTargetVerifier.UnverifiedTargetException("TARGET_HAS_OSV_FINDINGS"))
+                .when(remediationTargetVerifier).requireVerifiedTarget(rejected, "2.0.0");
+        when(messageSource.getMessage(eq("componentDetail.patch.targetUnverified"), isNull(), any(java.util.Locale.class))).thenReturn("Unverified target");
+        when(gitHubService.createVersionBumpPr(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Map.of("prUrl", "https://github.com/owner/repo/pull/1", "prNumber", 1));
+        var result = componentDetailService.createBatchPullRequests(1L, "main", 1L, "fixture-token");
+        assertThat(result).containsEntry("created", 1).containsEntry("failed", 1);
+        verify(remediationTargetVerifier).requireVerifiedTarget(accepted, "3.0.0");
+        verify(gitHubService).createVersionBumpPr(eq("fixture-token"), eq("owner"), eq("repo"), eq("main"),
+                eq("accepted"), eq("1.0.0"), eq("3.0.0"), any(), any(), any(), isNull());
+        verifyNoMoreInteractions(gitHubService);
+        verifyNoInteractions(gitLabService, bitbucketService);
+    }
+
+    @Test
+    void verifiedTargetReachesVcsWithExactlyTheCheckedVersion() {
+        var osv = mock(com.salkcoding.oswl.client.OsvClient.class);
+        var deps = mock(com.salkcoding.oswl.client.DepsDevClient.class);
+        var github = mock(com.salkcoding.oswl.client.GitHubAdvisoryClient.class);
+        var verifier = new com.salkcoding.oswl.service.vulnerability.RemediationTargetVerifier(osv, deps, github);
+        org.springframework.test.util.ReflectionTestUtils.setField(componentDetailService, "remediationTargetVerifier", verifier);
+        var library = Library.builder().id(10L).name("example").version("1.0.0").ecosystem("NPM")
+                .latestVersion("2.0.0").isLatestVersion(false).build();
+        var component = ScanComponent.builder().id(20L).library(library).build();
+        var project = Project.builder().id(1L).name("fixture").vcsProvider(VcsProvider.GITHUB).githubRepo("owner/repo").build();
+        when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L)).thenReturn(Optional.of(component));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(osv.queryBatch(any())).thenReturn(List.of(new com.salkcoding.oswl.client.OsvClient.OsvResult(List.of()),
+                new com.salkcoding.oswl.client.OsvClient.OsvResult(List.of())));
+        when(deps.getVersionsBatch(any())).thenReturn(List.of(new com.salkcoding.oswl.client.DepsDevClient.VersionInfo(
+                List.of(), List.of(), false, null, "99.0.0", true, null)));
+        when(gitHubService.createVersionBumpPr(any(), any(), any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                .thenReturn(Map.of("prUrl", "https://github.com/owner/repo/pull/1", "prNumber", 1));
+        componentDetailService.createPullRequest(1L, 20L, buildCreatePrRequest("main", null, null), 1L, "fixture-token");
+        var order = inOrder(osv, deps, gitHubService);
+        order.verify(osv).queryBatch(List.of(new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "example", "1.0.0"),
+                new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "example", "2.0.0")));
+        order.verify(deps).getVersionsBatch(List.of(new com.salkcoding.oswl.client.DepsDevClient.ComponentKey("NPM", "example", "2.0.0")));
+        order.verify(gitHubService).createVersionBumpPr(eq("fixture-token"), eq("owner"), eq("repo"), eq("main"),
+                eq("example"), eq("1.0.0"), eq("2.0.0"), any(), any(), any(), isNull());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = VcsProvider.class, names = {"GITHUB", "GITLAB", "BITBUCKET"})
+    void unverifiedTargetsAreRejectedBeforeEveryVcsMutation(VcsProvider provider) {
+        var library = Library.builder().id(10L).name("example").version("1.0.0").ecosystem("NPM")
+                .cves(List.of(Cve.builder().fixVersion("2.0.0").build())).build();
+        var component = ScanComponent.builder().id(20L).library(library).build();
+        var project = Project.builder().id(1L).name("fixture").vcsProvider(provider).githubRepo("owner/repo").build();
+        when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L)).thenReturn(Optional.of(component));
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        doThrow(new com.salkcoding.oswl.service.vulnerability.RemediationTargetVerifier.UnverifiedTargetException("TARGET_HAS_OSV_FINDINGS"))
+                .when(remediationTargetVerifier).requireVerifiedTarget(library, "2.0.0");
+        when(messageSource.getMessage(eq("componentDetail.patch.targetUnverified"), isNull(), any(java.util.Locale.class)))
+                .thenReturn("The proposed version could not be verified.");
+        assertThatThrownBy(() -> componentDetailService.createPullRequest(1L, 20L, buildCreatePrRequest("main", null, null), 1L, "fixture-token"))
+                .isInstanceOf(com.salkcoding.oswl.exception.InvalidRequestException.class).hasMessageContaining("could not be verified");
+        verifyNoInteractions(gitHubService, gitLabService, bitbucketService, vcsConnectionRepository, encryptionService);
+        verify(auditLogService).log("COMPONENT.CREATE_PR_WITHHELD", "COMPONENT", "20", "example",
+                "targetVersion=2.0.0 reason=TARGET_HAS_OSV_FINDINGS");
+    }
 
     // ── populateModel ────────────────────────────────────────────────────
 

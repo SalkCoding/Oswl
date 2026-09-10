@@ -89,7 +89,7 @@ public class ComponentDetailController implements ComponentDetailControllerSpec 
             Map<String, Object> result = componentDetailService.createPullRequest(
                     projectId, componentId, req, userId, githubToken);
             return ResponseEntity.ok(result);
-        } catch (IllegalStateException | IllegalArgumentException e) {
+        } catch (IllegalStateException | IllegalArgumentException | com.salkcoding.oswl.exception.InvalidRequestException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             return ResponseEntity.status(502).body(Map.of("error", "VCS error: " + e.getMessage()));
