@@ -113,6 +113,9 @@
 
 ### 11. 범용 버전 비교기와 GHSA 비교 실패 처리 교체 — P0 · [코드 확인/진단]
 
+- **2026-09-11 NuGet 실제 테스트 DB 왕복:** 고정한 Microsoft/GHSA 공지를 실제 bulk 변환기로 처리하고 SHA-256/행 수/기준일 manifest가 포함된 ZIP을 snapshot service로 가져와 H2 DB에 저장한 뒤 실제 오프라인 OSV client로 조회했다. 최신·8일 경과·기준일 없음의 3조건에서 동일 CVE/공지 ID를 보존하고 최신 조건에서만 8.0.4를 안내했다. 오래된 조건에서도 저장 원본의 수정 후보는 유지되며, 수집하지 않은 8.0.2 key는 조회 완료로 분류하지 않는다. 기준일은 테스트 조건으로 생성했으며 원본 공지가 실제로 새로 갱신됐다는 주장이 아니다.
+- **검증·범위:** Windows/Java 25의 `test --tests '*SnapshotImportTransactionTest' --tests '*OsvFixVersionParityTest' --tests '*NuGetVersionComparatorTest'` 1,038건 통과·실패/오류/skip 0. 로그 `build/roadmap-nuget-database.log`. 커밋 제목 `test: verify nuget snapshot freshness through database import`. 기존 출처/CC-BY-4.0 고지가 있는 fixture만 재사용했고 변환 ZIP은 테스트 중 메모리에서만 생성했다. 제품 코드·UI·새 외부 자료 도입은 없다. 전체 build는 재실행하지 않았으며 실제 PostgreSQL와 고객 배포 데이터 팩의 전체 provenance 검증은 여전히 잔여다.
+
 - **2026-09-11 NuGet 실제 OSV client 검증:** 공개 OSV querybatch/detail API와 애플리케이션 `OsvClient`를 실제 실행했다. System.Text.Json 7.0.0에는 GHSA-hh2w-p6rv-4g7w→8.0.4, 8.0.3에는 해당 공지 외에 GHSA-8g4q-xg66-9fp4→8.0.5도 남았고, 8.0.4에는 후자만 남았다. 따라서 한 공지의 fixed를 패키지 전체 안전 버전으로 바꾸지 않는다. 3개 조회 모두 client의 resolved=true이며 목표 공지 ID/CVE/수정 버전 경계를 확인했다. 원천 querybatch/detail의 microsecond/nanosecond modified 표현 차이도 기존 revision 검사를 통과했다.
 - **재현·범위:** Windows/Java 25에서 `OSWL_VERIFY_OSV_NUGET=true`로 `test --tests '*OsvNugetLiveVerificationTest'` 1건 통과·실패/오류/skip 0. 로그 `build/roadmap-nuget-live.log`; 기본 실행은 skip인 선택 네트워크 테스트다. 원문 응답은 저장소에 추가하지 않았고 앞서 확인한 GHSA 출처 고지 범위를 유지한다. 커밋 제목 `test: verify nuget advisory boundaries through live osv`. 전체 build/UI·실제 DB 왕복·다른 공급자 검증은 이번 실행의 범위가 아니다.
 

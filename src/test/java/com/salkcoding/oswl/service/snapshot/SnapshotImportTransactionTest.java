@@ -22,6 +22,50 @@ import static org.assertj.core.api.Assertions.*;
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:snapshot-budget;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT")
 class SnapshotImportTransactionTest {
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 8, 999})
+    void officialNugetFindingSurvivesDatabaseImportWithoutRefreshingStaleFixes(int age) throws Exception {
+        byte[] raw;
+        try (var input = getClass().getResourceAsStream("/advisories/GHSA-hh2w-p6rv-4g7w.json")) {
+            assertThat(input).isNotNull();
+            raw = input.readAllBytes();
+        }
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        Map<String, List<AirgappedSnapshotService.SnapshotVuln>> found = new LinkedHashMap<>();
+        Set<String> unresolved = new LinkedHashSet<>();
+        var bulkConstructor = Class.forName("com.salkcoding.oswl.vdb.OsvBulkSource")
+                .getDeclaredConstructor(com.fasterxml.jackson.databind.ObjectMapper.class);
+        bulkConstructor.setAccessible(true);
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(bulkConstructor.newInstance(json),
+                "processVulnEntry", raw, "NUGET", Map.of("System.Text.Json", Set.of("8.0.3")), found, unresolved);
+        String key = AirgappedSnapshotService.componentKey("NuGet", "System.Text.Json", "8.0.3");
+        assertThat(unresolved).isEmpty();
+        assertThat(found.get(key)).hasSize(1);
+        String line = json.writeValueAsString(Map.of("ecosystem", "NuGet", "name", "System.Text.Json",
+                "version", "8.0.3", "vulns", found.get(key)));
+        // The date is a simulated freshness condition, not the publication date of this fixture.
+        String sourceDate = age == 999 ? "{}" : "{\"asOf\":\"" + java.time.LocalDate.now().minusDays(age) + "\"}";
+        String hash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(line.getBytes(StandardCharsets.UTF_8)));
+        String manifest = "{\"formatVersion\":2,\"sources\":{\"osv\":" + sourceDate
+                + "},\"files\":{\"osv.jsonl\":{\"sha256\":\"" + hash + "\",\"lines\":1}}}";
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("osv.jsonl", line, "meta.json", manifest))));
+        assertThat(metadata.findById("osv").orElseThrow().getSourceAsOf())
+                .isEqualTo(age == 999 ? null : java.time.LocalDate.now().minusDays(age));
+        var client = new com.salkcoding.oswl.client.OsvClient(service, true);
+        var result = client.queryBatch(List.of(new com.salkcoding.oswl.client.OsvClient.OsvQuery(
+                "NuGet", "System.Text.Json", "8.0.3"))).getFirst();
+        assertThat(result.resolved()).isEqualTo(age == 0);
+        assertThat(result.vulns()).singleElement().satisfies(v -> {
+            assertThat(v.osvId()).isEqualTo("GHSA-hh2w-p6rv-4g7w");
+            assertThat(v.cveId()).isEqualTo("CVE-2024-30105");
+            assertThat(v.fixVersion()).isEqualTo(age == 0 ? "8.0.4" : null);
+        });
+        assertThat(service.findOsvVulns(List.of(key)).get(key).getFirst().fixVersion()).isEqualTo("8.0.4");
+        assertThat(client.queryBatch(List.of(new com.salkcoding.oswl.client.OsvClient.OsvQuery(
+                "NuGet", "System.Text.Json", "8.0.2"))).getFirst().resolved()).isFalse();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"", " ", "CVE-FIXTURE", "cve-2026-0001", "CVE-2026-123", "CVE-2026-0001"})
     void offlineNvdSeparatesInvalidIdentitiesFromPreservedEvidence(String id) {
         String key = AirgappedSnapshotService.componentKey("CONAN", "identity-fixture", "1.0.0");
