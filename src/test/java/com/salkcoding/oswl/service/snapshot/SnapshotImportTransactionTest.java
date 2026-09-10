@@ -22,6 +22,28 @@ import static org.assertj.core.api.Assertions.*;
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:snapshot-budget;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT")
 class SnapshotImportTransactionTest {
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", " ", "CVE-FIXTURE", "cve-2026-0001", "CVE-2026-123", "CVE-2026-0001"})
+    void offlineNvdSeparatesInvalidIdentitiesFromPreservedEvidence(String id) {
+        String key = AirgappedSnapshotService.componentKey("CONAN", "identity-fixture", "1.0.0");
+        entries.saveAndFlush(SnapshotEntry.builder().source("nvd").entryKey(key)
+                .payload("[{\"cveId\":\"CVE-2026-0002\"},{\"osvId\":\"fixture-alias\",\"cveId\":\"" + id
+                        + "\"},{\"cveId\":\"CVE-2026-0003\"}]").build());
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("nvd")
+                .recordCount(1).importedAt(java.time.LocalDateTime.now()).sourceAsOf(java.time.LocalDate.now()).build());
+        var client = new com.salkcoding.oswl.client.NvdClient(service, true, null,
+                java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1));
+        var cpe = org.mockito.Mockito.mock(com.salkcoding.oswl.client.CpeMatchService.class);
+        var source = new com.salkcoding.oswl.service.vulnerability.sources.NvdAdvisorySource(client, cpe);
+        var actual = source.lookup("identity-fixture", "1.0.0", null, client.findByComponentKeys(List.of(key)).get(key));
+        boolean valid = id.equals("CVE-2026-0001");
+        assertThat(actual.lookupFailed()).isEqualTo(!valid);
+        assertThat(actual.findings()).extracting(v -> v.cveId()).containsExactlyElementsOf(valid
+                ? List.of("CVE-2026-0002", id, "CVE-2026-0003") : List.of("CVE-2026-0002", "CVE-2026-0003"));
+        assertThat(service.findNvdVulns(List.of(key)).get(key)).hasSize(3);
+        org.mockito.Mockito.verifyNoInteractions(cpe);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"0,true", "7,true", "8,false", "40,false", "-1,false", "999,false"})
     void offlineDepsDevAdvisoryRetainsEvidenceWithItsFreshness(int age, boolean current) {
         entries.saveAndFlush(SnapshotEntry.builder().source("depsdev-advisory").entryKey("GHSA-fixture")

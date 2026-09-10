@@ -140,6 +140,10 @@ public class NvdClient {
 
     public boolean isAirgapped() { return airgapped; }
 
+    public static boolean isValidCveId(String id) {
+        return id != null && CVE_ID.matcher(id).matches();
+    }
+
     public boolean isSnapshotCoverageUncertain() {
         return airgapped && snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_NVD);
     }
@@ -256,7 +260,7 @@ public class NvdClient {
                 Map<String, Object> cve = (Map<String, Object>) v.get("cve");
                 if (cve == null) throw new IllegalArgumentException("Missing NVD CVE");
                 String id = (String) cve.get("id");
-                if (id == null || !CVE_ID.matcher(id).matches())
+                if (!isValidCveId(id))
                     throw new IllegalArgumentException("Invalid NVD identifier");
                 Cvss cvss = extractCvss(cve);
                 result.add(new NvdCve(id, extractDescription(cve), cvss.severity, cvss.score, cvss.vector, confidence));
