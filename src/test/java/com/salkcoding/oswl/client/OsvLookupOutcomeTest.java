@@ -70,6 +70,9 @@ class OsvLookupOutcomeTest {
             ReflectionTestUtils.setField(client, "restClient", builder.build());
             server.expect(requestTo("https://api.osv.dev/v1/querybatch"))
                     .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+            if (body.contains("next_page_token")) {
+                server.expect(requestTo("https://api.osv.dev/v1/querybatch")).andRespond(withServerError());
+            }
             var result = client.queryBatch(List.of(new OsvClient.OsvQuery("PyPI", "fixture", "1"))).getFirst();
             assertThat(result.resolved()).as(body).isEqualTo(body.equals("{\"results\":[{}]}"));
             server.verify();

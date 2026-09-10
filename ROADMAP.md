@@ -129,6 +129,8 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 OSV 페이지 수집:** [공식 querybatch pagination 계약](https://google.github.io/osv.dev/post-v1-querybatch/#pagination)에 따라 결과별 토큰을 동일한 package/version의 후속 요청에 전달한다. 빈 첫 페이지도 이어서 수집하고 ID 중복을 제거하며 원래 입력 위치를 유지한다. 후속 HTTP/응답 구조 오류·반복/잘못된 토큰·예산 초과에서는 앞서 얻은 finding과 미완료 상태를 보존한다. 패키지당 최초 포함 10페이지, 전체 호출당 후속 100회, 공유 상세 수집의 30초 경과 이후 추가 요청 중단을 적용했다. 개별 진행 중 요청에는 기존 HTTP timeout이 적용되므로 전체 wall time 30초 보장은 아니다. 이미 얻은 개별 전체 advisory 근거의 fixed 검증은 공통 선택기를 유지하며, 미수집 페이지를 근거로 다른 finding을 안전하다고 판정하지 않는다.
+- **페이지 회귀 검증:** 수정 전 신규 8건 모두 실패. 페이지 예산 검사를 추가한 뒤 Windows/Java 25에서 `.\gradlew.bat test --tests '*Osv*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 129건 통과·실패/오류/skip 0. 로그 `build/roadmap-osv-pages-before.log`, `build/roadmap-osv-pages-after.log`. 커밋 제목 `fix: collect paginated osv results without losing findings`. 자체 mock HTTP 입력이며 외부 데이터/라이브러리 추가, 원문 복사 및 UI 변경은 없다. 공식 문서는 통신 계약의 근거이며 OSV 집계 데이터의 포괄적 재배포 허가로 해석하지 않는다. 실제 공급자 대규모 pagination·query/detail modified revision 일치·수집 재개 및 영속 evidence는 미검증/잔여다.
 - 현재·대상: [OsvClient](src/main/java/com/salkcoding/oswl/client/OsvClient.java)의 live fixed 제안은 패키지 필터/복잡한 범위 보류가 이미 있다. OsvBulkSource는 모든 affected 중 첫 fixed를 선택한다.
 - [ ] 수정: 현재 패키지/릴리즈 분기에 수정안을 결합하고 불명확한 업그레이드는 보류한다. aliases/related/upstream, modified/withdrawn, 원문 출처를 보존한다. malformed·페이지 초과·404·인증/상세 조회 실패를 정상 0건으로 바꾸지 않는다.
 - 선행: 2·10~12번.

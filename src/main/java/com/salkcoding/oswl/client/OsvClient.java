@@ -213,33 +213,7 @@ public class OsvClient {
                     parsed.add(OsvResult.unresolved());
                     continue;
                 }
-                Object vulnsObj = resultMap.get("vulns");
-                if (vulnsObj != null && !(vulnsObj instanceof List<?>)) {
-                    parsed.add(OsvResult.unresolved());
-                    continue;
-                }
-                if (!(vulnsObj instanceof List<?> vulnList) || vulnList.isEmpty()) {
-                    parsed.add(new OsvResult(List.of(), !resultMap.containsKey("next_page_token")));
-                    continue;
-                }
-                List<OsvVuln> vulns = new ArrayList<>();
-                boolean resolved = !resultMap.containsKey("next_page_token");
-                for (Object vulnObj : vulnList) {
-                    if (vulnObj instanceof Map<?, ?> vuln && vuln.get("id") instanceof String id && !id.isBlank()) {
-                        Map<String, Object> detail = loadDetail(id, details);
-                        if (detail != null) {
-                            var withdrawal = OsvWithdrawal.from(JSON.valueToTree(detail));
-                            if (withdrawal == OsvWithdrawal.WITHDRAWN) continue;
-                            if (withdrawal == OsvWithdrawal.UNKNOWN) {
-                                resolved = false;
-                                continue;
-                            }
-                        }
-                        vulns.add(parseVuln(detail != null ? detail : (Map<String, Object>) vuln, query));
-                        if (detail == null) resolved = false;
-                    } else resolved = false;
-                }
-                parsed.add(new OsvResult(vulns, resolved));
+                parsed.add(collectPages(query, resultMap, details));
             }
             log.debug("[OsvClient] querybatch parsed results count={} totalVulns={}",
                     parsed.size(),
@@ -261,6 +235,66 @@ public class OsvClient {
             log.error("[OsvClient] querybatch failed: {}", e.getMessage());
             return Collections.nCopies(queries.size(), OsvResult.unresolved());
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private OsvResult collectPages(OsvQuery query, Map<?, ?> page, DetailBudget details) {
+        Map<String, OsvVuln> findings = new java.util.LinkedHashMap<>();
+        Set<String> cursors = new LinkedHashSet<>();
+        boolean resolved = true;
+        if (details.deadline == 0) details.deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos();
+        for (int pageNumber = 1; ; pageNumber++) {
+            Object rawVulns = page.get("vulns");
+            if (rawVulns != null && !(rawVulns instanceof List<?>)) resolved = false;
+            if (rawVulns instanceof List<?> vulnList) {
+                for (Object rawVuln : vulnList) {
+                    if (!(rawVuln instanceof Map<?, ?> vuln) || !(vuln.get("id") instanceof String id) || id.isBlank()) {
+                        resolved = false;
+                        continue;
+                    }
+                    Map<String, Object> detail = loadDetail(id, details);
+                    if (detail != null) {
+                        var withdrawal = OsvWithdrawal.from(JSON.valueToTree(detail));
+                        if (withdrawal == OsvWithdrawal.WITHDRAWN) continue;
+                        if (withdrawal == OsvWithdrawal.UNKNOWN) {
+                            resolved = false;
+                            continue;
+                        }
+                    }
+                    findings.putIfAbsent(id, parseVuln(detail != null ? detail : (Map<String, Object>) vuln, query));
+                    if (detail == null) resolved = false;
+                }
+            }
+            if (!page.containsKey("next_page_token")) break;
+            Object rawToken = page.get("next_page_token");
+            if (!(rawToken instanceof String token) || token.isBlank() || token.length() > 8192
+                    || !cursors.add(token) || pageNumber >= 10 || details.continuations >= 100
+                    || System.nanoTime() >= details.deadline || Thread.currentThread().isInterrupted()) {
+                resolved = false;
+                break;
+            }
+            try {
+                details.continuations++;
+                Map<String, Object> response = restClient.post().uri("/v1/querybatch")
+                        .header("Content-Type", "application/json")
+                        .body(Map.of("queries", List.of(Map.of("version", query.version(),
+                                "package", Map.of("name", query.name(), "ecosystem", query.ecosystem()), "page_token", token))))
+                        .retrieve().body(Map.class);
+                recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
+                if (response == null || !(response.get("results") instanceof List<?> results)
+                        || results.size() != 1 || !(results.getFirst() instanceof Map<?, ?> next)) {
+                    resolved = false;
+                    break;
+                }
+                page = next;
+            } catch (RestClientException e) {
+                recordApiCall(isRateLimited(e) ? OswlMetrics.OUTCOME_RATE_LIMITED : OswlMetrics.OUTCOME_FAILURE);
+                log.warn("[OsvClient] continuation unavailable; retaining findings with incomplete coverage");
+                resolved = false;
+                break;
+            }
+        }
+        return new OsvResult(List.copyOf(findings.values()), resolved);
     }
 
     /** External-API call counter — no-op until Spring config wires the metrics bean. */
@@ -318,6 +352,7 @@ public class OsvClient {
     private static final class DetailBudget {
         final Map<String, Map<String, Object>> cache = new java.util.HashMap<>();
         long deadline;
+        int continuations;
     }
 
     @SuppressWarnings("unchecked")
