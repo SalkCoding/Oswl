@@ -397,6 +397,9 @@
 
 ### 25. NuGet TFM·RID·정규화 버전과 publish 결과 — P1 · [지원 범위별 필수]
 
+- **2026-09-11 parse 응답·정리 검증:** standalone MockMvc에 실제 ScanController/GlobalExceptionHandler와 실제 ManifestArchiveService/DependencyManifestParserService를 연결했다. 중첩 경로의 packages.lock.json ZIP을 업로드해 손상 JSON·resolved 누락은 HTTP 표현상 400/error/status 및 성공 componentCount 없음, 정상 파일은 200/구성요소 1개/8.0.3을 확인했다. 3조건 모두 실제 임시 디렉터리 삭제와 ScanIngestService 미호출을 검증했다. archive service는 동작을 유지한 spy로 정리 경로만 관찰했다.
+- **검증 범위:** ScanController/NuGetLockParser 27건 통과·실패/오류/skip 0. 로그 `build/roadmap-nuget-parse-http.log`. 커밋 제목 `test: verify nuget parse errors and archive cleanup`. 제품 코드 변경 없이 자체 합성 ZIP만 사용했다. 인증 필터·실제 네트워크 서버·Quick Import 작업 상태와 전체 build는 이번 검증에 포함하지 않았다.
+
 - **2026-09-11 손상된 lock의 성공 처리 차단:** NuGet lock의 JSON/root/dependencies/프레임워크/패키지 구조와 resolved 문자열 누락을 검사한다. 공용 파싱 서비스가 parser의 null 실패를 성공 인벤토리 또는 .csproj fallback으로 바꾸지 않고 InvalidRequestException으로 전달한다. 초기 오류 10종은 수정 전 모두 실패했고, 정상 패키지 뒤의 손상 항목도 전체 실패로 처리하는 회귀를 추가했다. 유효한 빈 프레임워크와 Project 참조는 패키지로 만들지 않고 허용한다. 기존 수집 결과의 부분 성공 모델을 새로 구현한 것은 아니며 손상된 파일이 있는 요청은 중단한다.
 - **검증·근거·범위:** NuGet/공용 파서/ScanController 기존 테스트 1,009건 중 1,008건 통과·환경 의존 MAUI skip 1건·실패/오류 0. 로그 `build/roadmap-nuget-lock-failure-before.log`, `build/roadmap-nuget-lock-failure-after.log`. 커밋 제목 `fix: reject incomplete nuget lock inventories`. [Microsoft PackageReference/lock 문서](https://learn.microsoft.com/en-us/nuget/consume-packages/package-references-in-project-files#locking-dependencies)를 확인했고 테스트 입력은 자체 합성했다. 새 외부 자료나 라이브러리는 배포에 포함하지 않았다. 호출 코드 확인상 /parse 예외 응답으로 전달되고 Quick Import는 프로젝트/스캔 생성 전에 실패한다. 이번 오류의 실제 HTTP/Quick Import 작업 상태 검증, 전체 lock schema/revision·버전 문법 검증 및 전체 build는 별도 잔여다.
 

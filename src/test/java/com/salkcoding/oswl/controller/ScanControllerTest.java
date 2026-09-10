@@ -49,6 +49,50 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ScanController (CLI integration) unit tests")
 class ScanControllerTest {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"broken,400", "missing,400", "valid,200"})
+    void nugetArchiveUsesRealParsingAndAlwaysCleansUp(String scenario, int expectedStatus) throws Exception {
+        var archives = spy(new ManifestArchiveService());
+        org.springframework.test.util.ReflectionTestUtils.setField(archives, "maxArchiveBytes", 1024L * 1024);
+        org.springframework.test.util.ReflectionTestUtils.setField(archives, "maxDecompressedBytes", 1024L * 1024);
+        org.springframework.test.util.ReflectionTestUtils.setField(archives, "maxEntries", 10);
+        var parser = new DependencyManifestParserService(
+                mock(com.salkcoding.oswl.service.ingest.MavenBomVersionResolver.class),
+                mock(com.salkcoding.oswl.service.ingest.CondaPypiMappingService.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(scanController, "manifestArchiveService", archives);
+        org.springframework.test.util.ReflectionTestUtils.setField(scanController, "dependencyManifestParserService", parser);
+        var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(scanController)
+                .setControllerAdvice(new com.salkcoding.oswl.exception.GlobalExceptionHandler(
+                        mock(org.springframework.context.MessageSource.class), mock(com.salkcoding.oswl.security.ClientIpResolver.class))).build();
+        String json = switch (scenario) {
+            case "broken" -> "{";
+            case "missing" -> "{\"version\":1,\"dependencies\":{\"net8.0\":{\"System.Text.Json\":{\"type\":\"Direct\"}}}}";
+            default -> "{\"version\":1,\"dependencies\":{\"net8.0\":{\"System.Text.Json\":{\"type\":\"Direct\",\"resolved\":\"8.0.3\"}}}}";
+        };
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var zip = new java.util.zip.ZipOutputStream(bytes)) {
+            zip.putNextEntry(new java.util.zip.ZipEntry("project/packages.lock.json"));
+            zip.write(json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        var response = mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .multipart("/api/scan/parse").file(new MockMultipartFile("archive", "manifests.zip",
+                                "application/zip", bytes.toByteArray())))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().is(expectedStatus));
+        if (expectedStatus == 400) {
+            response.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.status").value(400))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.error").value(
+                            "Cannot parse packages.lock.json; dependency inventory is incomplete."))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.componentCount").doesNotExist());
+        } else {
+            response.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.componentCount").value(1))
+                    .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.components[0].version").value("8.0.3"));
+        }
+        var removed = org.mockito.ArgumentCaptor.forClass(Path.class);
+        verify(archives).deleteQuietly(removed.capture());
+        assertThat(removed.getValue()).doesNotExist();
+        verifyNoInteractions(scanIngestService);
+    }
 
     @Mock ScanIngestService scanIngestService;
     @Mock ScanResultRepository scanResultRepository;
