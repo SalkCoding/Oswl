@@ -137,6 +137,9 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 NVD 오프라인 자료 부재 상태:** CPE 조회 대상인데 해당 component key의 오프라인 자료가 없으면 `UNSUPPORTED` 대신 `UNAVAILABLE`로 판정한다. 저장된 정상 빈 목록은 조회 완료 근거로 유지하고 온라인 모드의 후보 부재 의미도 유지한다. 기존 동작을 '취약점 없음으로 확정'했다고 과장하지 않는다. 커밋 제목 `fix: distinguish missing offline nvd coverage from unsupported lookup`.
+- **검증·범위:** enrichment의 실제 NVD 라우팅과 source adapter를 실행하는 모드/자료 존재 여부 3건 중 수정 전 누락 사례 1건 실패했다. Windows/Java 25의 `test --tests '*Nvd*Test' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*SnapshotImportTransactionTest'` 242건 통과·실패/오류/skip 0. 로그 `build/roadmap-nvd-missing-coverage-before.log`, `build/roadmap-nvd-missing-coverage-after.log`. 기존 데이터 부재 상태 전달 수정으로 외부 자료·라이브러리·배포물 도입은 없다. 전체 build/UI는 이번 단위에서 재실행하지 않았으며 데이터 갱신 운영과 전체 로드맵의 실환경 검증은 잔여다.
+
 - **2026-09-11 NVD 오프라인 식별값 판정 일치:** 온라인 parser와 같은 CVE ID 검사 함수를 오프라인 source adapter에도 적용했다. 잘못된 ID를 정상 발견 결과에 넣지 않으며, 함께 저장된 정상 CVE와 조회 미완료 상태를 유지한다. 저장 원본은 수정·삭제하지 않는다. 조회 미완료는 기존 enrichment의 `UNAVAILABLE` 분기로 전달된다. 커밋 제목 `fix: preserve uncertain nvd identity coverage offline`.
 - **누적 빌드:** Windows/Java 25에서 `build verifyProdJar` 성공. 온라인 식별값 14건과 오프라인 6건을 포함해 전체 3,107건 중 3,098건 통과·기존 환경 의존 skip 9건·실패/오류 0. 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-nvd-offline-identifier-build.log`. UI 변경은 없으며 실제 PostgreSQL·공급자 실환경 및 전체 로드맵 완료를 의미하지 않는다.
 - **회귀 근거·잔여:** H2 DB에 저장한 자료를 실제 snapshot service→NVD client→source adapter로 읽는 6건 중 수정 전 5건 실패했다. 정상 ID 대조군·빈 값·공백·형식 오류·소문자를 검사하고 원본 3행 보존과 네트워크/CPE 추정 미실행도 확인했다. 관련 테스트 묶음이 통과했으며 로그는 `build/roadmap-nvd-offline-identifier-before.log`, `build/roadmap-nvd-offline-identifier-after.log`다. 외부 자료 도입 없이 앞서 확인한 NIST 식별값 계약을 공통 적용했다. 가져오기 단계의 거부 정책·저장 원본 정리·부분적으로 손상된 JSON 전체의 행별 복구까지 완료한 것은 아니다.
