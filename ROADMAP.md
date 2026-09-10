@@ -397,6 +397,9 @@
 
 ### 25. NuGet TFM·RID·정규화 버전과 publish 결과 — P1 · [지원 범위별 필수]
 
+- **2026-09-11 실제 PostgreSQL 컬럼 migration 검증:** DependencyEvidenceMigrationTest에 URL 환경변수로 활성화하는 PostgreSQL 검증을 추가했다. 별도 스키마/트랜잭션에서 varchar(300)의 긴 값 거부(SQLSTATE 22001), V37 두 차례 적용, 기존 문자열/NULL과 긴 한글 선언 근거의 정확한 왕복, 롤백 후 스키마 제거를 확인했다. lock/statement timeout을 제한했다. Windows/Java 25/PostgreSQL 15.19에서 H2 포함 2건 통과·실패/오류/skip 0; 기본 설정에서는 H2 1건 통과·PostgreSQL 1건 skip. 로그 `build/roadmap-postgres-migration-live.log`, `build/roadmap-postgres-migration-default.log`. 커밋 제목 `test: verify dependency evidence migration on postgres`. 실행 안내는 [scripts/README.md](scripts/README.md)에 기록했다.
+- **실행 환경·범위:** [PostgreSQL 공식 Windows 안내](https://www.postgresql.org/download/windows/)가 연결한 [EDB 15.19 Windows 배포본](https://sbp.enterprisedb.com/getfile.jsp?fileid=1260497)을 로컬 검증에만 사용했다. ZIP SHA-256 `70560C1792BED36EE83D738FA17960B89C5EBE5D4B234040111E23B799A5556C`는 내려받은 파일의 식별값이며 별도 공급자 서명 검증을 뜻하지 않는다. 동봉 server_license.txt의 PostgreSQL License와 고지를 유지하고 배포본/DB는 Git 제외 build 경로에만 두었다. 127.0.0.1:55439의 일회성 검증 서버는 실행 후 종료했다. 운영 DB를 변경하지 않았고 실제 전체 스키마 업그레이드·운영 데이터/잠금 시간·수집 동시성·화면·전체 build는 이번 검증에 포함하지 않았다.
+
 - **2026-09-11 최초 선언 수집·순차 재사용:** JPA 왕복 테스트를 기존 라이브러리 있음/없음 두 조건으로 확장했다. 없음 조건은 실제 LibraryCatalogRepository의 NULL 버전 생성 경로를 거치며, 두 조건 모두 두 번째 스캔에서 같은 library ID와 긴 선언 근거를 유지한다. name/ecosystem/version IS NULL로 조회한 행 수는 1이다. 실제 동시 경쟁·PostgreSQL ON CONFLICT 검증으로 확대 해석하지 않는다.
 - **검증 범위:** NuGetDeclarationPersistence/ScanIngestService 16건 통과·실패/오류/skip 0. 로그 `build/roadmap-nuget-first-ingest.log`. 커밋 제목 `test: verify first ingestion of unresolved nuget declarations`. 실제 파서·수집·JDBC/JPA와 H2를 사용하며 테스트는 롤백되고 after-commit 보강은 실행하지 않는다. 제품 코드·새 외부 자료 도입은 없다. 전체 build·PostgreSQL·동시성·화면 검증은 이번 실행에 포함하지 않았다.
 

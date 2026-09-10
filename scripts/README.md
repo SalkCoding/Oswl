@@ -19,6 +19,16 @@ Run commands from the repository root unless a tool says otherwise. Scripts are 
 
 ## Local verification
 
+- PostgreSQL dependency evidence migration verification: provide an isolated PostgreSQL database
+  in `OSWL_VERIFY_POSTGRES_URL` (JDBC URL), with optional `OSWL_VERIFY_POSTGRES_USER`
+  (default `postgres`) and `OSWL_VERIFY_POSTGRES_PASSWORD`, then run
+  `gradlew test --rerun --tests '*DependencyEvidenceMigrationTest'` and remove those variables.
+  The account needs permission to create a schema. The opt-in test creates a uniquely named
+  schema in a transaction, checks V37 twice and long Unicode evidence round trips, then rolls
+  the transaction back and verifies schema removal. It is skipped without the URL.
+  Use a disposable database; this checks the column migration, not full upgrade sequencing,
+  production lock duration, or ingestion concurrency.
+
 - OSV NuGet live client verification: set `OSWL_VERIFY_OSV_NUGET=true` in the current shell,
   run `gradlew test --tests '*OsvNugetLiveVerificationTest'`, then remove the variable.
   It sends read-only queries for System.Text.Json 7.0.0, 8.0.3 and 8.0.4 to the public OSV API.
