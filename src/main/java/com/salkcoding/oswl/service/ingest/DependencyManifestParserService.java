@@ -52,6 +52,16 @@ public class DependencyManifestParserService {
     @Value("${oswl.quick-import.allow-build-exec:false}")
     private boolean allowBuildExec;
 
+    @Value("${oswl.ingest.allow-external-resolution:false}")
+    private boolean allowExternalResolution;
+
+    @Value("${oswl.airgapped.enabled:false}")
+    private boolean airgapped;
+
+    private boolean canRunResolver() {
+        return allowBuildExec && allowExternalResolution && !airgapped;
+    }
+
     /** Console tools (mvnw, gradlew, npm) write human-readable output in the OS console codepage (e.g. MS949 on Korean Windows). */
     private static final Charset CONSOLE_CHARSET = Charset.forName(System.getProperty("native.encoding", "UTF-8"));
 
@@ -433,9 +443,8 @@ public class DependencyManifestParserService {
             log.debug("[DependencyParser][Maven] No mvnw in '{}', using static pom.xml parse", repoName);
             return null;
         }
-        if (!allowBuildExec) {
-            log.warn("[DependencyParser][Maven] mvnw found in '{}' but build execution is disabled "
-                    + "(oswl.quick-import.allow-build-exec=false) — using static pom.xml parse", repoName);
+        if (!canRunResolver()) {
+            log.debug("[DependencyParser][Maven] External build resolution disabled for '{}', using static pom.xml parse", repoName);
             return null;
         }
         try {
@@ -544,6 +553,10 @@ public class DependencyManifestParserService {
      * file exists and npm is on PATH. Returns parsed components or {@code null} on failure.
      */
     private List<ScanPayload.ComponentPayload> runNpmPackageLockOnly(Path dir, String repoName) {
+        if (!canRunResolver()) {
+            log.debug("[DependencyParser][npm] External lock generation disabled for '{}'", repoName);
+            return null;
+        }
         if (!Files.isRegularFile(dir.resolve("package.json"))) {
             return null;
         }
@@ -634,9 +647,8 @@ public class DependencyManifestParserService {
             log.info("[DependencyParser][Gradle] No gradlew found in '{}', falling back to static parse", repoName);
             return null;
         }
-        if (!allowBuildExec) {
-            log.warn("[DependencyParser][Gradle] gradlew found in '{}' but build execution is disabled "
-                    + "(oswl.quick-import.allow-build-exec=false) — using static parse", repoName);
+        if (!canRunResolver()) {
+            log.debug("[DependencyParser][Gradle] External build resolution disabled for '{}', using static parse", repoName);
             return null;
         }
         try {
@@ -889,9 +901,8 @@ public class DependencyManifestParserService {
      * Returns {@code null} when dotnet is unavailable or the command fails.
      */
     private List<ScanPayload.ComponentPayload> runDotNetListPackages(Path dir, String repoName, ManifestIndex index) {
-        if (!allowBuildExec) {
-            log.warn("[DependencyParser][NuGet] Build execution is disabled "
-                    + "(oswl.quick-import.allow-build-exec=false) — skipping dotnet list for '{}', using static parse", repoName);
+        if (!canRunResolver()) {
+            log.debug("[DependencyParser][NuGet] External build resolution disabled for '{}', using static parse", repoName);
             return null;
         }
         if (!isCommandOnPath("dotnet")) {

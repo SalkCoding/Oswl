@@ -151,9 +151,16 @@ oswl:
     sparse-enabled: ${OSWL_CLONE_SPARSE_ENABLED:true}
     # Fetch source for reference analysis without authorizing repository build execution.
     include-source: ${OSWL_CLONE_INCLUDE_SOURCE:false}
+  ingest:
+    # External dependency resolution is opt-in for both Quick Import and CLI uploads.
+    # False keeps supplied manifests/locks local, including BOM handling and npm lock generation.
+    # Air-gapped mode always overrides this setting. Repository build tools additionally require
+    # quick-import.allow-build-exec and must only be used with trusted input until worker isolation exists.
+    allow-external-resolution: ${OSWL_INGEST_ALLOW_EXTERNAL_RESOLUTION:false}
   quick-import:
     # When true, Quick Import may execute build tools from the cloned repository
-    # (mvnw / gradlew / dotnet) for full transitive dependency resolution.
+    # (mvnw / gradlew / dotnet / npm) for full transitive dependency resolution.
+    # Also requires ingest.allow-external-resolution=true and airgapped.enabled=false.
     # SECURITY: this runs arbitrary repo code on the server — enable only when
     # every imported repository is trusted. Default: false (static manifest parse only).
     allow-build-exec: ${OSWL_QUICK_IMPORT_ALLOW_BUILD_EXEC:false}

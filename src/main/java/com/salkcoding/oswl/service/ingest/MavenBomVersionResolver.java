@@ -4,6 +4,7 @@ import com.salkcoding.oswl.dto.scan.ScanPayload;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.client.RestClientException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -66,6 +67,12 @@ public class MavenBomVersionResolver {
 
     private final RestClient restClient;
     private final PomFetcher pomFetcher;
+
+    @Value("${oswl.ingest.allow-external-resolution:false}")
+    private boolean allowExternalResolution;
+
+    @Value("${oswl.airgapped.enabled:false}")
+    private boolean airgapped;
 
     public MavenBomVersionResolver() {
         this.restClient = RestClient.builder().build();
@@ -488,6 +495,10 @@ public class MavenBomVersionResolver {
     // ── POM / XML helpers ────────────────────────────────────────────────────
 
     private Optional<byte[]> fetchPomFromMavenCentral(String groupId, String artifactId, String version) {
+        if (!allowExternalResolution || airgapped) {
+            log.debug("[BOM] Remote POM resolution disabled");
+            return Optional.empty();
+        }
         String path = groupId.replace('.', '/') + "/" + artifactId + "/" + version + "/"
                 + artifactId + "-" + version + ".pom";
         String url = MAVEN_CENTRAL + "/" + path;
