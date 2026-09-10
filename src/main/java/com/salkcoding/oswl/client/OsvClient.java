@@ -116,11 +116,16 @@ public class OsvClient {
      * commonFix is scoped to returned OSV evidence, not all advisories or other providers.
      * A resolved lookup can still lack the range evidence required for a common fix.
      */
-    public record OsvResult(List<OsvVuln> vulns, boolean resolved, OsvFixVersionSelector.Selection commonFix) {
+    public record OsvResult(List<OsvVuln> vulns, boolean resolved, OsvFixVersionSelector.Selection commonFix,
+                            Map<String, String> advisoryRevisions) {
         public OsvResult {
+            advisoryRevisions = advisoryRevisions == null ? Map.of() : Map.copyOf(advisoryRevisions);
             if (!resolved || commonFix == null) {
                 commonFix = new OsvFixVersionSelector.Selection(null, resolved ? "NO_RANGE_EVIDENCE" : "INCOMPLETE_LOOKUP");
             }
+        }
+        public OsvResult(List<OsvVuln> vulns, boolean resolved, OsvFixVersionSelector.Selection commonFix) {
+            this(vulns, resolved, commonFix, Map.of());
         }
         public OsvResult(List<OsvVuln> vulns, boolean resolved) { this(vulns, resolved, null); }
         public OsvResult(List<OsvVuln> vulns) { this(vulns, true); }
@@ -234,7 +239,8 @@ public class OsvClient {
         }
         if (!current) findings = findings.stream().map(v -> new OsvVuln(v.osvId(), v.cveId(), v.summary(), null,
                 v.cweId(), v.severity(), v.cvssScore(), v.cvssVector(), v.fixVersionConflictCandidates())).toList();
-        return new OsvResult(findings, resolved, resolved ? snapshotCommonFix(evidence, query) : null);
+        return new OsvResult(findings, resolved, resolved ? snapshotCommonFix(evidence, query) : null,
+                advisoryRevisions(evidence.stream().map(SnapshotVuln::osvAdvisory).filter(java.util.Objects::nonNull).toList()));
     }
 
     private static OsvFixVersionSelector.Selection snapshotCommonFix(List<SnapshotVuln> vulns, OsvQuery query) {
@@ -375,6 +381,7 @@ public class OsvClient {
                         // Query membership and detail fields must describe the same source revision.
                         // A later conflicting page must also invalidate a previously accepted fix.
                         untrustedIds.add(id);
+                        rangeEvidence.remove(id);
                         findings.put(id, parseVuln(Map.of("id", id)));
                         resolved = false;
                         continue;
@@ -428,7 +435,13 @@ public class OsvClient {
         }
         var commonFix = resolved ? OsvFixVersionSelector.selectAcrossAdvisories(
                 List.copyOf(rangeEvidence.values()), query.ecosystem(), query.name(), query.version()) : null;
-        return new OsvResult(List.copyOf(findings.values()), resolved, commonFix);
+        return new OsvResult(List.copyOf(findings.values()), resolved, commonFix, advisoryRevisions(rangeEvidence.values()));
+    }
+
+    private static Map<String, String> advisoryRevisions(java.util.Collection<com.fasterxml.jackson.databind.JsonNode> originals) {
+        Map<String, String> revisions = new java.util.LinkedHashMap<>();
+        for (var original : originals) revisions.put(original.path("id").asText(), original.path("modified").asText());
+        return Map.copyOf(revisions);
     }
 
     private static boolean sameRevision(Object queried, Object hydrated) {

@@ -257,6 +257,8 @@ Scan exports also include `meta.json.dataNotices`: GitHub Advisory Database attr
 
 An `osv.jsonl` vulnerability may optionally include an `osvAdvisory` JSON object containing its original OSV document. Its `id` must match `osvId`, `modified` must be a valid timestamp, and `affected` must be an array. The snapshot store retains the supplied document, including credits and references. Offline lookup derives identifiers, summary, CWE, severity and CVSS from the original document and rechecks membership and fixes against it; common fixes require original evidence for every contributing record and current, complete source coverage. Legacy records without it keep their existing lookup behavior but cannot establish a common fix. This field does not authorize acquiring or distributing upstream material. Automatic collectors and scan-derived re-export do not yet carry these originals: retain the source bundle and verify its rights and notices separately.
 
+The application also retains the OSV common-fix decision, its reason and the participating advisory IDs/revisions in `libraries.osv_fix_assessment`, alongside the lookup attempt timestamp. Revisions include supplied advisories that do not affect the installed version but constrain an upgrade. An incomplete OSV lookup or incomplete snapshot withholds the version, and a new lookup invalidates the prior assessment. This is OSV-only evidence, not a verified cross-provider upgrade target; screen/PR integration and automatic original-document export remain pending.
+
 | Action | Endpoint |
 |---|---|
 | Bundle status | `GET /api/admin/snapshot` |

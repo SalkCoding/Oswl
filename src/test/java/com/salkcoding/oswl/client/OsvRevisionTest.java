@@ -21,6 +21,27 @@ class OsvRevisionTest {
 
     OsvRevisionTest() { ReflectionTestUtils.setField(client, "restClient", builder.build()); }
 
+    @Test
+    void laterConflictingRevisionRemovesEarlierAcceptedEvidence() {
+        batch("{\"results\":[{\"vulns\":[" + stub("2026-01-01T00:00:00Z") + "],\"next_page_token\":\"cursor\"}]}");
+        server.expect(requestTo("https://api.osv.dev/v1/vulns/OSV-fixture"))
+                .andRespond(withSuccess("""
+                        {"id":"OSV-fixture","modified":"2026-01-01T00:00:00Z","affected":[{
+                        "package":{"ecosystem":"npm","name":"example"},"ranges":[{"type":"SEMVER",
+                        "events":[{"introduced":"0"},{"fixed":"1.2.4"}]}]}]}
+                        """, MediaType.APPLICATION_JSON));
+        batch("{\"results\":[{\"vulns\":[" + stub("2026-01-02T00:00:00Z") + "]}]}");
+        var result = client.queryBatch(List.of(query())).getFirst();
+        assertThat(result.resolved()).isFalse();
+        assertThat(result.commonFix().version()).isNull();
+        assertThat(result.advisoryRevisions()).isEmpty();
+        assertThat(result.vulns()).singleElement().satisfies(v -> {
+            assertThat(v.osvId()).isEqualTo("OSV-fixture");
+            assertThat(v.fixVersion()).isNull();
+        });
+        server.verify();
+    }
+
     @ParameterizedTest
     @CsvSource({"missing", "zero", "critical", "malformed-summary"})
     void originalAdvisoryDetailsAreIdenticalAcrossModesDespiteStaleProjection(String scoreState) throws Exception {

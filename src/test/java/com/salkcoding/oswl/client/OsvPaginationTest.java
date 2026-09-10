@@ -103,6 +103,8 @@ class OsvPaginationTest {
         assertThat(result.vulns()).extracting(OsvClient.OsvVuln::osvId).containsExactly("OSV-first");
         assertThat(result.commonFix().version()).isEqualTo("4.0.0");
         assertThat(result.commonFix().reason()).isEqualTo("SOURCE_FIXED_EVENT");
+        assertThat(result.advisoryRevisions()).containsExactlyInAnyOrderEntriesOf(java.util.Map.of(
+                "OSV-first", "2026-01-01T00:00:00Z", "OSV-later", "2026-01-01T00:00:00Z"));
         server.verify();
     }
 

@@ -37,6 +37,8 @@ For production, the sample sets `SERVER_ADDRESS=0.0.0.0` inside the container wh
 
 ## Existing installations
 
+Before deploying code that retains OSV common-fix assessments, apply [`V38__osv_fix_assessment.sql`](../src/main/resources/db/migration/V38__osv_fix_assessment.sql) through the installation's migration workflow. It adds nullable `libraries.osv_fix_assessment` text; existing rows remain unknown until refreshed. This stores an OSV-only decision, its reason and advisory revisions alongside the lookup timestamp. It is not a verified cross-provider upgrade target. Application rollback leaves this additive column in place; older versions do not update it, so refresh assessments before using them after an upgrade.
+
 Before deploying code that preserves multiple dependency declarations, apply [`V37__dependency_evidence_text.sql`](../src/main/resources/db/migration/V37__dependency_evidence_text.sql) through the installation's migration workflow. It widens `scan_components.dependency_info` from varchar(300) to text and retains existing values. Do not narrow the column on rollback without first handling values longer than 300 characters. PostgreSQL upgrade and locking behavior still require rehearsal for the installation's data volume.
 
 Before deploying code that persists remediation conflicts, apply [`V36__fix_version_conflict_candidates.sql`](../src/main/resources/db/migration/V36__fix_version_conflict_candidates.sql) through the installation's migration workflow. It adds `library_cve_fix_conflicts` and preserves existing CVE rows. Production schema validation requires this table. Older application versions do not consult the stored conflicts, so rolling back the application does not preserve the new remediation safeguards.
