@@ -425,6 +425,9 @@
 
 ### 36. 재포장·부분 갱신으로 freshness가 바뀌지 않게 수정 — P0 · [코드 확인]
 
+- **2026-09-11 저장된 미래 기준일의 조회 검증:** 번들 import 검증 외에 공통 `oldestSourceAsOf()` 조회에서도 미래 날짜를 미확인으로 처리한다. 기존 저장 데이터나 시스템 시각 변경으로 미래 기준일이 생겼을 때 readiness/report의 공통 날짜 근거가 정상 freshness로 쓰이지 않도록 한다. 정상 날짜의 다른 source가 있더라도 최솟값 계산으로 잘못된 source를 숨기지 않는다. 저장된 원문 날짜를 임의 수정하지 않는다.
+- **회귀 검증:** 미래 source 단독/정상 source 혼합 2건 모두 수정 전 실패했다. 수정 후 실제 H2 저장→service 조회→readiness DOWN을 확인했다. Windows/Java 25에서 `test --tests '*SnapshotImportTransactionTest' --tests '*SbomExportServiceTest' --tests '*SarifExportServiceTest'` 70건 통과·실패/오류/skip 0. 로그 `build/roadmap-stored-freshness-before.log`, `build/roadmap-stored-freshness-after.log`. 커밋 제목 `fix: reject future stored snapshot freshness dates`. 자체 합성 데이터이며 새 외부 자료/라이브러리·UI 변경은 없다. 원천별 실제 갱신 시점 증거와 모든 API/UI에서의 노후화 판정은 계속 잔여다.
+
 - 현재·대상: 일반 export의 asOf 현재 날짜 설정과 혼합 UPSERT 데이터. CocoaPods의 기존 원 날짜 보존은 유지한다.
 - [ ] 수정: 원문 published/modified, source revision·검증된 동기화 checkpoint, collected/built/imported/evaluated 시각을 분리한다. record/source partition별 provenance를 보존하고 stale/시계 이상을 정책에 전달한다.
 - 선행: 2·10·32·34번.

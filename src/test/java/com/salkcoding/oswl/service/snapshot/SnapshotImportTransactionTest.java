@@ -22,6 +22,22 @@ import static org.assertj.core.api.Assertions.*;
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:snapshot-budget;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT")
 class SnapshotImportTransactionTest {
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void storedFutureSourceDatesCannotReportHealthyFreshness(boolean withValidSource) {
+        var today = java.time.LocalDate.now();
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("osv")
+                .recordCount(1).importedAt(java.time.LocalDateTime.now()).sourceAsOf(today.plusDays(10)).build());
+        if (withValidSource) metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder()
+                .source("epss").recordCount(1).importedAt(java.time.LocalDateTime.now()).sourceAsOf(today).build());
+        assertThat(service.oldestSourceAsOf()).isNull();
+        var indicator = new com.salkcoding.oswl.health.SnapshotFreshnessHealthIndicator(service);
+        org.springframework.test.util.ReflectionTestUtils.setField(indicator, "airgappedEnabled", true);
+        org.springframework.test.util.ReflectionTestUtils.setField(indicator, "stalenessWarnDays", 7);
+        org.springframework.test.util.ReflectionTestUtils.setField(indicator, "stalenessCriticalDays", 30);
+        assertThat(indicator.health().getStatus().getCode()).isEqualTo("DOWN");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"null", "false", "{}", "[null]", "[1]", "[\"\"]"})
     void malformedFixConflictsRollBackTheImport(String candidates) throws Exception {
         String record = "{\"ecosystem\":\"npm\",\"name\":\"fixture\",\"version\":\"1.0.0\",\"vulns\":[" +

@@ -338,12 +338,14 @@ public class AirgappedSnapshotService {
      * The oldest {@code sourceAsOf} across every source that has ever been imported — the
      * value staleness is measured against (never {@code builtAt}/{@code importedAt}, which say
      * when the bundle/import happened, not how fresh the upstream data itself is). Null when
-     * no sources were imported or any imported source has an unknown date.
+     * no sources were imported or any imported source has an unknown or future date.
      */
     @Transactional(readOnly = true)
     public LocalDate oldestSourceAsOf() {
         List<SnapshotMeta> metadata = snapshotMetaRepository.findAll();
-        if (metadata.stream().anyMatch(source -> source.getSourceAsOf() == null)) return null;
+        LocalDate today = LocalDate.now();
+        if (metadata.stream().anyMatch(source -> source.getSourceAsOf() == null
+                || source.getSourceAsOf().isAfter(today))) return null;
         return metadata.stream()
                 .map(SnapshotMeta::getSourceAsOf)
                 .min(LocalDate::compareTo)
