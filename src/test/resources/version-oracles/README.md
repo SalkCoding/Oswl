@@ -1,5 +1,23 @@
 # Concrete version ordering oracles
 
+`nuget.csv` contains the full cross product of 30 synthetic version strings (900 comparisons).
+Generated and independently rechecked on 2026-09-11 with official NuGet.Versioning 7.9.0,
+using `NuGetVersion.Parse` and `Math.Sign(VersionComparer.VersionRelease.Compare(left, right))`.
+Inputs are the distinct left-column values in first-occurrence order, compared case-sensitively.
+Run `verify-nuget.ps1 -AssemblyPath <path-to-net8.0-NuGet.Versioning.dll>` with PowerShell 7
+to verify every result and matrix completeness. The DLL is a local verification tool and is
+not included in the repository or application.
+
+Package: https://api.nuget.org/v3-flatcontainer/nuget.versioning/7.9.0/nuget.versioning.7.9.0.nupkg
+SHA-256: `BA541038E91EB3F26435DC88F0F60A8962A51067B28B15FEF3EE2ABA848D07C8`.
+Its nuspec declares Apache-2.0, copyright Microsoft Corporation, and source revision
+`977537e19c6be57fead1411e6cf05f936bf1baf4` in https://github.com/NuGet/NuGet.Client.
+The repository LICENSE identifies .NET Foundation and Contributors and Apache-2.0:
+https://github.com/NuGet/NuGet.Client/blob/977537e19c6be57fead1411e6cf05f936bf1baf4/LICENSE.txt
+No upstream implementation or documentation text is copied into these synthetic observations.
+These results cover concrete ordering, not vulnerability facts, range syntax, dependency
+resolution, or complete NuGet compatibility. A Java comparator and integration remain necessary.
+
 `pep440.csv` contains 1,444 pairwise comparisons of 38 synthetic version strings.
 It was generated on 2026-09-10 with Python 3.14 and pip's vendored `packaging` 26.2:
 `(Version(left) > Version(right)) - (Version(left) < Version(right))`.

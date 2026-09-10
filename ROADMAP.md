@@ -113,6 +113,9 @@
 
 ### 11. 범용 버전 비교기와 GHSA 비교 실패 처리 교체 — P0 · [코드 확인/진단]
 
+- **2026-09-11 NuGet native 정답 자료 확보:** 공식 NuGet.Versioning 7.9.0의 net8.0 DLL을 로컬 검증 도구로 실행해 자체 합성 버전 30개의 전체 조합 900건을 확보했다. `NuGetVersion.Parse`와 `VersionComparer.VersionRelease`를 사용했고 별도 검증 스크립트로 모든 비교값·중복 부재·전체 조합을 재확인했다. `alpha2 > alpha10`, 대소문자, 4번째 요소, metadata와 큰 숫자 사례를 포함한다. 초기 자료 생성의 파서 호출/대소문자 자료구조 문제는 수정·재생성 후 검증했으며 실패한 중간 자료는 채택하지 않았다.
+- **권리·재현:** [정답 자료 안내](src/test/resources/version-oracles/README.md)에 공식 패키지 URL·SHA-256·원본 commit·Apache-2.0 표기와 저작권자를 기록했다. DLL은 build 아래 로컬 도구로만 사용하고 저장소/애플리케이션 배포에 포함하지 않는다. 실행: `src/test/resources/version-oracles/verify-nuget.ps1 -AssemblyPath build/nuget-oracle/NuGet.Versioning.dll`, 900건 일치. commit 제목 `test: capture official nuget version ordering oracle`. 자료/재검증 스크립트만 추가했으므로 application build는 실행하지 않았다. Java 비교기 구현·온라인/오프라인 범위와 수정 버전 통합·실제 공지 대조는 이어서 수행할 필수 잔여다.
+
 - **2026-09-11 GHSA 범용 비교 fallback 제거:** native 비교기가 없는 생태계를 `SimpleVersionComparator`로 비교해 영향 여부를 확정하던 경로를 제거했다. NuGet/RubyGems/Composer 등의 범위는 lookup 미완료로 전달하며 기존 NPM/Rust/Go/Maven/PyPI 비교 경로는 유지한다. 이는 native 지원 완료가 아니라 추정 판정 차단이다. 생태계별 비교기 도입과 실제 정답 대조는 필수 잔여다.
 - **실행 결과:** Windows/Java 25의 `test --tests '*GitHubAdvisory*Test' --tests '*Osv*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 261건 통과·실패/오류/skip 0. 전체 build/UI는 이번 단위에서 재실행하지 않았다. 미지원 범위의 탐지 능력 확대는 아직 완료하지 않았고 이 불확실성을 정상 지원으로 표시하지 않는다.
 - **검증·근거:** mock GraphQL→실제 client→source adapter의 NuGet/RubyGems/Composer 3건이 수정 전 모두 실패했고 수정 후 통과했다. [Microsoft NuGet 버전 문서](https://learn.microsoft.com/en-us/nuget/concepts/package-versioning)를 2026-09-11 확인했으며 prerelease 문자 순서와 숫자 점 구분, 4번째 버전 요소, metadata 정규화를 범용 토큰 비교로 대체할 근거가 없음을 재확인했다. 외부 코드/데이터·라이브러리를 도입하지 않았다. 관련 테스트 로그 `build/roadmap-ghsa-native-order-before.log`, `build/roadmap-ghsa-native-order-after.log`. 커밋 제목 `fix: stop guessing unsupported github advisory version order`.
