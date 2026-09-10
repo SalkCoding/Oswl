@@ -397,6 +397,9 @@
 
 ### 25. NuGet TFM·RID·정규화 버전과 publish 결과 — P1 · [지원 범위별 필수]
 
+- **2026-09-11 최초 선언 수집·순차 재사용:** JPA 왕복 테스트를 기존 라이브러리 있음/없음 두 조건으로 확장했다. 없음 조건은 실제 LibraryCatalogRepository의 NULL 버전 생성 경로를 거치며, 두 조건 모두 두 번째 스캔에서 같은 library ID와 긴 선언 근거를 유지한다. name/ecosystem/version IS NULL로 조회한 행 수는 1이다. 실제 동시 경쟁·PostgreSQL ON CONFLICT 검증으로 확대 해석하지 않는다.
+- **검증 범위:** NuGetDeclarationPersistence/ScanIngestService 16건 통과·실패/오류/skip 0. 로그 `build/roadmap-nuget-first-ingest.log`. 커밋 제목 `test: verify first ingestion of unresolved nuget declarations`. 실제 파서·수집·JDBC/JPA와 H2를 사용하며 테스트는 롤백되고 after-commit 보강은 실행하지 않는다. 제품 코드·새 외부 자료 도입은 없다. 전체 build·PostgreSQL·동시성·화면 검증은 이번 실행에 포함하지 않았다.
+
 - **2026-09-11 선언 근거 실제 JPA 왕복:** 자체 csproj의 조건부 선언 10개를 실제 공용 파서→ScanIngestService→H2 JPA로 저장하고 flush/clear 후 repository로 다시 읽었다. 300자를 넘는 dependencyInfo가 원문과 같고 모든 버전/조건 문자열이 남으며 library.version=null과 vulnerabilitiesAnalyzed=false를 보존했다. 기존 라이브러리 행을 사용해 이번 검증을 scan-context 증거 저장에 한정했으며 누락 라이브러리 생성 경로는 별도다. 테스트 트랜잭션 롤백으로 after-commit 외부 보강은 실행하지 않았다.
 - **검증 범위:** 선언 파서/JPA/컬럼 migration/ScanIngest 관련 23건 통과·실패/오류/skip 0. 로그 `build/roadmap-nuget-declaration-jpa.log`. 커밋 제목 `test: verify nuget declaration evidence through jpa`. 제품 코드·새 외부 자료 도입 없이 자체 fixture로 검증했다. 실제 PostgreSQL/V37 운영 업그레이드·화면 검증과 전체 build 재실행은 이번 범위에 포함하지 않았다.
 
