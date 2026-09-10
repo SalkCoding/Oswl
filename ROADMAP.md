@@ -397,6 +397,9 @@
 
 ### 25. NuGet TFM·RID·정규화 버전과 publish 결과 — P1 · [지원 범위별 필수]
 
+- **2026-09-11 정적 선언의 설치 버전 승격 차단:** [Microsoft PackageReference 문서](https://learn.microsoft.com/en-us/nuget/consume-packages/package-references-in-project-files)의 bare Version은 최소 요구 버전이며 restore/조건 해석 전에는 실제 선택 버전이 아니다. 정적 csproj 파싱은 이름과 PackageReference Version 선언을 dependencyInfo에 보존하고 version=null로 둔다. bare/floating/range/exact constraint/미해결 property 5조건 모두 수정 전 실패했고 수정 후 실제 OSV 온라인·오프라인 client는 resolved=false로 남는다. 정확한 제약도 실제 MSBuild 조건/restore 완료의 증거로 승격하지 않는다. lock/resolver 결과 및 packages.config의 기존 별도 경로는 유지했다.
+- **누적 검증·범위:** `build verifyProdJar` 성공, 4,147건 중 4,137건 통과·기존 환경 의존 9건/기본 비활성 OSV live 1건 skip·실패/오류 0. 로그 `build/roadmap-nuget-declared-before.log`, `build/roadmap-nuget-declared-build.log`. 기존 property 테스트는 공식 의미에 맞춰 선언 값 보존과 설치 버전 미확인을 각각 검사하며 약화하지 않았다. 커밋 제목 `fix: keep nuget package declarations unresolved`. 자체 fixture와 공식 동작 설명만 사용했고 새 외부 자료/라이브러리를 배포하지 않았다. 선언 구문은 기존 문자열 표시 필드로 전달하며 템플릿/스타일은 수정하지 않았다. 실제 화면·SDK restore·동일 이름의 복수 선언 조건 전체 전파와 TFM/RID 증거 모델은 잔여다.
+
 - **2026-09-11 JSON 중복·추가 데이터 차단:** resolved/package/framework/dependencies 중복 키로 앞선 버전 기록을 덮어쓰거나 첫 JSON 뒤의 추가 객체/문자열을 무시하던 6종을 실패 회귀로 재현했다. NuGet lock reader에 중복 tree key와 trailing token 거부를 적용하고 입력 스트림을 닫는다. 모호한 파일은 공용 파싱 서비스의 명시적 실패로 전달하며 뒤쪽 값을 임의로 정답으로 선택하지 않는다. 다른 생태계 reader의 정책은 이번에 변경하지 않았다.
 - **검증:** NuGet/QuickImportService/공용 파서/ScanController 관련 1,048건 중 1,047건 통과·환경 의존 MAUI skip 1건·실패/오류 0. 로그 `build/roadmap-nuget-json-before.log`, `build/roadmap-nuget-json-after.log`. 처음 ObjectReader의 File overload 부재로 난 컴파일 오류는 스트림 입력으로 해결했다. 커밋 제목 `fix: reject ambiguous nuget lock json`. 자체 합성 입력과 기존 Jackson 기능을 사용했고 외부 자료/라이브러리를 추가하지 않았다. 전체 build·실제 SDK 및 lock schema/revision 전체 검증은 잔여다.
 

@@ -179,7 +179,9 @@ public class NugetManifestParser {
             }
             String key = name + ":" + (ver != null ? ver : "");
             if (seen.add(key)) {
-                comps.add(buildComponent(name, ver == null || ver.isBlank() ? null : ver, "NUGET"));
+                // PackageReference constrains restore; even an exact constraint does not prove installation.
+                comps.add(ScanPayload.ComponentPayload.create(name, null, "NUGET",
+                        "PackageReference Version=\"" + (ver != null ? ver : "") + "\"", List.of()));
             }
         }
     }

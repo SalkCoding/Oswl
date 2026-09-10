@@ -562,7 +562,10 @@ class QuickImportServiceParserTest {
                 .contains("Contoso.Api", "Shared.Lib");
         assertThat(comps).filteredOn(c -> "Shared.Lib".equals(c.getName()))
                 .extracting(ScanPayload.ComponentPayload::getVersion)
-                .containsExactly("1.0.5");
+                .containsExactly((String) null);
+        assertThat(comps).filteredOn(c -> "Shared.Lib".equals(c.getName()))
+                .extracting(ScanPayload.ComponentPayload::getDependencyInfo)
+                .containsExactly("PackageReference Version=\"1.0.5\"");
     }
 
     @Test
