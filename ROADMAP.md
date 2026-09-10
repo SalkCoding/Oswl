@@ -254,6 +254,9 @@
 
 ### 21. Maven·Gradle 해석 결과와 JAR 구성요소 — P1 · [지원 범위별 필수]
 
+- **2026-09-11 Maven 미해석 버전 배제:** [Maven 3.9.15의 공식 DefaultVersionResolver](https://raw.githubusercontent.com/apache/maven/maven-3.9.15/maven-resolver-provider/src/main/java/org/apache/maven/repository/internal/DefaultVersionResolver.java)(확인 2026-09-11)는 정확히 `LATEST`/`RELEASE`를 저장소 metadata로 해석한다. 이 두 값을 concrete version 비교에서 거부해 OSV/GHSA 범위 판정은 미확인/비교 실패로, fixed 선택은 제안 없음으로 유지한다. OSV 명시적 versions 목록도 미해석 설치 버전을 확정 영향/비영향으로 만들지 않도록 먼저 검사한다. `1.0.Final` 등 기존 qualifier와 snapshot 순서 검사는 유지했다. 실제 dependency resolution·timestamped snapshot의 코드 동일성 검증은 잔여다.
+- **회귀 검증:** 새 selector 2건은 수정 전 실패했다. 설치 버전·fixed 경계·명시적 versions 목록 및 GHSA 비교 실패를 검증한 후 Windows/Java 25의 `test --tests '*MavenAdvisoryComparisonTest' --tests '*Osv*Test' --tests '*GitHubAdvisoryRangeTest'` 196건 통과·실패/오류/skip 0. 로그 `build/roadmap-maven-selectors-before.log`, `build/roadmap-maven-selectors-after.log`. 커밋 제목 `fix: keep unresolved maven selectors out of advisory comparisons`. Apache-2.0인 공식 구현의 계약을 확인하고 자체 합성 검사로 작성했으며 외부 코드를 복사하거나 새 라이브러리/데이터를 동봉하지 않았다. 기존 Maven 라이브러리의 LICENSE/NOTICE 조치는 유지한다. UI 변경 없음.
+
 - 현재·대상: [MavenPomParser](src/main/java/com/salkcoding/oswl/service/ingest/parser/MavenPomParser.java), [MavenBomVersionResolver](src/main/java/com/salkcoding/oswl/service/ingest/MavenBomVersionResolver.java), Gradle 수집 경로.
 - [ ] 수정: group/artifact/version에 scope·configuration·BOM/profile·substitution·classifier/type을 연결한다. Maven qualifier/범위를 native 규칙으로 처리하고 shaded/relocated·중첩 JAR를 아티팩트 증거로 추적한다.
 - 선행: 4단계 공통 계약. BOM/parent POM은 5번의 승인 mirror만 사용.

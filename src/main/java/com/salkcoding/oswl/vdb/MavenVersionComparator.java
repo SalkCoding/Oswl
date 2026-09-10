@@ -12,8 +12,9 @@ public final class MavenVersionComparator {
         return new ComparableVersion(left).compareTo(new ComparableVersion(right));
     }
 
-    private static void validate(String version) {
+    static void validate(String version) {
         if (version == null || version.isBlank() || version.length() > 4096
+                || "LATEST".equals(version) || "RELEASE".equals(version)
                 || version.chars().anyMatch(c -> Character.isWhitespace(c) || Character.isISOControl(c)
                 || "[](),<>=$".indexOf(c) >= 0)) {
             throw new IllegalArgumentException("Expected a concrete Maven artifact version");

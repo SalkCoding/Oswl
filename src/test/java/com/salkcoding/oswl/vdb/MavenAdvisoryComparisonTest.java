@@ -10,6 +10,34 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class MavenAdvisoryComparisonTest {
     @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"LATEST", "RELEASE"})
+    void unresolvedRepositorySelectorsCannotBeComparedOrRecommended(String selector) throws Exception {
+        var advisory = new ObjectMapper().readTree("""
+                {"affected":[{"package":{"ecosystem":"Maven","name":"org.example:fixture"},
+                "ranges":[{"type":"ECOSYSTEM","events":[{"introduced":"0"},{"fixed":"2.0"}]}]}]}
+                """);
+        var ranges = advisory.path("affected").get(0).path("ranges");
+        assertThat(OsvRangeEvaluator.evaluate("MAVEN", selector, null, ranges))
+                .isEqualTo(OsvRangeEvaluator.Result.UNKNOWN);
+        assertThat(OsvRangeEvaluator.evaluate("MAVEN", selector, java.util.Set.of(selector), null))
+                .isEqualTo(OsvRangeEvaluator.Result.UNKNOWN);
+        assertThat(OsvRangeEvaluator.evaluate("MAVEN", selector, java.util.Set.of("1.0"), null))
+                .isEqualTo(OsvRangeEvaluator.Result.UNKNOWN);
+        assertThat(OsvFixVersionSelector.select(advisory, "Maven", "org.example:fixture", selector).version()).isNull();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(
+                GitHubAdvisoryClient.class, "isVersionAffected", "MAVEN", selector, "< 2.0"))
+                .isInstanceOf(IllegalArgumentException.class);
+
+        var invalidFix = new ObjectMapper().readTree(advisory.toString().replace("2.0", selector));
+        assertThat(OsvRangeEvaluator.evaluate("MAVEN", "1.0", null,
+                invalidFix.path("affected").get(0).path("ranges"))).isEqualTo(OsvRangeEvaluator.Result.UNKNOWN);
+        assertThat(OsvFixVersionSelector.select(invalidFix, "Maven", "org.example:fixture", "1.0").version()).isNull();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(
+                GitHubAdvisoryClient.class, "isVersionAffected", "MAVEN", "1.0", "< " + selector))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @ParameterizedTest
     @CsvSource({"1.0-alpha1,true", "1.0-beta1,true", "1.0-RC1,true", "1.0-SNAPSHOT,true",
             "1.0,false", "1.0.Final,false", "1.0-ga,false", "1.0-sp1,false"})
     void qualifierOrderIsSharedByOsvFixSelectionAndGithub(String installed, boolean affected) throws Exception {

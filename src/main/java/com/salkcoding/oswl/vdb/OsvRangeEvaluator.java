@@ -58,6 +58,13 @@ public final class OsvRangeEvaluator {
 
     public static Result evaluate(String ecosystem, String version, Set<String> versions, JsonNode ranges) {
         if (version == null || version.isBlank()) return Result.UNKNOWN;
+        if ("MAVEN".equalsIgnoreCase(ecosystem)) {
+            try {
+                MavenVersionComparator.validate(version);
+            } catch (IllegalArgumentException unresolvedVersion) {
+                return Result.UNKNOWN;
+            }
+        }
         if (versions != null && versions.contains(version)) return Result.AFFECTED;
         boolean unknown = false;
         if ("GO".equalsIgnoreCase(ecosystem) && versions != null) {
