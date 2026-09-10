@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
 import com.salkcoding.oswl.service.metrics.OswlMetrics;
-import com.salkcoding.oswl.vdb.SimpleVersionComparator;
 import com.salkcoding.oswl.vdb.SemVerVersionComparator;
 import com.salkcoding.oswl.vdb.MavenVersionComparator;
 import com.salkcoding.oswl.vdb.Pep440VersionComparator;
@@ -421,7 +420,7 @@ public class GitHubAdvisoryClient {
                 case "GO" -> GoVersionComparator.compare(normalizedVersion, ver);
                 case "MAVEN" -> MavenVersionComparator.compare(normalizedVersion, ver);
                 case "PIP" -> Pep440VersionComparator.compare(normalizedVersion, ver);
-                default -> SimpleVersionComparator.compare(normalizedVersion, ver);
+                default -> throw new IllegalArgumentException("Unsupported ecosystem version ordering");
             };
             boolean ok = switch (op) {
                 case ">=" -> cmp >= 0;

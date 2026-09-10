@@ -18,6 +18,23 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class GitHubAdvisoryRangeTest {
     @ParameterizedTest
+    @CsvSource({"NuGet,NUGET", "RubyGems,RUBYGEMS", "Composer,COMPOSER"})
+    void unsupportedNativeOrderingDoesNotBecomeAConfirmedFinding(String ecosystem, String providerEcosystem) throws Exception {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
+                Duration.ofSeconds(1), Duration.ofSeconds(1));
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        server.expect(requestTo("https://api.github.com/graphql")).andRespond(withSuccess(
+                page("GHSA-fixture", false, "end").replace("\"NPM\"", "\"" + providerEcosystem + "\""),
+                MediaType.APPLICATION_JSON));
+        var result = new GitHubAdvisorySource(client).lookup(ecosystem, "fixture", "1.0.0", List.of());
+        assertThat(result.lookupFailed()).isTrue();
+        assertThat(result.findings()).isEmpty();
+        server.verify();
+    }
+
+    @ParameterizedTest
     @CsvSource(value = {"false;2.0.0;2.0.0;false", "false;1.5.0;null;false", "true;2.0.0;null;false",
             "false;2.0.0;null;true", "false;1.5.0;null;true", "true;2.0.0;null;true"}, delimiter = ';', nullValues = "null")
     void liveFixDecisionReplacesCachedDecisionForTheSameAdvisory(boolean partial, String candidate, String expected, boolean conflictingCache) throws Exception {

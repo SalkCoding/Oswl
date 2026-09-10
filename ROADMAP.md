@@ -113,6 +113,10 @@
 
 ### 11. 범용 버전 비교기와 GHSA 비교 실패 처리 교체 — P0 · [코드 확인/진단]
 
+- **2026-09-11 GHSA 범용 비교 fallback 제거:** native 비교기가 없는 생태계를 `SimpleVersionComparator`로 비교해 영향 여부를 확정하던 경로를 제거했다. NuGet/RubyGems/Composer 등의 범위는 lookup 미완료로 전달하며 기존 NPM/Rust/Go/Maven/PyPI 비교 경로는 유지한다. 이는 native 지원 완료가 아니라 추정 판정 차단이다. 생태계별 비교기 도입과 실제 정답 대조는 필수 잔여다.
+- **실행 결과:** Windows/Java 25의 `test --tests '*GitHubAdvisory*Test' --tests '*Osv*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 261건 통과·실패/오류/skip 0. 전체 build/UI는 이번 단위에서 재실행하지 않았다. 미지원 범위의 탐지 능력 확대는 아직 완료하지 않았고 이 불확실성을 정상 지원으로 표시하지 않는다.
+- **검증·근거:** mock GraphQL→실제 client→source adapter의 NuGet/RubyGems/Composer 3건이 수정 전 모두 실패했고 수정 후 통과했다. [Microsoft NuGet 버전 문서](https://learn.microsoft.com/en-us/nuget/concepts/package-versioning)를 2026-09-11 확인했으며 prerelease 문자 순서와 숫자 점 구분, 4번째 버전 요소, metadata 정규화를 범용 토큰 비교로 대체할 근거가 없음을 재확인했다. 외부 코드/데이터·라이브러리를 도입하지 않았다. 관련 테스트 로그 `build/roadmap-ghsa-native-order-before.log`, `build/roadmap-ghsa-native-order-after.log`. 커밋 제목 `fix: stop guessing unsupported github advisory version order`.
+
 - 현재·대상: [SimpleVersionComparator](src/main/java/com/salkcoding/oswl/vdb/SimpleVersionComparator.java), [GitHubAdvisoryClient.isVersionAffected](src/main/java/com/salkcoding/oswl/client/GitHubAdvisoryClient.java). 비교 예외/빈 버전을 true로 반환하는 경로가 있다.
 - [ ] 수정: source range 문법 파서와 ecosystem comparator를 분리한다. 비교 불능은 UNKNOWN, 지원 문법은 각 생태계 의미로 평가한다. SemVer build metadata/prerelease를 먼저 수정하고 생태계별 native oracle 검증을 연결한다.
 - 선행: 10번. 후보 라이브러리는 부록 B의 라이선스를 채택 버전에서 재확인.
