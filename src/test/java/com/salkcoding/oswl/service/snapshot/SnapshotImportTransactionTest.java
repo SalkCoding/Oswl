@@ -23,6 +23,24 @@ import static org.assertj.core.api.Assertions.*;
 class SnapshotImportTransactionTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"0,true", "7,true", "8,false", "40,false", "-1,false", "999,false"})
+    void offlineDepsDevAdvisoryRetainsEvidenceWithItsFreshness(int age, boolean current) {
+        entries.saveAndFlush(SnapshotEntry.builder().source("depsdev-advisory").entryKey("GHSA-fixture")
+                .payload("{\"ghsaId\":\"GHSA-fixture\",\"title\":\"Stored evidence\",\"aliases\":[\"CVE-2026-0001\"],\"cvss3Score\":7.5}").build());
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("depsdev-advisory")
+                .recordCount(1).importedAt(java.time.LocalDateTime.now())
+                .sourceAsOf(age == 999 ? null : java.time.LocalDate.now().minusDays(age)).build());
+        var actual = new com.salkcoding.oswl.client.DepsDevClient(service, true)
+                .getAdvisoriesBatch(List.of("GHSA-fixture", "GHSA-missing"));
+        assertThat(actual).hasSize(2);
+        assertThat(actual.get(1)).isNull();
+        assertThat(actual.getFirst().current()).isEqualTo(current);
+        assertThat(actual.getFirst().aliases()).containsExactly("CVE-2026-0001");
+        assertThat(actual.getFirst().title()).isEqualTo("Stored evidence");
+        assertThat(actual.getFirst().cvss3Score()).isEqualTo(7.5);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"0,true", "7,true", "8,false", "40,false", "-1,false", "999,false"})
     void offlineEpssWithholdsStaleScoresWithoutReplacingStoredEvidence(int age, boolean current) {
         metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("epss")
                 .recordCount(1).importedAt(java.time.LocalDateTime.now())

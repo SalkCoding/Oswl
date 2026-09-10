@@ -425,6 +425,11 @@
 
 ### 36. 재포장·부분 갱신으로 freshness가 바뀌지 않게 수정 — P0 · [코드 확인]
 
+- **2026-09-11 deps.dev 공지 상세의 오래된 덮어쓰기 방지:** `depsdev-advisory` source 기준일을 `AdvisoryInfo.current`로 전달한다. 미래·미상·경고 임계값 초과인 오프라인 공지는 기존 취약점의 제목/CVSS/심각도를 덮어쓰지 않는다. 공지 ID·alias·과거 내용은 보존하며 처음 발견한 취약점은 누락시키지 않는다. 이 플래그는 live 조회 또는 설정된 source-date 유효기간을 뜻하며, 이전 행보다 최신 revision이라는 보증은 아니다. 패치는 기존 OSV 근거에서만 가져온다.
+- **누적 빌드:** `build verifyProdJar` 성공, 전체 2,985건 중 2,976건 통과·기존 환경 의존 skip 9건·실패/오류 0. 운영 JAR의 local controller 제외 검사 통과. 로그 `build/roadmap-depsdev-advisory-freshness-build.log`. 실제 PostgreSQL/외부 공급자 응답 검증을 대체하지 않는다.
+- **회귀 검증:** 새 기준일/기존 정보 갱신 검사 8건 중 수정 전 5건 실패를 재현했다. 신규 finding 보존 2건을 더해 Windows/Java 25의 `test --tests '*SnapshotImportTransactionTest' --tests '*DepsDevClientTest' --tests '*VulnerabilityEnrichmentServiceTest'` 172건 통과·실패/오류/skip 0. 로그 `build/roadmap-depsdev-advisory-freshness-before.log`, `build/roadmap-depsdev-advisory-freshness-after.log`. 커밋 제목 `fix: prevent stale advisory details from replacing stored evidence`. 행별 기준일/revision 영속화·화면 전달과 source 간 최신성/충돌 해소는 계속 잔여다.
+- **근거·권리:** [공식 GetAdvisory 계약](https://docs.deps.dev/api/v3/#getadvisory)은 식별자·alias·제목·CVSS를 제공하며 수정 버전 필드는 없다. [공식 README](https://github.com/google/deps.dev#data)(확인 2026-09-11)는 집계 원천별 조건과 자체 생성 데이터 CC-BY 4.0를 구분하고 API 캐시를 허용한다. 이번 검사는 자체 합성 입력이며 외부 공지 전문/라이브러리/배포 자료를 추가하지 않았다. 이 변경으로 집계 advisory의 고객 번들 재배포를 승인하지 않으며 부록 A의 원천별 미해결 조건을 유지한다. UI 변경 없음.
+
 - **2026-09-11 컴플라이언스 보고서의 KEV 미확인 표시:** nullable KEV 값을 별도로 집계해 미확인 취약점 기록 수를 표시한다. 등재 목록이 비었을 때 악용 취약점이 없다고 단정하던 문구를 현재 목록에서 등재가 확인되지 않았다는 표현으로 변경했다. 영어·한국어·일본어에 동일한 의미를 적용하고 기존 보고서 스타일을 유지했다.
 - **검증:** Windows/Java 25에서 `build verifyProdJar` 성공, 전체 2,975건 중 2,966건 통과·기존 환경 의존 skip 9건·실패/오류 0. 영어 단복수 문구와 HTML 대체 문구를 최종 보완한 뒤 별도 `uiTest --tests '*ComplianceKevUiTest'`로 격리 H2의 미확인/미등재 기록을 실제 보고서까지 확인했다(1건 통과·실패/오류/skip 0, 세 언어 화면 확인). 자체 합성 데이터만 사용하며 외부 자료나 라이브러리를 추가하지 않았다. 로그 `build/roadmap-kev-report-build.log`, `build/roadmap-kev-report-ui.log`; 화면 `build/reports/roadmap-kev-report/kev-report-{en,ko,ja}.png`. 커밋 제목 `fix: show unknown kev coverage in compliance reports`. 다른 화면·내보내기·게이트의 미확인 전달, 실제 공급자 원천 검증과 PostgreSQL 검증은 잔여이며 36번 전체 완료로 처리하지 않는다.
 

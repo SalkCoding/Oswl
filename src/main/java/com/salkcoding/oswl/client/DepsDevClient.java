@@ -168,12 +168,19 @@ public class DepsDevClient {
         static final ProjectInfo EMPTY = new ProjectInfo(null, null, null, null);
     }
 
+    /** current means a live lookup or snapshot within the configured source-date window. */
     public record AdvisoryInfo(
             String ghsaId,
             String title,
             List<String> aliases,
             Double cvss3Score,
-            String cvss3Vector) {}
+            String cvss3Vector,
+            boolean current) {
+        public AdvisoryInfo(String ghsaId, String title, List<String> aliases,
+                            Double cvss3Score, String cvss3Vector) {
+            this(ghsaId, title, aliases, cvss3Score, cvss3Vector, true);
+        }
+    }
 
     // ── Public API ───────────────────────────────────────────────────────
 
@@ -286,9 +293,10 @@ public class DepsDevClient {
         return results;
     }
 
-    /** Offline GetAdvisory: snapshot hit → AdvisoryInfo; miss → null (live failure semantics). */
+    /** Retain stored advisory evidence, distinguishing it from a recent dated lookup. */
     private List<AdvisoryInfo> getAdvisoriesFromSnapshot(List<String> ghsaIds) {
         Map<String, SnapshotAdvisory> found = snapshotService.findAdvisories(new LinkedHashSet<>(ghsaIds));
+        boolean current = !snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_DEPSDEV_ADVISORY);
         List<AdvisoryInfo> results = new ArrayList<>(ghsaIds.size());
         int hits = 0;
         for (String id : ghsaIds) {
@@ -298,7 +306,7 @@ public class DepsDevClient {
             } else {
                 hits++;
                 results.add(new AdvisoryInfo(sa.ghsaId(), sa.title(), sa.aliases(),
-                        sa.cvss3Score(), sa.cvss3Vector()));
+                        sa.cvss3Score(), sa.cvss3Vector(), current));
             }
         }
         log.debug("[DepsDevClient] air-gapped GetAdvisory batch size={} snapshotHits={}", ghsaIds.size(), hits);
