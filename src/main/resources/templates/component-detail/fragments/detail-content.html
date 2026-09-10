@@ -189,7 +189,13 @@
         <div class="flex flex-wrap items-center gap-x-[12px] gap-y-[8px] pt-[14px] border-t border-[var(--grayscale-15)]">
             <p class="font-bold text-[11px] text-[var(--grayscale-60)] tracking-[0.4px] uppercase shrink-0 mr-[2px]"
                th:text="#{componentDetail.label.securityIssues}">Security Issues</p>
-            <span th:if="${securityCritical + securityHigh + securityMedium + securityLow + securityUnscored == 0}"
+            <span th:if="${!vulnerabilitiesAnalyzed}"
+                  class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]"
+                  th:title="#{securityCenter.table.notAnalyzedTooltip}">
+                <span class="w-[6px] h-[6px] rounded-full bg-[var(--grayscale-30)]"></span>
+                <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="#{securityCenter.table.notAnalyzed}">Not analyzed</span>
+            </span>
+            <span th:if="${vulnerabilitiesAnalyzed and securityCritical + securityHigh + securityMedium + securityLow + securityUnscored == 0}"
                   class="bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-patchable)]"></span>
                 <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="#{componentDetail.security.none}">None found</span>
@@ -269,7 +275,7 @@
                 <p class="font-bold text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px]" th:text="#{componentDetail.deprecated.title}">This version has been deprecated.</p>
             </div>
             <p class="text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px] leading-[1.5]" th:text="${deprecatedReason}">Deprecated reason</p>
-            <p class="text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px]" th:text="#{componentDetail.deprecated.hint}">No known CVEs, but this version is no longer maintained. Upgrade to a supported release.</p>
+            <p class="text-[13px] text-[var(--grayscale-70)] tracking-[-0.13px]" th:text="#{componentDetail.deprecated.hint}">This version is no longer maintained. Upgrade to a supported release.</p>
             <div class="pt-[6px]">
                 <button type="button" @click="modal = 'defer'"
                         class="bg-white border border-[rgba(230,39,39,0.3)] hover:bg-[rgba(230,39,39,0.04)] w-full flex items-center justify-center gap-[6px] px-[16px] py-[11px] rounded-[8px] text-[var(--text-accent)] font-bold text-[14px] tracking-[-0.14px] transition-colors">
@@ -285,7 +291,7 @@
             <div class="flex items-center gap-[12px]">
                 <span class="w-[8px] h-[8px] rounded-full bg-[var(--semantic-caution)] shrink-0"></span>
                 <p class="text-[14px] text-[var(--grayscale-90)] tracking-[-0.14px]">
-                    <th:block th:text="#{componentDetail.outdated.hint}">No known vulnerabilities detected, but this is not the latest version.</th:block>
+                    <th:block th:text="#{componentDetail.outdated.hint}">This is not the latest version.</th:block>
                     <th:block th:if="${latestVersion != null}">
                         <th:block th:text="#{componentDetail.outdated.latestIs}">Latest is</th:block> <span class="font-bold text-[var(--semantic-caution)]" th:text="'v' + ${latestVersion}">v2.17.0</span>.
                     </th:block>
@@ -323,11 +329,11 @@
         </div>
 
         <!-- Case: Up to date (latest, no CVE) — show Defer only if license risk exists -->
-        <div th:if="${!hasVulnerabilities and !isDeprecated and isLatestVersion == true}"
+        <div th:if="${vulnerabilitiesAnalyzed and !hasVulnerabilities and !isDeprecated and isLatestVersion == true}"
              class="bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] rounded-[10px] p-[24px] flex flex-col gap-[14px]">
             <div class="flex items-center gap-[12px]">
                 <span class="w-[8px] h-[8px] rounded-full bg-[var(--semantic-patchable)] shrink-0"></span>
-                <p class="text-[14px] text-[var(--grayscale-90)] tracking-[-0.14px]" th:text="#{componentDetail.safe.hint}">No known vulnerabilities detected. This component is safe to use.</p>
+                <p class="text-[14px] text-[var(--grayscale-90)] tracking-[-0.14px]" th:text="#{componentDetail.safe.hint}">No known vulnerabilities were found in the queried data. This does not guarantee safety.</p>
             </div>
             <div th:if="${licenseRisk == 'RESTRICTED' or licenseRisk == 'CAUTION'}" class="pt-[0px]">
                 <button type="button" @click="modal = 'defer'"
@@ -856,7 +862,8 @@
                 </span>
                 <span th:if="${securityFixVersion == null}" th:text="#{componentDetail.desc.noFix}">No patched version is currently available.</span>
             </p>
-            <p th:if="${!hasVulnerabilities}" th:text="#{componentDetail.desc.noVulns}">No known security vulnerabilities have been detected for this version.</p>
+            <p th:if="${!hasVulnerabilities and vulnerabilitiesAnalyzed}" th:text="#{componentDetail.desc.noVulns}">No known security vulnerabilities have been detected for this version.</p>
+            <p th:if="${!hasVulnerabilities and !vulnerabilitiesAnalyzed}" th:text="#{securityCenter.table.notAnalyzedTooltip}">Vulnerability lookup has not completed successfully.</p>
         </div>
     </section>
 

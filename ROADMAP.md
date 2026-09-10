@@ -106,6 +106,9 @@
 
 ### 10. 확정 영향·후보·미확인과 매칭 증거 모델 — P0 · [설계]
 
+- **2026-09-11 상세 요약의 조회 불확실성 표시:** 화면 검증 중 성공 조회 시각 없음/일부 출처 실패인데 CVE 0건만 보고 '발견되지 않음' 배지와 안전 안내를 표시하는 문제를 확인했다. 새 Chromium 회귀 3개 상태가 수정 전 모두 실패했다. 상세 상단/설명/최신 버전 추천에서 vulnerabilitiesAnalyzed를 함께 확인하고 미완료 조회는 기존 중립 '분석 안 됨' 표시를 사용한다. 조회 완료 상태라도 안전 사용을 보장하던 문구를 조회 데이터 범위의 결과로 바꾸고, 구버전/지원 종료 안내의 취약점 없음 주장을 제거했다. 영어·한국어·일본어 문구를 함께 수정했다.
+- **검증 범위:** 실제 앱·H2·로그인·Thymeleaf·Chromium에서 완료 시각 없음/부분 실패/완료 3개 상태 × 3개 언어의 화면을 검증했다. ComponentCoverageSummary/DependencyEvidence/DetectionCoverage UI 테스트 5건, ComponentDetailService/MessagesI18nConsistency 기존 테스트 34건 통과·skip/실패/오류 0. 영어·한국어·일본어 스크린샷을 직접 확인했다. 로그 `build/roadmap-component-coverage-ui-before.log`, `build/roadmap-component-coverage-ui-after.log`, `build/roadmap-component-coverage-unit.log`; 이미지 `build/reports/component-coverage-summary-ui/`. 커밋 제목 `fix: preserve incomplete coverage in component summaries`. 자체 저장 상태와 기존 모의 공급자 fixture를 사용했고 외부 데이터/라이브러리를 추가하지 않았다. 전체 build 재실행·실제 공급자/오프라인 전환·모바일·인쇄 종단 검증은 이번 범위에 포함하지 않았다.
+
 - 현재·대상: [VulnerabilityEnrichmentService](src/main/java/com/salkcoding/oswl/service/vulnerability/VulnerabilityEnrichmentService.java), [GatePolicyService](src/main/java/com/salkcoding/oswl/service/gate/GatePolicyService.java). 기존 소스별 coverage는 유지한다.
 - [ ] 수정: 패키지 확인 수준, AFFECTED/NOT_AFFECTED/UNKNOWN과 식별 후보 CANDIDATE, 실제 악용 가능성을 분리한다. MatchEvidence에 query identity·원문/range·engine/DB revision·결과/reason을 저장한다. NOT_AFFECTED는 해당 advisory와 조사 범위로 한정한다.
 - 선행: 3번; 2번 provenance 계약과 함께 확정.
