@@ -24,14 +24,14 @@ class OsvPaginationTest {
     }
 
     @Test void followsOnlyThePaginatedQueryAndPreservesInputAlignment() {
-        batch("{\"results\":[{\"vulns\":[{\"id\":\"OSV-one\"}],\"next_page_token\":\"cursor\"},{}]}");
+        batch("{\"results\":[{\"vulns\":[{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-one\"}],\"next_page_token\":\"cursor\"},{}]}");
         detail("OSV-one");
         server.expect(requestTo("https://api.osv.dev/v1/querybatch"))
                 .andExpect(content().json("""
                         {"queries":[{"package":{"name":"example","ecosystem":"npm"},
                         "version":"1.0.0","page_token":"cursor"}]}
                         """))
-                .andRespond(withSuccess("{\"results\":[{\"vulns\":[{\"id\":\"OSV-one\"},{\"id\":\"OSV-two\"}]}]}", MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess("{\"results\":[{\"vulns\":[{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-one\"},{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-two\"}]}]}", MediaType.APPLICATION_JSON));
         detail("OSV-two");
         var results = client.queryBatch(List.of(query(), new OsvClient.OsvQuery("npm", "invalid", null),
                 new OsvClient.OsvQuery("npm", "empty", "1.0.0")));
@@ -45,7 +45,7 @@ class OsvPaginationTest {
 
     @Test void emptyFirstPageStillFollowsItsCursor() {
         batch("{\"results\":[{\"next_page_token\":\"cursor\"}]}");
-        batch("{\"results\":[{\"vulns\":[{\"id\":\"OSV-one\"}]}]}");
+        batch("{\"results\":[{\"vulns\":[{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-one\"}]}]}");
         detail("OSV-one");
         var result = client.queryBatch(List.of(query())).getFirst();
         assertThat(result.resolved()).isTrue();
@@ -54,7 +54,7 @@ class OsvPaginationTest {
     }
 
     @Test void laterHttpFailureRetainsEarlierFindings() {
-        batch("{\"results\":[{\"vulns\":[{\"id\":\"OSV-one\"}],\"next_page_token\":\"cursor\"}]}");
+        batch("{\"results\":[{\"vulns\":[{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-one\"}],\"next_page_token\":\"cursor\"}]}");
         detail("OSV-one");
         server.expect(requestTo("https://api.osv.dev/v1/querybatch")).andRespond(withServerError());
         var result = client.queryBatch(List.of(query())).getFirst();
@@ -68,7 +68,7 @@ class OsvPaginationTest {
             "{}", "{\"results\":[{},{}]}", "{\"results\":[{\"next_page_token\":123}]}",
             "{\"results\":[{\"vulns\":false}]}"})
     void repeatedCursorAndMalformedPagesRemainIncomplete(String page) {
-        batch("{\"results\":[{\"vulns\":[{\"id\":\"OSV-one\"}],\"next_page_token\":\"cursor\"}]}");
+        batch("{\"results\":[{\"vulns\":[{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-one\"}],\"next_page_token\":\"cursor\"}]}");
         detail("OSV-one");
         batch(page);
         var result = client.queryBatch(List.of(query())).getFirst();
@@ -83,7 +83,7 @@ class OsvPaginationTest {
     }
 
     @Test void paginationStopsAtThePageBudgetWithoutClaimingCompleteCoverage() {
-        batch("{\"results\":[{\"vulns\":[{\"id\":\"OSV-one\"}],\"next_page_token\":\"cursor-1\"}]}");
+        batch("{\"results\":[{\"vulns\":[{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-one\"}],\"next_page_token\":\"cursor-1\"}]}");
         detail("OSV-one");
         for (int page = 2; page <= 10; page++) {
             batch("{\"results\":[{\"next_page_token\":\"cursor-" + page + "\"}]}");
@@ -96,7 +96,7 @@ class OsvPaginationTest {
 
     private void detail(String id) {
         server.expect(requestTo("https://api.osv.dev/v1/vulns/" + id))
-                .andRespond(withSuccess("{\"id\":\"" + id + "\"}", MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess("{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"" + id + "\"}", MediaType.APPLICATION_JSON));
     }
 
     private OsvClient.OsvQuery query() { return new OsvClient.OsvQuery("npm", "example", "1.0.0"); }

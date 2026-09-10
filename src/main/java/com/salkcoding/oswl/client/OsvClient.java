@@ -241,6 +241,7 @@ public class OsvClient {
     private OsvResult collectPages(OsvQuery query, Map<?, ?> page, DetailBudget details) {
         Map<String, OsvVuln> findings = new java.util.LinkedHashMap<>();
         Set<String> cursors = new LinkedHashSet<>();
+        Set<String> untrustedIds = new LinkedHashSet<>();
         boolean resolved = true;
         if (details.deadline == 0) details.deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos();
         for (int pageNumber = 1; ; pageNumber++) {
@@ -253,16 +254,21 @@ public class OsvClient {
                         continue;
                     }
                     Map<String, Object> detail = loadDetail(id, details);
-                    if (detail != null) {
-                        var withdrawal = OsvWithdrawal.from(JSON.valueToTree(detail));
-                        if (withdrawal == OsvWithdrawal.WITHDRAWN) continue;
-                        if (withdrawal == OsvWithdrawal.UNKNOWN) {
-                            resolved = false;
-                            continue;
-                        }
+                    if (detail == null || !sameRevision(vuln.get("modified"), detail.get("modified")) || untrustedIds.contains(id)) {
+                        // Query membership and detail fields must describe the same source revision.
+                        // A later conflicting page must also invalidate a previously accepted fix.
+                        untrustedIds.add(id);
+                        findings.put(id, parseVuln(Map.of("id", id)));
+                        resolved = false;
+                        continue;
                     }
-                    findings.putIfAbsent(id, parseVuln(detail != null ? detail : (Map<String, Object>) vuln, query));
-                    if (detail == null) resolved = false;
+                    var withdrawal = OsvWithdrawal.from(JSON.valueToTree(detail));
+                    if (withdrawal == OsvWithdrawal.WITHDRAWN) continue;
+                    if (withdrawal == OsvWithdrawal.UNKNOWN) {
+                        resolved = false;
+                        continue;
+                    }
+                    findings.putIfAbsent(id, parseVuln(detail, query));
                 }
             }
             if (!page.containsKey("next_page_token")) break;
@@ -295,6 +301,22 @@ public class OsvClient {
             }
         }
         return new OsvResult(List.copyOf(findings.values()), resolved);
+    }
+
+    private static boolean sameRevision(Object queried, Object hydrated) {
+        if (!(queried instanceof String left) || !(hydrated instanceof String right)
+                || left.length() > 64 || right.length() > 64) return false;
+        try {
+            var expected = java.time.Instant.parse(left);
+            var actual = java.time.Instant.parse(right);
+            // OSV querybatch reads Datastore timestamps (microseconds), while full
+            // advisories retain protobuf nanoseconds. Only account for that truncation.
+            boolean matches = expected.equals(actual)
+                    || expected.equals(actual.truncatedTo(java.time.temporal.ChronoUnit.MICROS));
+            return matches && !actual.isAfter(java.time.Instant.now());
+        } catch (java.time.format.DateTimeParseException invalid) {
+            return false;
+        }
     }
 
     /** External-API call counter — no-op until Spring config wires the metrics bean. */

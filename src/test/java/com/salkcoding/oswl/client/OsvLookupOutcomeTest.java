@@ -21,11 +21,11 @@ class OsvLookupOutcomeTest {
         var client = new OsvClient();
         ReflectionTestUtils.setField(client, "restClient", builder.build());
         server.expect(requestTo("https://api.osv.dev/v1/querybatch")).andRespond(withSuccess(
-                "{\"results\":[{\"vulns\":[{\"id\":\"OSV-withdrawn\"},{\"id\":\"OSV-active\"}]}]}", MediaType.APPLICATION_JSON));
+                "{\"results\":[{\"vulns\":[{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-withdrawn\"},{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-active\"}]}]}", MediaType.APPLICATION_JSON));
         server.expect(requestTo("https://api.osv.dev/v1/vulns/OSV-withdrawn")).andRespond(withSuccess(
-                "{\"id\":\"OSV-withdrawn\",\"withdrawn\":\"2026-01-01T00:00:00Z\",\"aliases\":[\"CVE-2026-0001\"]}", MediaType.APPLICATION_JSON));
+                "{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-withdrawn\",\"withdrawn\":\"2026-01-01T00:00:00Z\",\"aliases\":[\"CVE-2026-0001\"]}", MediaType.APPLICATION_JSON));
         server.expect(requestTo("https://api.osv.dev/v1/vulns/OSV-active")).andRespond(withSuccess(
-                "{\"id\":\"OSV-active\",\"aliases\":[\"CVE-2026-0001\"]}", MediaType.APPLICATION_JSON));
+                "{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-active\",\"aliases\":[\"CVE-2026-0001\"]}", MediaType.APPLICATION_JSON));
         var result = client.queryBatch(List.of(new OsvClient.OsvQuery("npm", "example", "1.0.0"))).getFirst();
         assertThat(result.resolved()).isTrue();
         assertThat(result.vulns()).hasSize(1);
@@ -39,9 +39,9 @@ class OsvLookupOutcomeTest {
             var client = new OsvClient();
             ReflectionTestUtils.setField(client, "restClient", builder.build());
             server.expect(requestTo("https://api.osv.dev/v1/querybatch")).andRespond(withSuccess(
-                    "{\"results\":[{\"vulns\":[{\"id\":\"OSV-withdrawn\"}]}]}", MediaType.APPLICATION_JSON));
+                    "{\"results\":[{\"vulns\":[{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-withdrawn\"}]}]}", MediaType.APPLICATION_JSON));
             server.expect(requestTo("https://api.osv.dev/v1/vulns/OSV-withdrawn")).andRespond(withSuccess(
-                    "{\"id\":\"OSV-withdrawn\",\"withdrawn\":" + withdrawal + "}", MediaType.APPLICATION_JSON));
+                    "{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-withdrawn\",\"withdrawn\":" + withdrawal + "}", MediaType.APPLICATION_JSON));
             var result = client.queryBatch(List.of(new OsvClient.OsvQuery("npm", "example", "1.0.0"))).getFirst();
             assertThat(result.vulns()).as(withdrawal).isEmpty();
             assertThat(result.resolved()).as(withdrawal).isEqualTo(withdrawal.startsWith("\"2026"));
@@ -91,9 +91,9 @@ class OsvLookupOutcomeTest {
             var server = MockRestServiceServer.bindTo(builder).build();
             var client = new OsvClient(); ReflectionTestUtils.setField(client, "restClient", builder.build());
             server.expect(requestTo("https://api.osv.dev/v1/querybatch")).andRespond(withSuccess(
-                    "{\"results\":[{\"vulns\":[{\"id\":\"GHSA-fixture\"}]},{\"vulns\":[{\"id\":\"GHSA-fixture\"}]}]}", MediaType.APPLICATION_JSON));
+                    "{\"results\":[{\"vulns\":[{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"GHSA-fixture\"}]},{\"vulns\":[{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"GHSA-fixture\"}]}]}", MediaType.APPLICATION_JSON));
             server.expect(requestTo("https://api.osv.dev/v1/vulns/GHSA-fixture")).andRespond(success ? withSuccess(
-                    "{\"id\":\"GHSA-fixture\",\"aliases\":[\"CVE-2026-0001\"],\"severity\":[{\"type\":\"CVSS_V3\",\"score\":\"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H\"}]}", MediaType.APPLICATION_JSON) : withServerError());
+                    "{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"GHSA-fixture\",\"aliases\":[\"CVE-2026-0001\"],\"severity\":[{\"type\":\"CVSS_V3\",\"score\":\"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H\"}]}", MediaType.APPLICATION_JSON) : withServerError());
             var result = client.queryBatch(List.of(new OsvClient.OsvQuery("npm", "a", "1"), new OsvClient.OsvQuery("npm", "b", "1")));
             assertThat(result).allMatch(r -> r.resolved() == success && r.vulns().size() == 1);
             if (success) {
