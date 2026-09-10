@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -55,6 +56,14 @@ public class GitCloneExecutor {
      */
     public void clone(String repositoryUrl, GitCloneCredentials credentials, String branch,
                       Path targetDir, String jobId) throws Exception {
+        if (credentials != null) {
+            URI destination = URI.create(repositoryUrl);
+            if (!"https".equalsIgnoreCase(destination.getScheme()) || destination.getHost() == null
+                    || destination.getRawUserInfo() != null || destination.getRawQuery() != null
+                    || destination.getRawFragment() != null) {
+                throw new IllegalArgumentException("Authenticated clone requires a clean HTTPS URL");
+            }
+        }
         Path askpass = credentials != null ? writeAskpassScript() : null;
         try {
             if (sparseEnabled && !allowBuildExec && !includeSource) {
@@ -136,6 +145,32 @@ public class GitCloneExecutor {
     private static void runGit(List<String> cmd, Path askpass, GitCloneCredentials credentials,
                                String jobId, String description) throws Exception {
         ProcessBuilder pb = new ProcessBuilder(cmd).redirectErrorStream(true);
+        if (credentials != null) {
+            // Host-level rewrites, helpers and checkout filters must not receive this connection's token.
+            String nullDevice = System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win")
+                    ? "NUL" : "/dev/null";
+            List<String> isolated = new ArrayList<>(cmd);
+            isolated.addAll(1, List.of(
+                    "-c", "http.followRedirects=false",
+                    "-c", "http.sslVerify=true",
+                    "-c", "credential.helper=",
+                    "-c", "core.hooksPath=" + nullDevice,
+                    "-c", "init.templateDir=",
+                    "-c", "filter.lfs.process=",
+                    "-c", "filter.lfs.smudge=",
+                    "-c", "filter.lfs.required=false",
+                    "-c", "submodule.recurse=false",
+                    "-c", "protocol.allow=never",
+                    "-c", "protocol.https.allow=always"));
+            pb.command(isolated);
+            pb.environment().keySet().removeIf(key -> key.toUpperCase(java.util.Locale.ROOT).startsWith("GIT_")
+                    || key.equalsIgnoreCase(ENV_USERNAME) || key.equalsIgnoreCase(ENV_PASSWORD));
+            pb.environment().put("GIT_CONFIG_NOSYSTEM", "1");
+            pb.environment().put("GIT_CONFIG_GLOBAL", nullDevice);
+            pb.environment().put("GIT_LFS_SKIP_SMUDGE", "1");
+            // Avoid inheriting the server checkout's local Git configuration during clone.
+            pb.directory(askpass.toAbsolutePath().getParent().toFile());
+        }
         pb.environment().put("GIT_TERMINAL_PROMPT", "0");
         if (credentials != null && askpass != null) {
             pb.environment().put("GIT_ASKPASS", askpass.toAbsolutePath().toString());

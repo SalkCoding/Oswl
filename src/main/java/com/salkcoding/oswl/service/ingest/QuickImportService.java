@@ -870,8 +870,11 @@ public class QuickImportService {
         }
 
         // 2. Resolve clone credentials (optional — public repos clone anonymously) ──
-        Optional<UserVcsConnection> connOpt =
-                vcsConnectionRepository.findByUserIdAndProviderAndActiveTrue(userId, parsed.provider);
+        Optional<UserVcsConnection> connOpt = userConns.stream()
+                .filter(conn -> parsed.connectionId() != null && parsed.connectionId().equals(conn.getId()))
+                .filter(conn -> conn.isActive() && conn.getProvider() == parsed.provider())
+                .filter(conn -> ("https://" + parsed.host()).equals(connectionOrigin(conn)))
+                .findFirst();
         GitCloneCredentials credentials = null;
         if (connOpt.isPresent()) {
             UserVcsConnection conn = connOpt.get();
@@ -993,47 +996,52 @@ public class QuickImportService {
      * @param clonePath the path segment used in the authenticated clone URL (e.g. {@code /scm/proj/repo}
      *                  for Bitbucket DC/Server, or {@code null} to fall back to {@code /owner/repo}).
      */
-    private record ParsedRepoUrl(VcsProvider provider, String host, String owner, String repo, String clonePath) {}
+    private record ParsedRepoUrl(VcsProvider provider, String host, String owner, String repo,
+                                 String clonePath, Long connectionId) {}
 
     private ParsedRepoUrl parseRepoUrl(String rawUrl, List<UserVcsConnection> userConnections) {
         if (rawUrl == null || rawUrl.isBlank()) return null;
-        // Normalize: remove trailing .git and trailing slash
-        String url = rawUrl.trim().replaceAll("\\.git$", "").replaceAll("/$", "");
-        // Extract host + full path: handle https://host/...
-        Pattern hostPattern = Pattern.compile("https?://([^/]+)(/.*)");
-        Matcher m = hostPattern.matcher(url);
-        if (!m.matches()) return null;
-        String host = m.group(1).toLowerCase();
-        String path = m.group(2); // starts with /
+        String origin = httpsOrigin(rawUrl.trim());
+        if (origin == null) return null;
+        URI uri = URI.create(rawUrl.trim());
+        String host = origin.substring("https://".length());
+        String path = uri.getRawPath().replaceAll("/+$", "").replaceAll("\\.git$", "");
+        // Encoded separators and dot segments must not change the destination path in Git.
+        if (path.contains("%") || Arrays.stream(path.split("/"))
+                .anyMatch(segment -> segment.equals(".") || segment.equals(".."))) return null;
+
+        List<UserVcsConnection> matchingConnections = userConnections.stream()
+                .filter(UserVcsConnection::isActive)
+                .filter(conn -> origin.equals(connectionOrigin(conn)))
+                .toList();
+        // Never choose an arbitrary credential when multiple connections share an origin.
+        if (matchingConnections.size() > 1) return null;
+        Long connectionId = matchingConnections.isEmpty() ? null : matchingConnections.getFirst().getId();
 
         // On-premise first: when URL host matches a stored connection's serverUrl
-        ParsedRepoUrl fromConnection = parseFromStoredConnection(host, path, userConnections);
+        ParsedRepoUrl fromConnection = parseFromStoredConnection(host, path, matchingConnections);
         if (fromConnection != null) return fromConnection;
 
         // ── Bitbucket Cloud ──────────────────────────────────────────────
-        if (host.equals("bitbucket.org") || host.endsWith(".bitbucket.org")) {
+        if (host.equals("bitbucket.org")) {
             String[] parts = splitTwoPathSegments(path);
             if (parts == null) return null;
-            return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, parts[0], parts[1], null);
+            return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, parts[0], parts[1], null, connectionId);
         }
 
         // ── GitHub (cloud + enterprise) ──────────────────────────────────
-        if (host.equals("github.com") || host.endsWith(".github.com")) {
+        if (host.equals("github.com")) {
             String[] parts = splitTwoPathSegments(path);
             if (parts == null) return null;
-            return new ParsedRepoUrl(VcsProvider.GITHUB, host, parts[0], parts[1], null);
+            return new ParsedRepoUrl(VcsProvider.GITHUB, host, parts[0], parts[1], null, connectionId);
         }
 
         // ── GitLab (cloud + self-hosted) ─────────────────────────────────
-        if (host.equals("gitlab.com") || host.contains("gitlab")) {
+        if (host.equals("gitlab.com")) {
             String[] parts = splitTwoPathSegments(path);
             if (parts == null) return null;
-            return new ParsedRepoUrl(VcsProvider.GITLAB, host, parts[0], parts[1], null);
+            return new ParsedRepoUrl(VcsProvider.GITLAB, host, parts[0], parts[1], null, connectionId);
         }
-
-        // ── Self-hosted fallback ─────────────────────────────────────────
-        ParsedRepoUrl fallback = parseFromStoredConnection(host, path, userConnections);
-        if (fallback != null) return fallback;
 
         log.warn("[QuickImport] Unknown host '{}' — cannot determine VCS provider.", host);
         return null;
@@ -1043,35 +1051,60 @@ public class QuickImportService {
         for (UserVcsConnection conn : userConnections) {
             if (conn.getServerUrl() == null || conn.getServerUrl().isBlank()) continue;
             try {
-                String connHost = conn.getServerUrl().replaceAll("https?://", "").split("/")[0].toLowerCase();
-                if (!connHost.equals(host)) continue;
+                if (!("https://" + host).equals(connectionOrigin(conn))) continue;
 
                 if (conn.getProvider() == VcsProvider.BITBUCKET) {
                     Matcher scm = Pattern.compile("^/scm/([^/]+)/([^/]+)").matcher(path);
                     if (scm.find()) {
                         String proj = scm.group(1);
                         String repo = scm.group(2);
-                        return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, proj, repo, "/scm/" + proj + "/" + repo);
+                        return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, proj, repo, "/scm/" + proj + "/" + repo, conn.getId());
                     }
                     Matcher projects = Pattern.compile("^/projects/([^/]+)/repos/([^/]+)").matcher(path);
                     if (projects.find()) {
                         String proj = projects.group(1).toLowerCase();
                         String repo = projects.group(2);
-                        return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, proj, repo, "/scm/" + proj + "/" + repo);
+                        return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, proj, repo, "/scm/" + proj + "/" + repo, conn.getId());
                     }
                     String[] parts = splitTwoPathSegments(path);
                     if (parts != null) {
-                        return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, parts[0], parts[1], null);
+                        return new ParsedRepoUrl(VcsProvider.BITBUCKET, host, parts[0], parts[1], null, conn.getId());
                     }
                 } else {
                     String[] parts = splitTwoPathSegments(path);
                     if (parts != null) {
-                        return new ParsedRepoUrl(conn.getProvider(), host, parts[0], parts[1], null);
+                        return new ParsedRepoUrl(conn.getProvider(), host, parts[0], parts[1], null, conn.getId());
                     }
                 }
             } catch (Exception ignored) {}
         }
         return null;
+    }
+
+    private static String connectionOrigin(UserVcsConnection connection) {
+        if (connection.getServerUrl() != null && !connection.getServerUrl().isBlank()) {
+            return httpsOrigin(connection.getServerUrl().trim());
+        }
+        return switch (connection.getProvider()) {
+            case GITHUB -> "https://github.com";
+            case GITLAB -> "https://gitlab.com";
+            case BITBUCKET -> "https://bitbucket.org";
+        };
+    }
+
+    /** Canonical HTTPS origin; credentials in URLs and ambiguous authorities are rejected. */
+    private static String httpsOrigin(String value) {
+        try {
+            URI uri = URI.create(value);
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null
+                    || uri.getRawUserInfo() != null || uri.getRawQuery() != null
+                    || uri.getRawFragment() != null || uri.getPort() == 0 || uri.getPort() > 65535) return null;
+            String host = uri.getHost().toLowerCase(Locale.ROOT);
+            int port = uri.getPort();
+            return "https://" + host + (port == -1 || port == 443 ? "" : ":" + port);
+        } catch (IllegalArgumentException ignored) {
+            return null;
+        }
     }
 
     /** Extracts the first two non-empty path segments from a path like {@code /owner/repo/...}. */
