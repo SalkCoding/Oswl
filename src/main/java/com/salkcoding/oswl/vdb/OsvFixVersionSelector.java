@@ -28,7 +28,9 @@ public final class OsvFixVersionSelector {
         try {
             for (JsonNode entry : advisory.path("affected")) {
                 JsonNode pkg = entry.path("package");
-                if (!name.equals(pkg.path("name").asText()) || !ecosystem.equals(pkg.path("ecosystem").asText())) continue;
+                if (!ecosystem.equals(pkg.path("ecosystem").asText())) continue;
+                if (!AdvisoryPackageNames.canonical(ecosystem, name).equals(
+                        AdvisoryPackageNames.canonical(ecosystem, pkg.path("name").asText()))) continue;
                 if (entry.hasNonNull("versions") && !entry.path("versions").isArray()) return unavailable("MALFORMED_VERSIONS");
                 entries.add(entry);
                 if (!entry.path("ranges").isArray() || entry.path("ranges").isEmpty()) return unavailable("NO_RANGE_EVIDENCE");

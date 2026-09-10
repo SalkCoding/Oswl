@@ -9,6 +9,7 @@ import com.salkcoding.oswl.vdb.SimpleVersionComparator;
 import com.salkcoding.oswl.vdb.SemVerVersionComparator;
 import com.salkcoding.oswl.vdb.MavenVersionComparator;
 import com.salkcoding.oswl.vdb.Pep440VersionComparator;
+import com.salkcoding.oswl.vdb.AdvisoryPackageNames;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
@@ -233,7 +234,7 @@ public class GitHubAdvisoryClient {
     private AdvisoryPage queryPage(String ghEcosystem, String name, String version, String cursor) {
         Map<String, Object> variables = new LinkedHashMap<>(Map.of(
                 "ecosystem", ghEcosystem,
-                "package", name,
+                "package", AdvisoryPackageNames.canonical(ghEcosystem, name),
                 "first", 100));
         if (cursor != null) variables.put("after", cursor);
         Map<String, Object> body = Map.of("query", QUERY, "variables", variables);
@@ -271,7 +272,8 @@ public class GitHubAdvisoryClient {
                 if (!(nodeObj instanceof Map<?, ?> node) || !(node.get("advisory") instanceof Map<?, ?>))
                     throw new IllegalArgumentException("Malformed advisory node");
                 if (!(node.get("package") instanceof Map<?, ?> pkg)
-                        || !name.equals(pkg.get("name")) || !ghEcosystem.equals(pkg.get("ecosystem")))
+                        || !ghEcosystem.equals(pkg.get("ecosystem")) || !(pkg.get("name") instanceof String returnedName)
+                        || !AdvisoryPackageNames.canonical(ghEcosystem, name).equals(AdvisoryPackageNames.canonical(ghEcosystem, returnedName)))
                     throw new IllegalArgumentException("Advisory package identity does not match the query");
                 Map<?, ?> rawAdvisory = (Map<?, ?>) node.get("advisory");
                 Object withdrawn = rawAdvisory.get("withdrawnAt");

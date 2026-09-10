@@ -9,6 +9,23 @@ import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class PyPiAdvisoryComparisonTest {
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"Friendly_Bard", "friendly.bard", "FRIENDLY--BARD"})
+    void equivalentNamesMatchWithoutChangingSnapshotKeys(String wantedName) throws Exception {
+        String raw = """
+                {"id":"OSV-fixture","affected":[{"package":{"ecosystem":"PyPI","name":"friendly-bard"},
+                "ranges":[{"type":"ECOSYSTEM","events":[{"introduced":"0"},{"fixed":"1.0"}]}]}]}
+                """;
+        var mapper = new ObjectMapper();
+        var findings = new java.util.LinkedHashMap<String, java.util.List<com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln>>();
+        var unresolved = new java.util.LinkedHashSet<String>();
+        ReflectionTestUtils.invokeMethod(new OsvBulkSource(mapper), "processVulnEntry", raw.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                "PYPI", java.util.Map.of(wantedName, java.util.Set.of("0.9")), findings, unresolved);
+        assertThat(findings).containsKey("PYPI|" + wantedName + "|0.9");
+        assertThat(unresolved).isEmpty();
+        assertThat(OsvFixVersionSelector.select(mapper.readTree(raw), "PyPI", wantedName, "0.9").version()).isEqualTo("1.0");
+    }
+
     @org.junit.jupiter.api.Test
     void fixedCandidateCannotConflictWithAnEquivalentListedVersion() throws Exception {
         var advisory = new ObjectMapper().readTree("""

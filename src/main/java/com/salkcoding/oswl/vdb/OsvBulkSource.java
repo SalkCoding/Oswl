@@ -128,6 +128,7 @@ final class OsvBulkSource {
             String ecosystem = ecoEntry.getKey();
             String bucket = resolveBucket(ecosystem);
             Map<String, Set<String>> namesWanted = ecoEntry.getValue();
+            Map<String, List<String>> aliases = indexNames(ecosystem, namesWanted);
             System.err.println("[oswl-vdb] OSV: fetching " + bucket + "/all.zip for " + namesWanted.size() + " wanted package name(s)");
             // Debian/Ubuntu bucket names contain ':' (e.g. "Debian:11", "Ubuntu:22.04:LTS"), which
             // is a reserved character in Windows filenames — sanitize the whole cache key, not
@@ -158,7 +159,7 @@ final class OsvBulkSource {
                         System.err.println("[oswl-vdb] OSV " + bucket + ": scanned " + entriesScanned + " entries");
                     }
                     byte[] content = zis.readAllBytes();
-                    processVulnEntry(content, ecosystem, namesWanted, result, unresolvedKeys);
+                    processVulnEntry(content, ecosystem, namesWanted, result, unresolvedKeys, aliases);
                 }
             }
             if (entriesScanned == 0) {
@@ -171,6 +172,19 @@ final class OsvBulkSource {
 
     private void processVulnEntry(byte[] content, String ecosystem, Map<String, Set<String>> namesWanted,
                                    Map<String, List<SnapshotVuln>> result, Set<String> unresolvedKeys) throws IOException {
+        processVulnEntry(content, ecosystem, namesWanted, result, unresolvedKeys, indexNames(ecosystem, namesWanted));
+    }
+
+    private static Map<String, List<String>> indexNames(String ecosystem, Map<String, Set<String>> wanted) {
+        Map<String, List<String>> aliases = new LinkedHashMap<>();
+        wanted.keySet().forEach(name -> aliases.computeIfAbsent(AdvisoryPackageNames.canonical(ecosystem, name),
+                unused -> new ArrayList<>()).add(name));
+        return aliases;
+    }
+
+    private void processVulnEntry(byte[] content, String ecosystem, Map<String, Set<String>> namesWanted,
+                                  Map<String, List<SnapshotVuln>> result, Set<String> unresolvedKeys,
+                                  Map<String, List<String>> aliases) throws IOException {
         JsonNode vuln;
         try {
             vuln = mapper.readTree(content);
@@ -201,25 +215,27 @@ final class OsvBulkSource {
                 throw new IOException("OSV affected entry has no valid package identity; source coverage is unknown");
             }
             if (!ecosystem.equals(AirgappedSnapshotService.normalizeEcosystem(pkgEcosystem))) continue;
-            Set<String> versionsWanted = namesWanted.get(pkgName);
-            if (versionsWanted == null || versionsWanted.isEmpty()) continue;
+            for (String wantedName : aliases.getOrDefault(AdvisoryPackageNames.canonical(ecosystem, pkgName), List.of())) {
+                Set<String> versionsWanted = namesWanted.get(wantedName);
+                if (versionsWanted == null || versionsWanted.isEmpty()) continue;
 
-            JsonNode enumeratedVersions = affected.path("versions");
-            Set<String> enumerated = null;
-            if (enumeratedVersions.isArray() && enumeratedVersions.size() > 0) {
-                enumerated = new LinkedHashSet<>();
-                for (JsonNode v : enumeratedVersions) enumerated.add(v.asText());
-            }
+                JsonNode enumeratedVersions = affected.path("versions");
+                Set<String> enumerated = null;
+                if (enumeratedVersions.isArray() && enumeratedVersions.size() > 0) {
+                    enumerated = new LinkedHashSet<>();
+                    for (JsonNode v : enumeratedVersions) enumerated.add(v.asText());
+                }
 
-            for (String wantedVersion : versionsWanted) {
-                String key = AirgappedSnapshotService.componentKey(ecosystem, pkgName, wantedVersion);
-                if (key == null) continue;
-                Boolean affectedResult = resolveAffected(ecosystem, wantedVersion, enumerated, affected.path("ranges"));
-                if (affectedResult == null) {
-                    unresolvedKeys.add(key);
-                } else if (affectedResult) {
-                    result.computeIfAbsent(key, k -> new ArrayList<>()).add(toSnapshotVuln(vuln, pkgEcosystem, pkgName, wantedVersion));
-                    anyMatch = true;
+                for (String wantedVersion : versionsWanted) {
+                    String key = AirgappedSnapshotService.componentKey(ecosystem, wantedName, wantedVersion);
+                    if (key == null) continue;
+                    Boolean affectedResult = resolveAffected(ecosystem, wantedVersion, enumerated, affected.path("ranges"));
+                    if (affectedResult == null) {
+                        unresolvedKeys.add(key);
+                    } else if (affectedResult) {
+                        result.computeIfAbsent(key, k -> new ArrayList<>()).add(toSnapshotVuln(vuln, pkgEcosystem, pkgName, wantedVersion));
+                        anyMatch = true;
+                    }
                 }
             }
         }

@@ -17,6 +17,25 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class GitHubAdvisoryRangeTest {
+    @org.junit.jupiter.api.Test
+    void pypiNameAliasesUseTheSameQueryAndResponseIdentity() throws Exception {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
+                Duration.ofSeconds(1), Duration.ofSeconds(1));
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        String response = page("GHSA-fixture", false, "end").replace("\"NPM\"", "\"PIP\"")
+                .replace("\"fixture\"", "\"Friendly_Bard\"");
+        server.expect(requestTo("https://api.github.com/graphql"))
+                .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.content().string(
+                        org.hamcrest.Matchers.containsString("\"package\":\"friendly-bard\"")))
+                .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
+        var result = new GitHubAdvisorySource(client).lookup("PyPI", "FRIENDLY.bard", "1.0", List.of());
+        assertThat(result.lookupFailed()).isFalse();
+        assertThat(result.findings()).hasSize(1);
+        server.verify();
+    }
+
     @ParameterizedTest
     @CsvSource({"MODERATE,false,MEDIUM", "UNKNOWN,true,CRITICAL"})
     void preservesCurrentSeverityFields(String severity, boolean scored, String expected) throws Exception {

@@ -238,6 +238,9 @@
 - **2026-09-10 PyPI versions 목록:** 명시적 OSV versions 목록에서 PEP 440 정규화상 같은 PyPI 버전(1.0/1.0.0, RC 대소문자, rev/post alias)을 인식한다. local과 public 버전은 별도로 비교하며 Maven/다른 SemVer 빌드의 비교 동률을 동일 아티팩트로 확대하지 않는다. PyPI 목록의 해석 불능 버전은 UNKNOWN 근거로 유지한다. fixed 후보가 목록의 동등 버전과 충돌하면 제안하지 않는다. 근거는 위 PyPA version scheme의 정규화와 OSV versions/ranges 합집합 계약이다.
 - **목록 회귀:** 수정 전 6건 중 4건 실패를 확인했다. local/post 구분, 정규화 alias, malformed 및 fixed 충돌 검사를 포함한 `.\gradlew.bat test --tests '*Osv*Test' --tests '*PyPiAdvisoryComparisonTest'` 79건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-pypi-enumerated-before.log`, `build/roadmap-pypi-enumerated-after.log`. 커밋 제목 `fix: match normalized pypi versions in advisory lists`. 자체 합성 입력이며 새 외부 데이터/라이브러리와 UI 변경은 없다. 기관 local patch의 실제 코드 동등성이나 package-name 정규화 검증을 완료했다는 뜻은 아니다.
 
+- **2026-09-10 PyPI 이름 매칭:** [PyPA 이름 정규화 계약](https://packaging.python.org/en/latest/specifications/name-normalization/)(확인 2026-09-10)에 따라 공통 `AdvisoryPackageNames`로 ASCII 이름 검증·소문자화·연속 점/밑줄/하이픈 통합을 적용했다. GHSA 요청/응답 대조, OSV fixed 선택 및 bulk wanted 매칭에서 사용한다. bulk는 canonical→원래 요청명 index를 bucket당 한 번 만들고 결과는 원래 componentKey로 기록한다. 기존 DB/스냅샷 키를 변경하지 않으므로 이전 키 형식의 자동 migration을 주장하지 않는다.
+- **이름 회귀:** Friendly_Bard/friendly.bard/FRIENDLY--BARD의 bulk 매칭 3건은 수정 전 전부 실패했다. 수정 후 원래 snapshot key 보존·fixed 선택 및 GHSA의 canonical 요청과 alias 응답을 확인했다. Windows/Java 25에서 `.\gradlew.bat test --tests '*PyPiAdvisoryComparisonTest' --tests '*Osv*Test' --tests '*GitHubAdvisoryRangeTest'` 110건 통과·실패/skip 0. 로그 `build/roadmap-pypi-names-before.log`, `build/roadmap-pypi-names-after.log`. 커밋 제목 `fix: normalize pypi names for advisory matching`. 자체 합성 입력이며 새 외부 데이터/라이브러리와 UI 변경 없음. 기존 다른 별칭으로 저장된 offline key의 재조회 통합, inventory 중복·registry origin 및 설치 환경 판별은 잔여다.
+
 ### 23. Go checksum 기록을 실제 module graph와 분리 — P1 · [코드 확인/지원 범위별 필수]
 
 - 현재·대상: [GoManifestParser.parseGoSum](src/main/java/com/salkcoding/oswl/service/ingest/parser/GoManifestParser.java)은 이름으로 중복 제거해 첫 버전을 선택한다.
