@@ -15,6 +15,62 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 class OsvLookupOutcomeTest {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"[]", "[{}]", "[{},{},{}]"})
+    void mismatchedBatchCardinalityCannotConfirmAnyPackageIsClean(String results) {
+        var builder = RestClient.builder().baseUrl("https://api.osv.dev");
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new OsvClient();
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        server.expect(requestTo("https://api.osv.dev/v1/querybatch")).andRespond(withSuccess(
+                "{\"results\":" + results + "}", MediaType.APPLICATION_JSON));
+
+        var actual = client.queryBatch(List.of(new OsvClient.OsvQuery("npm", "a", "1.0.0"),
+                new OsvClient.OsvQuery("npm", "b", "1.0.0")));
+
+        assertThat(actual).hasSize(2).allMatch(result -> !result.resolved() && result.vulns().isEmpty());
+        server.verify();
+    }
+
+    @Test void responseCardinalityUsesOnlyQueriesActuallySent() {
+        var builder = RestClient.builder().baseUrl("https://api.osv.dev");
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new OsvClient();
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        server.expect(requestTo("https://api.osv.dev/v1/querybatch"))
+                .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.content().json(
+                        "{\"queries\":[{\"package\":{\"ecosystem\":\"npm\",\"name\":\"a\"},\"version\":\"1.0.0\"}]}"))
+                .andRespond(withSuccess("{\"results\":[{}]}", MediaType.APPLICATION_JSON));
+
+        var actual = client.queryBatch(List.of(new OsvClient.OsvQuery("npm", "missing", null),
+                new OsvClient.OsvQuery("npm", "a", "1.0.0")));
+
+        assertThat(actual).hasSize(2);
+        assertThat(actual.getFirst().resolved()).isFalse();
+        assertThat(actual.getLast().resolved()).isTrue();
+        server.verify();
+    }
+
+    @Test void aMalformedBatchDoesNotInvalidateTheNextBatch() {
+        var builder = RestClient.builder().baseUrl("https://api.osv.dev");
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new OsvClient();
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        server.expect(requestTo("https://api.osv.dev/v1/querybatch"))
+                .andRespond(withSuccess("{\"results\":[{}]}", MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://api.osv.dev/v1/querybatch"))
+                .andRespond(withSuccess("{\"results\":[{}]}", MediaType.APPLICATION_JSON));
+        var queries = java.util.stream.IntStream.range(0, 1001)
+                .mapToObj(i -> new OsvClient.OsvQuery("npm", "fixture-" + i, "1.0.0")).toList();
+
+        var actual = client.queryBatch(queries);
+
+        assertThat(actual).hasSize(1001);
+        assertThat(actual.subList(0, 1000)).allMatch(result -> !result.resolved());
+        assertThat(actual.getLast().resolved()).isTrue();
+        server.verify();
+    }
+
     @Test void withdrawingOneAdvisoryDoesNotWithdrawAnActiveAlias() {
         var builder = RestClient.builder().baseUrl("https://api.osv.dev");
         var server = MockRestServiceServer.bindTo(builder).build();

@@ -214,11 +214,17 @@ public class OsvClient {
                 log.debug("[OsvClient] querybatch response is empty or missing the 'results' key");
                 return Collections.nCopies(queries.size(), OsvResult.unresolved());
             }
+            if (rawResults.size() != validIndices.size()) {
+                // Results have no query identity; a missing or extra entry makes positional
+                // association unreliable for the entire batch, including empty results.
+                log.warn("[OsvClient] querybatch result count mismatch: expected={} actual={}",
+                        validIndices.size(), rawResults.size());
+                return Collections.nCopies(queries.size(), OsvResult.unresolved());
+            }
 
             List<OsvResult> parsed = new ArrayList<>(rawResults.size());
 
             for (Object rawResult : rawResults) {
-                if (parsed.size() >= validIndices.size()) break;
                 OsvQuery query = queries.get(validIndices.get(parsed.size()));
                 if (!(rawResult instanceof Map<?, ?> resultMap)) {
                     parsed.add(OsvResult.unresolved());

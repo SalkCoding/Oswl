@@ -135,6 +135,9 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 OSV batch 대응 검증:** [공식 querybatch 계약](https://google.github.io/osv.dev/post-v1-querybatch/)(확인 2026-09-11)은 응답 순서를 요청에 대응시킨다. 응답 개수가 실제 전송한 질의 개수와 다르면 빈 결과를 특정 패키지의 정상 조회로 확정하지 않도록 전체 해당 묶음을 미확인으로 반환한다. 응답에 질의 identity가 없어 누락 위치를 추측할 수 없으므로 잘못된 위치에 공지/수정 후보를 연결하지 않는다. 다음 정상 묶음은 계속 처리하고, null 필드로 전송에서 제외한 입력은 원래 위치의 미확인을 유지한다.
+- **회귀 검증:** 새 개수 검사 3건 중 부족/초과 응답 2건이 수정 전 실패했다. 전송 제외 입력의 정렬과 1,001개 질의의 묶음 간 실패 격리까지 추가한 후 Windows/Java 25의 `test --tests '*Osv*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 193건 통과·실패/오류/skip 0. 기존 온라인/오프라인 범위 및 조회 미확인 검사도 포함한다. 로그 `build/roadmap-osv-cardinality-before.log`, `build/roadmap-osv-cardinality-after.log`. 커밋 제목 `fix: reject misaligned osv batch responses`. 공식 응답 계약에서 도출한 자체 HTTP mock이며 새 외부 데이터/코드/라이브러리와 UI 변경은 없다. 실제 공급자 전체 장애 검증 및 조회 실패 이유의 API/화면 전파는 여전히 잔여다.
+
 - **2026-09-11 저장된 GHSA 수정 제안 갱신:** 같은 advisory ID의 현재 공급자 응답을 모은 뒤 저장된 수정 버전을 교체한다. GHSA만 제공한 후보의 변경·제거도 반영하며, GHSA 후보가 없어도 같은 공지에 대한 현재 OSV 후보가 있으면 유지한다. CVE alias만 같은 다른 공지로 기존 값을 덮어쓰지 않고, 저장된 충돌은 기존의 완전한 양쪽 공급자 합의 조건을 충족해야 해제한다. 값이 같은 경우 추가 저장하지 않는다. 조회에서 공지가 아예 사라졌을 때의 철회·삭제 수명 처리는 여전히 잔여다.
 - **누적 빌드:** `.\gradlew.bat build verifyProdJar` 성공. 전체 2,902건 중 2,893건 통과·기존 환경 의존 skip 9건·실패/오류 0, 운영 JAR에서 local controller 제외 확인. 로그 `build/roadmap-ghsa-stored-fix-build.log`. 별도 `uiTest`와 실제 PostgreSQL 검증은 실행하지 않았다.
 - **회귀 검증:** 새 6건 중 변경·제거 2건이 수정 전 실패했다. 수정 후 Windows/Java 25에서 `test --tests '*VulnerabilityEnrichmentServiceTest' --tests '*GitHubAdvisoryRangeTest' --tests '*ContinuousMonitoringServiceTest' --tests '*FixConflictPersistenceTest'` 105건 통과·실패/오류/skip 0. 로그 `build/roadmap-ghsa-stored-fix-before.log`, `build/roadmap-ghsa-stored-fix-after.log`. 커밋 제목 `fix: reconcile stored fixes with current advisory candidates`. 자체 합성 입력이며 새 외부 자료/라이브러리·스키마·UI 변경은 없다. 이번 환경 확인에서 `docker`/`psql`/`postgres` 실행 명령을 찾지 못했으므로 V36의 실제 PostgreSQL 검증은 완료로 처리하지 않는다.
