@@ -137,6 +137,10 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 CVSS 점수/vector의 관측 단위 보존:** deps.dev 상세에서 점수 또는 vector가 갱신되면 두 필드를 같은 응답의 값으로 교체하고, 그 응답에 없는 짝은 null로 둔다. 둘 다 없으면 기존 관측을 보존한다. OSV/GHSA/NVD의 기존 행 보강도 두 필드가 모두 없을 때만 한 관측으로 채우며, 서로 다른 출처의 부분 필드를 합성하지 않는다. 별도 필드 setter를 제거하고 실제 보강 호출부를 함께 바꿨다. 기존 부분 정보의 출처를 추정해 보완하지 않는다.
+- **누적 빌드:** Windows/Java 25의 `build verifyProdJar` 성공. 전체 3,006건 중 2,997건 통과·기존 환경 의존 skip 9건·실패/오류 0, 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-cvss-pair-build.log`. 실제 외부 공급자·운영 PostgreSQL 검증은 별도다.
+- **회귀 검증:** 갱신/보강 9건 중 수정 전 5건 실패를 재현했다. 수정 후 Windows/Java 25의 `test --tests '*CveCvssEvidenceTest' --tests '*CveSeverityEvidenceTest' --tests '*VulnerabilityEnrichmentServiceTest'` 80건 통과·실패/오류/skip 0. 로그 `build/roadmap-cvss-pair-before.log`, `build/roadmap-cvss-pair-after.log`. 커밋 제목 `fix: keep cvss scores and vectors from one observation`. 자체 합성 관측 표식을 사용한 저장/병합 검사이며 외부 데이터·코드·라이브러리 도입이나 UI 변경은 없다. CVSS 수식/문법 검증, 출처별 복수 관측 영속화와 이미 섞여 저장된 과거 행의 복구는 별도 잔여다.
+
 - **2026-09-11 공지 갱신의 심각도 충돌 보존:** deps.dev 상세 갱신이 `mergeSeverity` 전에 기존 심각도를 덮어쓰던 순서를 제거했다. 다른 출처 또는 출처 미상인 기존 근거와 다르면 기존 병합 규칙에 따라 높은 심각도와 충돌 표시를 보존한다. deps.dev 단독으로 확인된 충돌 없는 행은 정상 revision의 상향/하향 정정을 허용한다. CVSS가 누락된 상세 갱신은 기존 심각도를 `NONE`으로 바꾸지 않는다. 신규 미평가 기록은 기존의 미평가 처리를 유지한다.
 - **누적 빌드:** 최종 변경의 `build verifyProdJar` 성공. 전체 2,997건 중 2,988건 통과·기존 환경 의존 skip 9건·실패/오류 0, 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-severity-evidence-build.log`. 실제 공급자 응답/운영 PostgreSQL 검증을 대신하지 않는다.
 - **회귀 검증:** 엔티티 7건과 기존/신규·최신/오래된 공지·CVSS 유무를 조합한 서비스 8건 중 수정 전 3건 실패를 재현했다. 수정 후 `test --tests '*CveSeverityEvidenceTest' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*SnapshotImportTransactionTest'` 176건 통과·실패/오류/skip 0. 이어 출처 미상인 과거 행의 심각도 보존 검사 1건을 추가했다. Windows/Java 25 로그 `build/roadmap-severity-evidence-before.log`, `build/roadmap-severity-evidence-after.log`. 커밋 제목 `fix: preserve severity evidence during advisory refresh`. 자체 합성 입력으로 기존 병합 계약을 검증했으며 외부 자료/라이브러리 도입이나 UI 변경은 없다. 출처별 점수·vector·revision의 개별 영속화와 과거 충돌의 확정 해소는 잔여다. 단일 집계 심각도를 각 공급자의 동일 평가로 해석하지 않는다.
