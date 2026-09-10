@@ -397,6 +397,9 @@
 
 ### 25. NuGet TFM·RID·정규화 버전과 publish 결과 — P1 · [지원 범위별 필수]
 
+- **2026-09-11 NuGet 공지 이름 매칭:** [Microsoft nuspec 명세](https://learn.microsoft.com/en-us/nuget/reference/nuspec)의 대소문자를 구분하지 않는 package ID 규칙에 맞춰 공통 공지 이름 비교를 `Locale.ROOT` 소문자로 정규화했다. 고정 Microsoft/GHSA 공지의 System.Text.Json을 소문자/대문자로 조회하는 OSV 온라인 mock HTTP·bulk 변환·오프라인 snapshot mock 경로 2건은 수정 전 실패했고 수정 후 동일 취약점과 수정 버전 8.0.4를 보존했다. GitHub Advisory의 요청 정규화와 응답 이름 대소문자 차이도 실제 client/source와 mock GraphQL로 검증했다.
+- **검증·잔여:** 관련 NuGet/OSV/GitHub Advisory/snapshot import 테스트 1,244건 중 1,242건 통과·2건 skip·실패/오류 0. skip은 기본 비활성 OSV live 검사와 환경 의존 MAUI 검사다. 로그 `build/roadmap-nuget-package-case-before.log`, `build/roadmap-nuget-package-case-after.log`. 커밋 제목 `fix: match nuget advisory package names without case sensitivity`. 기존 고지된 fixture만 재사용했으며 이번에는 실제 외부 API와 전체 build를 재실행하지 않았다. 저장된 snapshot component key는 여전히 원래 이름 표기를 보존하므로 기존 캐시의 다른 대소문자 조회와 DB identity 통합은 별도 잔여다. TFM/RID·publish·floating 규칙 전체 완료를 뜻하지 않는다.
+
 - 현재·대상: [NugetManifestParser](src/main/java/com/salkcoding/oswl/service/ingest/parser/NugetManifestParser.java), PackageReference/lock/assets 입력.
 - [ ] 수정: packages.lock.json/project.assets.json과 publish 산출물에서 TFM/RID별 selected version·transitive graph를 수집한다. 이름 대소문자/정규화/prerelease/floating 규칙과 Central Package Management를 처리하고 SDK/runtime을 별도 식별한다.
 - 선행: 4단계 공통 계약.

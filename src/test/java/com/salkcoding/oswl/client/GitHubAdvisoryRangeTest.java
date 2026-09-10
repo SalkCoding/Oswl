@@ -17,6 +17,24 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class GitHubAdvisoryRangeTest {
+    @org.junit.jupiter.api.Test
+    void nugetPackageCasingDoesNotChangeAdvisoryIdentity() throws Exception {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
+                Duration.ofSeconds(1), Duration.ofSeconds(1));
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        server.expect(requestTo("https://api.github.com/graphql"))
+                .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.content().string(
+                        org.hamcrest.Matchers.containsString("\"package\":\"fixture\"")))
+                .andRespond(withSuccess(page("GHSA-fixture", false, "end").replace("\"NPM\"", "\"NUGET\"")
+                        .replace("\"fixture\"", "\"Fixture\""), MediaType.APPLICATION_JSON));
+        var result = new GitHubAdvisorySource(client).lookup("NuGet", "FIXTURE", "1.0.0", List.of());
+        assertThat(result.lookupFailed()).isFalse();
+        assertThat(result.findings()).hasSize(1);
+        server.verify();
+    }
+
     @ParameterizedTest
     @CsvSource({"RubyGems,RUBYGEMS", "Composer,COMPOSER"})
     void unsupportedNativeOrderingDoesNotBecomeAConfirmedFinding(String ecosystem, String providerEcosystem) throws Exception {

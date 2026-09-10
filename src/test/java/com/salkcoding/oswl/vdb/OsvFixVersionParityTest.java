@@ -49,6 +49,8 @@ class OsvFixVersionParityTest {
             "GHSA-wf6x-7x77-mvgw,npm,immutable,4.3.7,4.3.8", "GHSA-wf6x-7x77-mvgw,npm,immutable,5.1.4,5.1.5",
             "GHSA-hh2w-p6rv-4g7w,NuGet,System.Text.Json,7.0.0,8.0.4",
             "GHSA-hh2w-p6rv-4g7w,NuGet,System.Text.Json,8.0.3,8.0.4",
+            "GHSA-hh2w-p6rv-4g7w,NuGet,system.text.json,8.0.3,8.0.4",
+            "GHSA-hh2w-p6rv-4g7w,NuGet,SYSTEM.TEXT.JSON,8.0.3,8.0.4",
             "GHSA-hh2w-p6rv-4g7w,NuGet,System.Text.Json,08.0.03.0,8.0.4"})
     void pinnedOfficialAdvisorySelectsTheInstalledReleaseFixInBothModes(String id, String ecosystem, String name,
                                                                       String installed, String fixed) throws Exception {

@@ -7,6 +7,11 @@ public final class AdvisoryPackageNames {
     private AdvisoryPackageNames() { }
 
     public static String canonical(String ecosystem, String name) {
+        if ("NUGET".equalsIgnoreCase(ecosystem)) {
+            if (name == null || name.isBlank() || name.length() > 4096)
+                throw new IllegalArgumentException("Invalid NuGet package name");
+            return name.toLowerCase(Locale.ROOT);
+        }
         if (!"PYPI".equalsIgnoreCase(ecosystem) && !"PIP".equalsIgnoreCase(ecosystem)) return name;
         if (name == null || name.length() > 4096 || !name.matches("[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?"))
             throw new IllegalArgumentException("Invalid PyPI package name");
