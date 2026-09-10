@@ -18,8 +18,9 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class GitHubAdvisoryRangeTest {
     @ParameterizedTest
-    @CsvSource(value = {"false;2.0.0;2.0.0", "false;1.5.0;null", "true;2.0.0;null"}, delimiter = ';', nullValues = "null")
-    void liveFixDecisionReplacesCachedDecisionForTheSameAdvisory(boolean partial, String candidate, String expected) throws Exception {
+    @CsvSource(value = {"false;2.0.0;2.0.0;false", "false;1.5.0;null;false", "true;2.0.0;null;false",
+            "false;2.0.0;null;true", "false;1.5.0;null;true", "true;2.0.0;null;true"}, delimiter = ';', nullValues = "null")
+    void liveFixDecisionReplacesCachedDecisionForTheSameAdvisory(boolean partial, String candidate, String expected, boolean conflictingCache) throws Exception {
         var builder = RestClient.builder();
         var server = MockRestServiceServer.bindTo(builder).build();
         var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
@@ -30,12 +31,15 @@ class GitHubAdvisoryRangeTest {
         ((com.fasterxml.jackson.databind.node.ObjectNode) response.path("data").path("securityVulnerabilities").path("nodes").get(0))
                 .putObject("firstPatchedVersion").put("identifier", candidate);
         server.expect(requestTo("https://api.github.com/graphql")).andRespond(withSuccess(mapper.writeValueAsString(response), MediaType.APPLICATION_JSON));
-        var cached = new GitHubAdvisoryClient.GitHubAdvisory("GHSA-fixture", null, "cached", null, null, null, "9.0.0");
+        var conflicts = conflictingCache ? java.util.Set.of("2.0.0", "3.0.0") : java.util.Set.<String>of();
+        var cached = new GitHubAdvisoryClient.GitHubAdvisory("GHSA-fixture", null, "cached", null, null, null, "9.0.0", conflicts);
         var other = new GitHubAdvisoryClient.GitHubAdvisory("GHSA-other", null, "other", null, null, null, "3.0.0");
         var result = new GitHubAdvisorySource(client).lookup("npm", "fixture", "1.0.0", List.of(cached, other));
         assertThat(result.lookupFailed()).isEqualTo(partial);
         assertThat(result.findings()).hasSize(2).contains(other);
         assertThat(result.findings().stream().filter(f -> f.ghsaId().equals("GHSA-fixture")).findFirst().orElseThrow().fixVersion()).isEqualTo(expected);
+        assertThat(result.findings().stream().filter(f -> f.ghsaId().equals("GHSA-fixture")).findFirst().orElseThrow().fixVersionConflictCandidates())
+                .containsExactlyInAnyOrderElementsOf(conflicts);
         server.verify();
     }
 
