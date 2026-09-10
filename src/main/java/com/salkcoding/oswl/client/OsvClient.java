@@ -144,7 +144,7 @@ public class OsvClient {
         List<String> keys = new ArrayList<>(queries.size());
         Set<String> distinctKeys = new LinkedHashSet<>();
         for (OsvQuery q : queries) {
-            String key = q.version() != null && q.name() != null && q.ecosystem() != null
+            String key = hasQueryIdentity(q)
                     ? AirgappedSnapshotService.componentKey(q.ecosystem(), q.name(), q.version())
                     : null;
             keys.add(key);
@@ -174,6 +174,12 @@ public class OsvClient {
 
     // ── Internal ─────────────────────────────────────────────────────────
 
+    private static boolean hasQueryIdentity(OsvQuery query) {
+        return query != null && query.ecosystem() != null && !query.ecosystem().isBlank()
+                && query.name() != null && !query.name().isBlank()
+                && query.version() != null && !query.version().isBlank();
+    }
+
     public Set<String> findUnresolvedComponentKeys(java.util.Collection<String> keys) {
         return airgapped ? snapshotService.findUnresolvedKeys(keys) : Set.of();
     }
@@ -181,13 +187,13 @@ public class OsvClient {
     @SuppressWarnings("unchecked")
     private List<OsvResult> doQueryBatch(List<OsvQuery> queries, DetailBudget details) {
         try {
-            // Map.of() rejects null values — pre-filter queries with null fields
-            // and track original indices to realign the result list.
+            // An incomplete identity cannot support a package/version decision.
+            // Track original indices so rejecting it does not shift neighboring results.
             List<Integer> validIndices = new ArrayList<>();
             List<Map<String, Object>> requestBody = new ArrayList<>();
             for (int i = 0; i < queries.size(); i++) {
                 OsvQuery q = queries.get(i);
-                if (q.version() != null && q.name() != null && q.ecosystem() != null) {
+                if (hasQueryIdentity(q)) {
                     validIndices.add(i);
                     requestBody.add(Map.of(
                             "version", q.version(),
@@ -244,7 +250,9 @@ public class OsvClient {
             }
             for (int i = 0; i < finalResults.length; i++) {
                 OsvQuery q = queries.get(i);
-                log.debug("[OsvClient] querybatch result[{}] {}:{} vulns={}", i, q.name(), q.version(), finalResults[i].vulns());
+                if (q != null) {
+                    log.debug("[OsvClient] querybatch result[{}] {}:{} vulns={}", i, q.name(), q.version(), finalResults[i].vulns());
+                }
             }
             return java.util.Arrays.asList(finalResults);
         } catch (RestClientException e) {

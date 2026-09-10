@@ -135,6 +135,9 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 OSV 입력 식별자 경계 통일:** 온라인 질의와 오프라인 snapshot key 생성 전에 공통으로 null 질의·누락 필드·빈 문자열·공백만 있는 ecosystem/name/version을 제외한다. 제외된 입력은 원래 위치의 미확인을 유지하고 정상 이웃 질의는 계속 처리한다. 기존 온라인 경로는 공백 필드를 전송하고 null 질의에서 예외가 발생했으며, 오프라인 경로도 공백 식별자로 key를 만들 수 있었다. 구체적인 버전 문법·생태계 지원 여부의 판정까지 이 검사로 확정하지 않는다.
+- **회귀 검증:** null 질의와 각 필드의 빈 문자열/공백 7건이 수정 전 모두 실패했다. 수정 후 실제 client의 HTTP 요청 내용과 snapshot 조회 key, 두 모드의 결과 위치·미확인/정상 빈 결과를 함께 확인했다. Windows/Java 25의 `test --tests '*Osv*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 200건 통과·실패/오류/skip 0. 로그 `build/roadmap-osv-identity-before.log`, `build/roadmap-osv-identity-after.log`. 커밋 제목 `fix: preserve unknown results for incomplete osv identities`. 자체 합성 입력이며 새 외부 데이터/코드/라이브러리와 UI 변경은 없다. 스냅샷 전체 패키지 키 정규화·기존 저장 키 migration 및 지원 생태계 계약은 여전히 잔여다.
+
 - **2026-09-11 OSV batch 대응 검증:** [공식 querybatch 계약](https://google.github.io/osv.dev/post-v1-querybatch/)(확인 2026-09-11)은 응답 순서를 요청에 대응시킨다. 응답 개수가 실제 전송한 질의 개수와 다르면 빈 결과를 특정 패키지의 정상 조회로 확정하지 않도록 전체 해당 묶음을 미확인으로 반환한다. 응답에 질의 identity가 없어 누락 위치를 추측할 수 없으므로 잘못된 위치에 공지/수정 후보를 연결하지 않는다. 다음 정상 묶음은 계속 처리하고, null 필드로 전송에서 제외한 입력은 원래 위치의 미확인을 유지한다.
 - **회귀 검증:** 새 개수 검사 3건 중 부족/초과 응답 2건이 수정 전 실패했다. 전송 제외 입력의 정렬과 1,001개 질의의 묶음 간 실패 격리까지 추가한 후 Windows/Java 25의 `test --tests '*Osv*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 193건 통과·실패/오류/skip 0. 기존 온라인/오프라인 범위 및 조회 미확인 검사도 포함한다. 로그 `build/roadmap-osv-cardinality-before.log`, `build/roadmap-osv-cardinality-after.log`. 커밋 제목 `fix: reject misaligned osv batch responses`. 공식 응답 계약에서 도출한 자체 HTTP mock이며 새 외부 데이터/코드/라이브러리와 UI 변경은 없다. 실제 공급자 전체 장애 검증 및 조회 실패 이유의 API/화면 전파는 여전히 잔여다.
 

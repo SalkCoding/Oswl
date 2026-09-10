@@ -16,6 +16,46 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class OsvLookupOutcomeTest {
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("incompleteQueries")
+    void incompleteIdentityRemainsUnresolvedInBothModes(OsvClient.OsvQuery incomplete) {
+        var builder = RestClient.builder().baseUrl("https://api.osv.dev");
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var online = new OsvClient();
+        ReflectionTestUtils.setField(online, "restClient", builder.build());
+        server.expect(requestTo("https://api.osv.dev/v1/querybatch"))
+                .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.content().json(
+                        "{\"queries\":[{\"package\":{\"ecosystem\":\"npm\",\"name\":\"valid\"},\"version\":\"1.0.0\"}]}"))
+                .andRespond(withSuccess("{\"results\":[{}]}", MediaType.APPLICATION_JSON));
+        String validKey = AirgappedSnapshotService.componentKey("npm", "valid", "1.0.0");
+        var snapshot = mock(AirgappedSnapshotService.class);
+        when(snapshot.findOsvVulns(anyCollection())).thenAnswer(invocation -> {
+            java.util.Collection<String> keys = invocation.getArgument(0);
+            assertThat(keys).containsExactly(validKey);
+            return Map.of(validKey, List.of());
+        });
+        var queries = java.util.Arrays.asList(incomplete, new OsvClient.OsvQuery("npm", "valid", "1.0.0"));
+
+        for (var client : List.of(online, new OsvClient(snapshot, true))) {
+            var actual = client.queryBatch(queries);
+            assertThat(actual).hasSize(2);
+            assertThat(actual.getFirst().resolved()).isFalse();
+            assertThat(actual.getFirst().vulns()).isEmpty();
+            assertThat(actual.getLast().resolved()).isTrue();
+        }
+        server.verify();
+    }
+
+    static java.util.stream.Stream<OsvClient.OsvQuery> incompleteQueries() {
+        return java.util.stream.Stream.of(null,
+                new OsvClient.OsvQuery("npm", "valid", ""),
+                new OsvClient.OsvQuery("npm", "valid", " \t"),
+                new OsvClient.OsvQuery("npm", "", "1.0.0"),
+                new OsvClient.OsvQuery("npm", " \t", "1.0.0"),
+                new OsvClient.OsvQuery("", "valid", "1.0.0"),
+                new OsvClient.OsvQuery(" \t", "valid", "1.0.0"));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"[]", "[{}]", "[{},{},{}]"})
     void mismatchedBatchCardinalityCannotConfirmAnyPackageIsClean(String results) {
         var builder = RestClient.builder().baseUrl("https://api.osv.dev");
