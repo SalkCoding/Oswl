@@ -24,6 +24,7 @@ class NuGetPackageIdentityTest {
         var mapper = new ObjectMapper();
         var advisory = mapper.createObjectNode();
         advisory.put("id", "OSV-fixture");
+        advisory.put("modified", "2024-09-01T00:00:00Z");
         var affected = advisory.putArray("affected").addObject();
         affected.putObject("package").put("ecosystem", "NuGet").put("name", returnedName);
         var events = affected.putArray("ranges").addObject().put("type", "ECOSYSTEM").putArray("events");
@@ -48,6 +49,7 @@ class NuGetPackageIdentityTest {
         var mapper = new ObjectMapper();
         var advisory = mapper.createObjectNode();
         advisory.put("id", "OSV-fixture");
+        advisory.put("modified", "2024-09-01T00:00:00Z");
         var affected = advisory.putArray("affected").addObject();
         affected.putObject("package").put("ecosystem", "NuGet").put("name", name);
         var events = affected.putArray("ranges").addObject().put("type", "ECOSYSTEM").putArray("events");

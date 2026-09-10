@@ -452,7 +452,7 @@ public class OsvClient {
 
     private static boolean sameRevision(Object queried, Object hydrated) {
         if (!(queried instanceof String left) || !(hydrated instanceof String right)
-                || left.length() > 64 || right.length() > 64) return false;
+                || left.length() > 64 || !com.salkcoding.oswl.vdb.OsvRevision.isCurrent(right)) return false;
         try {
             var expected = java.time.Instant.parse(left);
             var actual = java.time.Instant.parse(right);
@@ -460,7 +460,7 @@ public class OsvClient {
             // advisories retain protobuf nanoseconds. Only account for that truncation.
             boolean matches = expected.equals(actual)
                     || expected.equals(actual.truncatedTo(java.time.temporal.ChronoUnit.MICROS));
-            return matches && !actual.isAfter(java.time.Instant.now());
+            return matches;
         } catch (java.time.format.DateTimeParseException invalid) {
             return false;
         }

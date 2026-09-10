@@ -23,7 +23,7 @@ class OsvBulkRangeIntegrationTest {
         Map<String, List<SnapshotVuln>> findings = new LinkedHashMap<>();
         Set<String> unknown = new LinkedHashSet<>();
         process("""
-                {"id":"OSV-withdrawn","withdrawn":"2026-01-01T00:00:00Z","affected":[{
+                {"modified":"2024-09-01T00:00:00Z","id":"OSV-withdrawn","withdrawn":"2026-01-01T00:00:00Z","affected":[{
                 "package":{"ecosystem":"npm","name":"example"},"versions":["1.0.0"]}]}
                 """, Set.of("1.0.0"), findings, unknown);
         assertThat(findings).isEmpty();
@@ -35,7 +35,7 @@ class OsvBulkRangeIntegrationTest {
         Map<String, List<SnapshotVuln>> findings = new LinkedHashMap<>();
         Set<String> unknown = new LinkedHashSet<>();
         process("""
-                {"id":"OSV-invalid","withdrawn":true,"affected":[{
+                {"modified":"2024-09-01T00:00:00Z","id":"OSV-invalid","withdrawn":true,"affected":[{
                 "package":{"ecosystem":"npm","name":"example"},"versions":["1.0.0"]}]}
                 """, Set.of("1.0.0"), findings, unknown);
         assertThat(unknown).containsExactly(key("1.0.0"));
@@ -44,7 +44,7 @@ class OsvBulkRangeIntegrationTest {
     @Test
     void unionMatchesAreActuallyWrittenToTheSnapshotResults() {
         String advisory = """
-                {"id":"OSV-fixture","affected":[{"package":{"ecosystem":"npm","name":"example"},
+                {"modified":"2024-09-01T00:00:00Z","id":"OSV-fixture","affected":[{"package":{"ecosystem":"npm","name":"example"},
                 "versions":["9.0.0"],"ranges":[{"type":"SEMVER","events":[
                 {"introduced":"0"},{"fixed":"1.0.0"},{"introduced":"2.0.0"},{"fixed":"3.0.0"}]}]}]}
                 """;
@@ -58,7 +58,7 @@ class OsvBulkRangeIntegrationTest {
     @Test
     void gitAncestryWithoutEvidenceIsPreservedAsUnresolvedCoverage() {
         String advisory = """
-                {"id":"OSV-fixture","affected":[{"package":{"ecosystem":"npm","name":"example"},
+                {"modified":"2024-09-01T00:00:00Z","id":"OSV-fixture","affected":[{"package":{"ecosystem":"npm","name":"example"},
                 "ranges":[{"type":"GIT","repo":"https://example.invalid/repo","events":[{"introduced":"0"}]}]}]}
                 """;
         Map<String, List<SnapshotVuln>> findings = new LinkedHashMap<>();
@@ -78,11 +78,11 @@ class OsvBulkRangeIntegrationTest {
         Map<String, List<SnapshotVuln>> findings = new LinkedHashMap<>();
         Set<String> unknown = new LinkedHashSet<>();
         process("""
-                {"id":"OSV-unresolved","affected":[{"package":{"ecosystem":"npm","name":"example"},
+                {"modified":"2024-09-01T00:00:00Z","id":"OSV-unresolved","affected":[{"package":{"ecosystem":"npm","name":"example"},
                 "ranges":[{"type":"GIT","events":[{"introduced":"0"}]}]}]}
                 """, Set.of("1.0.0"), findings, unknown);
         process("""
-                {"id":"OSV-confirmed","affected":[
+                {"modified":"2024-09-01T00:00:00Z","id":"OSV-confirmed","affected":[
                 {"package":{"ecosystem":"npm","name":"example"},"versions":["1.0.0"]},
                 {"package":{"ecosystem":"npm","name":"example"},"versions":["1.0.0"]}]}
                 """, Set.of("1.0.0"), findings, unknown);

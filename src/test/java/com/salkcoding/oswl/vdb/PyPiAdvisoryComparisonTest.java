@@ -13,7 +13,7 @@ class PyPiAdvisoryComparisonTest {
     @org.junit.jupiter.params.provider.ValueSource(strings = {"Friendly_Bard", "friendly.bard", "FRIENDLY--BARD"})
     void equivalentNamesMatchWithoutChangingSnapshotKeys(String wantedName) throws Exception {
         String raw = """
-                {"id":"OSV-fixture","affected":[{"package":{"ecosystem":"PyPI","name":"friendly-bard"},
+                {"modified":"2024-09-01T00:00:00Z","id":"OSV-fixture","affected":[{"package":{"ecosystem":"PyPI","name":"friendly-bard"},
                 "ranges":[{"type":"ECOSYSTEM","events":[{"introduced":"0"},{"fixed":"1.0"}]}]}]}
                 """;
         var mapper = new ObjectMapper();
@@ -29,7 +29,7 @@ class PyPiAdvisoryComparisonTest {
     @org.junit.jupiter.api.Test
     void fixedCandidateCannotConflictWithAnEquivalentListedVersion() throws Exception {
         var advisory = new ObjectMapper().readTree("""
-                {"id":"OSV-fixture","affected":[{"package":{"ecosystem":"PyPI","name":"fixture"},
+                {"modified":"2024-09-01T00:00:00Z","id":"OSV-fixture","affected":[{"package":{"ecosystem":"PyPI","name":"fixture"},
                 "versions":["1.0.0"],"ranges":[{"type":"ECOSYSTEM","events":[{"introduced":"0"},{"fixed":"1.0"}]}]}]}
                 """);
         var result = OsvFixVersionSelector.select(advisory, "PyPI", "fixture", "0.9");
@@ -42,7 +42,7 @@ class PyPiAdvisoryComparisonTest {
             "1.0.post1,false", "1.0+vendor.1,false", "1!0.1,false"})
     void pep440OrderingIsSharedByAdvisoryPaths(String installed, boolean affected) throws Exception {
         var advisory = new ObjectMapper().readTree("""
-                {"id":"OSV-fixture","affected":[{"package":{"ecosystem":"PyPI","name":"fixture"},
+                {"modified":"2024-09-01T00:00:00Z","id":"OSV-fixture","affected":[{"package":{"ecosystem":"PyPI","name":"fixture"},
                 "ranges":[{"type":"ECOSYSTEM","events":[{"introduced":"0"},{"fixed":"1.0"}]}]}]}
                 """);
         assertThat(OsvRangeEvaluator.evaluate("PYPI", installed, null, advisory.path("affected").get(0).path("ranges")))

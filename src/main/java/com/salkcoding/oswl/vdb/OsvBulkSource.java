@@ -194,6 +194,9 @@ final class OsvBulkSource {
         if (vuln == null || !vuln.isObject() || !vuln.path("id").isTextual() || vuln.path("id").asText().isBlank()) {
             throw new IOException("OSV advisory has no valid identity; source coverage cannot be established");
         }
+        if (!vuln.path("modified").isTextual() || !OsvRevision.isCurrent(vuln.path("modified").asText())) {
+            throw new IOException("OSV advisory revision is missing, malformed or in the future; source coverage is unknown");
+        }
         OsvWithdrawal withdrawal = OsvWithdrawal.from(vuln);
         if (withdrawal == OsvWithdrawal.WITHDRAWN) return;
         if (withdrawal == OsvWithdrawal.UNKNOWN) {

@@ -22,13 +22,27 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class OsvBulkInputIntegrityTest {
     @TempDir Path directory;
     private static final String VALID = """
-            {"id":"OSV-fixture","affected":[{"package":{"ecosystem":"npm","name":"example"},
+            {"id":"OSV-fixture","modified":"2024-09-01T00:00:00Z","affected":[{"package":{"ecosystem":"npm","name":"example"},
             "versions":["1.0.0"]}]}
             """;
 
     @ParameterizedTest
-    @ValueSource(strings = {"broken", "null", "[]", "{}", "{\"id\":\"OSV-fixture\",\"affected\":false}",
-            "{\"id\":\"OSV-fixture\",\"affected\":[{}]}"})
+    @ValueSource(strings = {"missing", "null", "false", "1", "{}", "\"broken\"", "\"2999-01-01T00:00:00Z\""})
+    void untrustedRevisionCannotEstablishActiveOrWithdrawnCoverage(String modified) throws Exception {
+        for (boolean withdrawn : new boolean[] {false, true}) {
+            var record = new ObjectMapper().readTree(VALID);
+            var object = (com.fasterxml.jackson.databind.node.ObjectNode) record;
+            if (modified.equals("missing")) object.remove("modified");
+            else object.set("modified", new ObjectMapper().readTree(modified));
+            if (withdrawn) object.put("withdrawn", "2024-09-02T00:00:00Z");
+            cache(zip(record.toString()), true);
+            assertThatThrownBy(this::fetch).isInstanceOf(IOException.class).hasMessageContaining("revision");
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"broken", "null", "[]", "{}", "{\"id\":\"OSV-fixture\",\"modified\":\"2024-09-01T00:00:00Z\",\"affected\":false}",
+            "{\"id\":\"OSV-fixture\",\"modified\":\"2024-09-01T00:00:00Z\",\"affected\":[{}]}"})
     void invalidRecordAbortsCollectionInsteadOfConfirmingUnmatchedComponentsClean(String record) throws Exception {
         cache(zip(record), true);
         assertThatThrownBy(this::fetch).isInstanceOf(IOException.class);
