@@ -22,6 +22,25 @@ import static org.assertj.core.api.Assertions.*;
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:snapshot-budget;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT")
 class SnapshotImportTransactionTest {
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"0,true", "7,true", "8,false", "40,false", "-1,false", "999,false"})
+    void offlineDepsDevDoesNotRefreshVersionStatusFromStaleData(int age, boolean resolved) {
+        String key = AirgappedSnapshotService.componentKey("NPM", "fixture", "1.0.0");
+        entries.saveAndFlush(SnapshotEntry.builder().source("depsdev-version").entryKey(key)
+                .payload("{\"licenses\":[\"MIT\"],\"advisoryKeys\":[\"GHSA-fixture\"],\"isDefault\":true,\"latestVersion\":\"2.0.0\"}").build());
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("depsdev-version")
+                .recordCount(1).importedAt(java.time.LocalDateTime.now())
+                .sourceAsOf(age == 999 ? null : java.time.LocalDate.now().minusDays(age)).build());
+        var client = new com.salkcoding.oswl.client.DepsDevClient(service, true);
+        var actual = client.getVersionsBatch(List.of(new com.salkcoding.oswl.client.DepsDevClient.ComponentKey(
+                "NPM", "fixture", "1.0.0"))).getFirst();
+        assertThat(actual.resolved()).isEqualTo(resolved);
+        assertThat(actual.advisoryKeys()).containsExactly("GHSA-fixture");
+        assertThat(actual.licenses()).containsExactly("MIT");
+        assertThat(actual.latestVersion()).isEqualTo(resolved ? "2.0.0" : null);
+        assertThat(actual.isDefault()).isEqualTo(resolved);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"0,false", "7,false", "8,true", "40,true", "-1,true", "999,true"})
     void offlineNvdRetainsFindingsWithoutConfirmingStaleCoverage(int age, boolean stale) {
         String key = AirgappedSnapshotService.componentKey("CONAN", "fixture", "1.0.0");

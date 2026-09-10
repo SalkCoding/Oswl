@@ -257,7 +257,7 @@ public class DepsDevClient {
 
     // ── Air-gapped (offline snapshot) ─────────────────────────────────────
 
-    /** Offline GetVersion: snapshot hit → resolved VersionInfo; miss → {@link #unresolved()}. */
+    /** Offline GetVersion retains known advisories; only recent dated data resolves version status. */
     private List<VersionInfo> getVersionsFromSnapshot(List<ComponentKey> components) {
         List<String> keys = new ArrayList<>(components.size());
         Set<String> distinctKeys = new LinkedHashSet<>();
@@ -267,6 +267,7 @@ public class DepsDevClient {
             if (k != null) distinctKeys.add(k);
         }
         Map<String, SnapshotVersion> found = snapshotService.findVersions(distinctKeys);
+        boolean stale = snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_DEPSDEV_VERSION);
 
         List<VersionInfo> results = new ArrayList<>(components.size());
         int hits = 0;
@@ -276,8 +277,9 @@ public class DepsDevClient {
                 results.add(unresolved());
             } else {
                 hits++;
-                results.add(new VersionInfo(sv.licenses(), sv.advisoryKeys(), sv.isDefault(),
-                        sv.deprecated(), sv.latestVersion(), true, sv.scorecardScore()));
+                results.add(new VersionInfo(sv.licenses(), sv.advisoryKeys(), !stale && sv.isDefault(),
+                        stale ? null : sv.deprecated(), stale ? null : sv.latestVersion(), !stale,
+                        stale ? null : sv.scorecardScore()));
             }
         }
         log.debug("[DepsDevClient] air-gapped GetVersion batch size={} snapshotHits={}", components.size(), hits);
