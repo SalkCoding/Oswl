@@ -173,6 +173,8 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 자동 PR의 최신 버전 대체 방지:** CVE가 있는데 선택 가능한 수정 대상이 없을 때 resolvePrTargetVersion이 latestVersion을 자동 PR 대상으로 반환하던 경로를 제거했다. 수정 버전 누락·출처 충돌·현재 버전과 동일한 경우와 버전 상태 미확인 등 4건의 수정 전 실패를 재현했다. 최신 릴리스로의 일반 업데이트는 CVE가 없고 isLatestVersion=false인 경우에 한하며, 문서화된 수정 버전은 여전히 최신 버전보다 우선한다. Library/ComponentDetail/SecurityCenter 91건 및 실제 H2·로그인·Chromium 5건 통과·skip/실패/오류 0. API 서비스에서 VCS 호출 전 거절하고 화면에 최신 릴리스 정보는 유지하면서 패치 PR 버튼을 제거함을 확인했다. 로그 `build/roadmap-pr-fix-fallback-before.log`, `build/roadmap-pr-fix-fallback-after.log`; 이미지 `build/reports/dependency-evidence-ui/unknown-fix-pr.png`. 3개 언어 사용자 문서를 갱신했다. 커밋 제목 `fix: avoid latest release fallback for unresolved security fixes`. 자체 합성 입력이며 외부 자료·라이브러리·실제 PR 생성 없음. 전체 build는 이번에 재실행하지 않았다. 여러 CVE의 서로 다른 수정 후보를 공통 영향 범위에 재검증하는 기능과 미확인을 패치 불가로 표현하는 기존 문구는 잔여이며, 이 변경으로 모든 수정 대상의 안전성을 보장하지 않는다.
+
 - **AI 누락 CVSS 수정 누적 검증:** Windows/Java 25에서 `build verifyProdJar` 성공. 전체 4,200건 중 4,189건 통과·환경 의존/opt-in skip 11건·실패/오류 0. 로그 `build/roadmap-ai-missing-cvss-build.log`.
 - **2026-09-11 AI 요청의 누락 CVSS 보존:** 상세 재생성 및 스캔 일괄 분석에서 null 점수를 0.0으로 바꾸지 않는다. AI 요청 DTO·클라이언트 인터페이스·단일/일괄 프롬프트는 nullable 점수를 받아 `unknown`으로 전달하며, 실제 0.0은 유지한다. 분석 캐시 키도 null과 0.0을 구분해 예전 기본 0점에 기반한 캐시가 누락 점수에 재사용되지 않도록 했다. 점수가 없는 경우 벡터는 별도 필드로 전달하며 추측한 점수를 추가하지 않는다. 3개 언어의 null 입력은 수정 전 primitive 자동 변환 예외로 실패했고 수정 후 단일/유형별/일괄 프롬프트 검사를 통과했다. 기존 enrich 검사를 null/0.0/9.5로 확장해 실제 요청 인자 보존과 캐시 키 구분을 확인했다. AI·취약점 enrichment·상세 관련 검사 232건 중 231건 통과·기존 skip 1건·실패/오류 0. 로그 `build/roadmap-ai-missing-cvss-before.log`, `build/roadmap-ai-missing-cvss-after.log`. 커밋 제목 `fix: preserve unknown cvss scores in ai analysis`. 자체 합성 입력이며 외부 API 호출·데이터/라이브러리 도입·UI 변경 없음. 실제 AI 모델 답변의 정확성 및 이미 저장된 AI 문장의 일괄 정정은 검증하지 않았다.
 

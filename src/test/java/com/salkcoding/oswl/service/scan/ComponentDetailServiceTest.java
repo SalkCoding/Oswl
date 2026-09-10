@@ -58,6 +58,21 @@ class ComponentDetailServiceTest {
 
     // ── populateModel ────────────────────────────────────────────────────
 
+    @Test void createPullRequest_rejectsLatestWhenSecurityFixIsUnknown() {
+        Project project = Project.builder().id(1L).name("P")
+                .vcsProvider(VcsProvider.GITHUB).githubRepo("fixture/repo").build();
+        Library library = Library.builder().name("fixture").version("1.0.0")
+                .latestVersion("9.0.0").isLatestVersion(false)
+                .cves(List.of(Cve.builder().severity(com.salkcoding.oswl.domain.enums.RiskLevel.HIGH).build())).build();
+        ScanComponent component = ScanComponent.builder().library(library).build();
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L)).thenReturn(Optional.of(component));
+        assertThatThrownBy(() -> componentDetailService.createPullRequest(1L, 20L,
+                buildCreatePrRequest("main", null, null), 1L, null))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("No patch");
+        verifyNoInteractions(gitHubService, gitLabService, bitbucketService);
+    }
+
     @Test
     @DisplayName("프로젝트가 없으면 IllegalArgumentException을 던진다")
     void populateModel_throwsWhenProjectNotFound() {

@@ -28,6 +28,26 @@ class DependencyEvidenceUiTest extends UiTestBase {
     private final ScanComponentRepository components;
     private final com.salkcoding.oswl.repository.vulnerability.CveRepository cves;
 
+    @Test void unknownSecurityFixDoesNotOfferLatestAsPatchPr() throws Exception {
+        var project = projects.save(Project.builder().name("Unknown fix fixture")
+                .vcsProvider(com.salkcoding.oswl.auth.enums.VcsProvider.GITHUB).githubRepo("fixture/repo").build());
+        var scan = scans.save(ScanResult.builder().project(project).version("1.0").status(ScanStatus.COMPLETED).build());
+        var library = libraries.save(Library.builder().name("unknown-fix-fixture").version("1.0.0")
+                .ecosystem("NUGET").latestVersion("9.0.0").isLatestVersion(false)
+                .licenseStatus(LicenseStatus.UNKNOWN).build());
+        var component = components.save(ScanComponent.builder().scanResult(scan).library(library).build());
+        cves.save(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder().library(library)
+                .cveId("CVE-2026-0002").severity(com.salkcoding.oswl.domain.enums.RiskLevel.HIGH).build());
+        loginAsTestAdmin();
+        page.navigate(url("/projects/" + project.getId() + "/components/" + component.getId() + "?lang=en"));
+        assertThat(page.locator("#component-detail-content").innerText()).contains("CVE-2026-0002", "9.0.0");
+        assertThat(page.getByRole(com.microsoft.playwright.options.AriaRole.BUTTON,
+                new Page.GetByRoleOptions().setName("Apply Patch (Create PR)")).count()).isZero();
+        Path output = Path.of("build/reports/dependency-evidence-ui/unknown-fix-pr.png");
+        Files.createDirectories(output.getParent());
+        page.screenshot(new Page.ScreenshotOptions().setPath(output).setFullPage(true));
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"missing", "zero", "vector"})
     void unscoredAdvisoryKeepsItsPatchabilityInTheRenderedDetail(String scoreState) throws Exception {

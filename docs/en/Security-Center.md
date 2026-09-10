@@ -125,6 +125,8 @@ Click any component name to open the **Component Detail** side panel, which show
 
 Long CVE descriptions are truncated in the collapsed row; clicking the row expands it and shows the full advisory text, so you can always see *why* something is a vulnerability.
 
+When CVEs are present and no distinct documented fix target is available, automatic PR creation does not fall back to the latest release. A latest release is not proof of a security fix. Maintenance PRs using the latest release require no CVEs and a confirmed outdated status; an unknown version status is insufficient.
+
 The panel also offers remediation actions: **Apply Patch (Create PR)** and **Defer**. A deferral records a reason and an expiry preset (1 week / 1 / 3 / 6 months, a custom date, or indefinite). A custom expiry must be a **future date** — past or malformed dates are rejected with HTTP 400, and the date picker only allows tomorrow onward.
 
 After a PR/MR is created, the success panel shows a prominent **View PR/MR** button plus a collapsible **"What changed?"** summary — the patched manifest file path and the version bump (e.g. `pom.xml`: `log4j-core 2.14.1 → 2.17.0`).

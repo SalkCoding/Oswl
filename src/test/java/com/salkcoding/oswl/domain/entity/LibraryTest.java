@@ -16,6 +16,33 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Library 엔티티 단위 테스트")
 class LibraryTest {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"missing", "conflict", "current"})
+    void unresolvedSecurityFixDoesNotFallBackToLatestForPr(String state) {
+        Cve finding = Cve.builder().severity(RiskLevel.HIGH)
+                .fixVersion(state.equals("current") ? "1.0.0" : null).build();
+        if (state.equals("conflict")) finding.getFixVersionConflictCandidates().addAll(List.of("2.0.0", "3.0.0"));
+        Library library = Library.builder().version("1.0.0").latestVersion("9.0.0")
+                .isLatestVersion(false).cves(List.of(finding)).build();
+        assertThat(library.resolvePrTargetVersion()).isNull();
+    }
+
+    @Test void maintenancePrRequiresConfirmedOutdatedStatus() {
+        Library unknown = Library.builder().version("1.0.0").latestVersion("9.0.0")
+                .isLatestVersion(null).cves(List.of()).build();
+        Library outdated = Library.builder().version("1.0.0").latestVersion("9.0.0")
+                .isLatestVersion(false).cves(List.of()).build();
+        assertThat(unknown.resolvePrTargetVersion()).isNull();
+        assertThat(outdated.resolvePrTargetVersion()).isEqualTo("9.0.0");
+    }
+
+    @Test void knownFixRemainsThePrTargetInsteadOfLatest() {
+        Cve finding = Cve.builder().severity(RiskLevel.HIGH).fixVersion("2.0.0").build();
+        Library library = Library.builder().version("1.0.0").latestVersion("9.0.0")
+                .isLatestVersion(false).cves(List.of(finding)).build();
+        assertThat(library.resolvePrTargetVersion()).isEqualTo("2.0.0");
+    }
+
     // ── highestSeverity ───────────────────────────────────────────────────
 
     @Nested

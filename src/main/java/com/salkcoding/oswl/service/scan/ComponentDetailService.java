@@ -244,7 +244,7 @@ public class ComponentDetailService {
         model.addAttribute("securityFixVersion", securityFixVersion);
         model.addAttribute("recommendedVersion", securityFixVersion);
 
-        // PR target: patch (CVE fix) version first, else latest when outdated; null → no PR
+        // Latest-release maintenance updates require no CVEs and confirmed outdated status.
         model.addAttribute("prTargetVersion", lib.resolvePrTargetVersion());
         model.addAttribute("projectsCount", scanComponentRepository.countDistinctProjectsByLibraryId(lib.getId()));
 
@@ -560,7 +560,7 @@ public class ComponentDetailService {
         String newVer  = lib.resolvePrTargetVersion();
         if (newVer == null || newVer.isBlank()) {
             throw new IllegalStateException(
-                    "No patch or newer version is available for this component.");
+                    "No patch or confirmed maintenance update target is available for this component.");
         }
         if (req.getTargetBranch() == null || req.getTargetBranch().isBlank()) {
             throw new InvalidRequestException("Target branch is required.");
