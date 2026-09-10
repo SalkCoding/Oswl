@@ -173,6 +173,9 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 심각도 누락 CVE의 수정 버전 보존:** Library.computePatchability가 severity=null CVE를 제외해 알려진 수정 버전이 있어도 UNKNOWN 또는 NON_PATCHABLE을 반환하는 문제를 단독/혼합 입력 2건의 실패로 재현했다. null 심각도를 이유로 advisory의 수정 버전을 제외하지 않도록 고쳤다. 실제 화면 검증에서 ComponentDetailService 역시 null 심각도를 집계에서 누락해 hasVulnerabilities=false가 되는 연결 문제를 발견하여 미평가 집계에 포함했다. 명시적인 NONE에 대한 기존 패치 계산 계약은 이번에 변경하지 않았다.
+- **검증 범위:** Library/SecurityCenterService/ComponentDetailService 71건, DependencyEvidence/ComponentCoverageSummary Chromium UI 5건 통과·skip/실패/오류 0. 실제 H2 저장·로그인·상세 렌더링에서 미평가 CVE와 수정 버전 2.0.0, 패치 가능 표시를 확인했다. 로그 `build/roadmap-unscored-patch-before.log`, `build/roadmap-unscored-patch-after.log`; 이미지 `build/reports/dependency-evidence-ui/unscored-patch.png`. 커밋 제목 `fix: retain unscored findings in patchability and detail counts`. 자체 CVE fixture를 사용했고 외부 자료·라이브러리를 추가하지 않았다. 실제 공급자/오프라인 전환·전체 build 재실행은 이번 범위에 포함하지 않았다. 화면에서 누락 CVSS가 0.0으로 표시되는 DTO 기본값과 추천문구의 미평가 개수 누락도 확인했으며 후속 수정이 필요하다.
+
 - **2026-09-11 조회 상태의 스냅샷 왕복 검증:** 실제 H2 DB의 라이브러리/CVE를 ZIP으로 내보내고 재가져온 뒤 오프라인 OSV client까지 조회했다. GHSA 미완료 사례는 unresolved key를 유지하고 정상 빈 GHSA 조회 자료로 바뀌지 않으며, 완료 대조군은 빈 GHSA 자료를 보존한다. 두 경우 모두 정상 CVE를 유지하되 스캔 내보내기에 검증된 원천 기준일이 없으므로 오프라인 조회는 미완료이고 수정 버전 제안은 보류된다. 새 2건은 기존 동작을 확인한 검증이며 제품 결함 재현으로 표시하지 않는다.
 - **검증·범위:** Windows/Java 25의 `test --tests '*FixConflictPersistenceTest' --tests '*SnapshotImportTransactionTest' --tests '*VulnerabilityEnrichmentServiceTest'` 189건 통과·실패/오류/skip 0. 로그 `build/roadmap-coverage-roundtrip.log`. 커밋 제목 `test: preserve incomplete coverage through snapshot round trips`. 자체 합성 입력으로 외부 원문/데이터·라이브러리·UI 변경은 없다. 전체 build는 재실행하지 않았으며 실제 PostgreSQL, 공급자 데이터의 재배포 권한 및 원천별 판정 근거의 완전한 왕복 검증은 잔여다.
 

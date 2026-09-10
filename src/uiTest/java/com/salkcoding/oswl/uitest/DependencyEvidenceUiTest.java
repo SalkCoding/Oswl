@@ -26,6 +26,25 @@ class DependencyEvidenceUiTest extends UiTestBase {
     private final ScanResultRepository scans;
     private final LibraryRepository libraries;
     private final ScanComponentRepository components;
+    private final com.salkcoding.oswl.repository.vulnerability.CveRepository cves;
+
+    @Test void unscoredAdvisoryKeepsItsPatchabilityInTheRenderedDetail() throws Exception {
+        var project = projects.save(Project.builder().name("Unscored patch fixture").build());
+        var scan = scans.save(ScanResult.builder().project(project).version("1.0").status(ScanStatus.COMPLETED).build());
+        var library = libraries.save(Library.builder().name("unscored-patch-fixture").version("1.0.0")
+                .ecosystem("NUGET").licenseStatus(LicenseStatus.UNKNOWN).build());
+        var component = components.save(ScanComponent.builder().scanResult(scan).library(library).build());
+        cves.save(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder().library(library)
+                .cveId("CVE-2026-0001").severity(null).fixVersion("2.0.0").build());
+        loginAsTestAdmin();
+        page.navigate(url("/projects/" + project.getId() + "/components/" + component.getId() + "?lang=en"));
+        String body = page.locator("#component-detail-content").innerText();
+        assertThat(body).contains("Patchable", "CVE-2026-0001", "2.0.0", "Unscored");
+        assertThat(body).doesNotContain("No security vulnerabilities detected", "Non-Patchable");
+        Path output = Path.of("build/reports/dependency-evidence-ui/unscored-patch.png");
+        Files.createDirectories(output.getParent());
+        page.screenshot(new Page.ScreenshotOptions().setPath(output).setFullPage(true));
+    }
 
     @Test void longEvidenceStaysWithinItsContainerAndRemainsReadableInDetail() throws Exception {
         String evidence = ("NuGet lock source=\"project/" + "긴경로LongPath".repeat(25)

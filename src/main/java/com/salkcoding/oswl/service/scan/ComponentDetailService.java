@@ -196,7 +196,9 @@ public class ComponentDetailService {
         int secHigh     = (int) lib.countBySeverity("HIGH");
         int secMedium   = (int) lib.countBySeverity("MEDIUM");
         int secLow      = (int) lib.countBySeverity("LOW");
-        int secUnscored = (int) lib.countBySeverity("NONE");
+        int secUnscored = (int) lib.getCves().stream()
+                .filter(cve -> cve.getSeverity() == null || cve.getSeverity() == com.salkcoding.oswl.domain.enums.RiskLevel.NONE)
+                .count();
         model.addAttribute("securityCritical", secCritical);
         model.addAttribute("securityHigh",     secHigh);
         model.addAttribute("securityMedium",   secMedium);

@@ -65,6 +65,15 @@ class LibraryTest {
     @DisplayName("computePatchability()")
     class ComputePatchability {
 
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+        void anUnscoredFindingStillContributesItsKnownFix(boolean includeScoredFinding) {
+            var unscored = Cve.builder().cveId("CVE-2026-0001").severity(null).fixVersion("2.0.0").build();
+            var library = includeScoredFinding ? lib(unscored, cve("CVE-2026-0002", RiskLevel.HIGH)) : lib(unscored);
+            assertThat(library.computePatchability()).isEqualTo(Patchability.PATCHABLE);
+            assertThat(library.bestFixVersion()).isEqualTo("2.0.0");
+        }
+
         @Test
         @DisplayName("CVE가 없으면 UNKNOWN을 반환한다")
         void returnsUnknown_whenNoCves() {
