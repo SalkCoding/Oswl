@@ -425,6 +425,8 @@
 
 ### 36. 재포장·부분 갱신으로 freshness가 바뀌지 않게 수정 — P0 · [코드 확인]
 
+- **2026-09-11 deps.dev/EPSS 누적 검증:** `4b12898`까지 포함해 Windows/Java 25에서 `.\gradlew.bat build verifyProdJar` 성공. 전체 2,953건 중 2,944건 통과·기존 환경 의존 skip 9건·실패/오류 0, 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-metadata-freshness-build.log`. 커밋 제목 `docs: record offline metadata freshness regression build`. 별도 UI/실제 PostgreSQL/라이브 공급자 검증은 수행하지 않았다. KEV 미확인과 미등재의 구분, deps.dev 공지 상세 기준일, source별 지원 계약은 잔여다.
+
 - **2026-09-11 EPSS 오프라인 freshness 연결:** EPSS source의 기준일이 미상·미래·경고 임계값 초과면 현재 점수 조회에서 제외한다. 0으로 대체하지 않으며 snapshot 원본은 보존한다. 기존 스캔 `applyThreatIntel` 경로가 반환 map에서 누락된 점수를 null로 전달함을 코드로 확인했다. 원천별 날짜·모델 revision의 화면 전달과 모든 재평가 경로의 종단 검증은 잔여다.
 - **회귀 검증:** 실제 H2 metadata/entry→EPSS offline client의 오늘/7일/8일/40일/미래/날짜 미상 6건 중 수정 전 4건 실패했다. 수정 후 현재 점수 제외 및 저장 원본 0.25 보존을 확인했다. Windows/Java 25에서 `test --tests '*SnapshotImportTransactionTest' --tests '*Epss*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 195건 통과·실패/오류/skip 0. 로그 `build/roadmap-epss-freshness-before.log`, `build/roadmap-epss-freshness-after.log`. 커밋 제목 `fix: withhold stale offline epss scores`. 자체 합성 입력이며 새로운 외부 점수 자료/라이브러리·UI 변경은 없다. FIRST 데이터의 실제 이용·재배포 조건은 기존 부록의 미해결 범위를 유지한다.
 
