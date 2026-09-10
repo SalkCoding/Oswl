@@ -55,7 +55,9 @@ class CocoaPodsSnapshotTest {
         assertThat(scans.findById(scan).orElseThrow().getStatus()).isEqualTo(com.salkcoding.oswl.domain.enums.ScanStatus.COMPLETED);
         var rows = components.findByScanResultId(scan);
         var found = rows.stream().filter(c->c.getLibrary().getName().equals("EndToEndPod")).findFirst().orElseThrow().getLibrary();
-        assertThat(found.isVulnerabilitiesAnalyzed()).isTrue();
+        assertThat(found.getVulnerabilityLookupOutcomes()).containsEntry("OSV", "RESOLVED")
+                .containsEntry("GITHUB_ADVISORY", "UNAVAILABLE");
+        assertThat(found.isVulnerabilitiesAnalyzed()).as("this bundle supplies no dated GHSA coverage").isFalse();
         assertThat(found.getLicenseName()).isEqualTo("MIT");
         assertThat(cves.findAll().stream().filter(c -> c.getLibrary().getId().equals(found.getId())).map(c -> c.getCveId())).contains("CVE-2026-0002");
         var stored = cves.findAll().stream().filter(c -> c.getLibrary().getId().equals(found.getId())).findFirst().orElseThrow();
@@ -71,7 +73,7 @@ class CocoaPodsSnapshotTest {
         service.importBundle(new ByteArrayInputStream(exported));
         assertThat(metadata.findById("osv").orElseThrow().getSourceAsOf()).isNull();
         var afterExport = new OsvClient(service,true).queryBatch(List.of(new OsvClient.OsvQuery("SwiftURL","github.com/fixture/EndToEndPod","1.0"))).getFirst();
-        assertThat(afterExport.resolved()).isTrue();
+        assertThat(afterExport.resolved()).as("scan-derived export has no source date to establish current coverage").isFalse();
         assertThat(afterExport.vulns()).extracting(OsvClient.OsvVuln::cveId).contains("CVE-2026-0002");
     }
 
@@ -110,7 +112,10 @@ class CocoaPodsSnapshotTest {
         Map<String,Object> files = new LinkedHashMap<>();
         for(var entry:data.entrySet()) files.put(entry.getKey(),Map.of("sha256",sha(entry.getValue()), "lines", entry.getValue().lines().count()));
         Map<String,String> all = new LinkedHashMap<>(data);
-        all.put("meta.json",mapper.writeValueAsString(Map.of("formatVersion",2,"files",files,"sources",Map.of("cocoapods-specs",Map.of("asOf","2026-01-01","origin","owned-fixture")))));
+        Map<String,Object> sources = new LinkedHashMap<>();
+        sources.put("cocoapods-specs",Map.of("asOf","2026-01-01","origin","owned-fixture"));
+        if (data.containsKey("osv.jsonl")) sources.put("osv",Map.of("asOf",java.time.LocalDate.now().toString(),"origin","owned-fixture"));
+        all.put("meta.json",mapper.writeValueAsString(Map.of("formatVersion",2,"files",files,"sources",sources)));
         return zip(all);
     }
     private byte[] zip(Map<String,String> data) throws Exception {

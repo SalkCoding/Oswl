@@ -425,6 +425,9 @@
 
 ### 36. 재포장·부분 갱신으로 freshness가 바뀌지 않게 수정 — P0 · [코드 확인]
 
+- **2026-09-11 누적 빌드와 CocoaPods 종단 검증:** 최초 전체 검사에서 기존 CocoaPods 종단 검사 1건이 실패했다. 정상 OSV 조회를 검증하는 합성 bundle에 오늘 기준일을 추가하고, GHSA 근거가 없는 bundle은 `OSV=RESOLVED`/`GITHUB_ADVISORY=UNAVAILABLE` 및 전체 분석 미완료를 확인하도록 검사했다. 취약점 ID·심각도·CVSS·게이트 차단·누락 Specs의 미분석 기대값은 유지했다. scan-derived 재내보내기는 기준일이 null인 만큼 조회 미확인과 finding 보존을 검증한다. 임의로 실제 source 날짜를 보충한 것이 아니라 자체 fixture의 명시적 입력 조건을 보완한 것이다.
+- **최종 검증:** Windows/Java 25의 `.\gradlew.bat build verifyProdJar` 성공. 전체 2,941건 중 2,932건 통과·기존 환경 의존 skip 9건·실패/오류 0, 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-offline-freshness-build.log`, `build/roadmap-offline-freshness-build-after.log`(중간 실패), `build/roadmap-cocoapods-freshness-after.log`, `build/roadmap-offline-freshness-build-final.log`. 커밋 제목 `test: verify partial offline coverage through cocoapods scans`. 외부 자료/라이브러리·UI 변경 없음. 원천별 필수/선택 지원 계약, UI 종단 검증과 실제 PostgreSQL 검증은 계속 잔여다.
+
 - **2026-09-11 NVD 오프라인 freshness 연결:** NVD source adapter의 망분리 조기 반환에도 공통 source 기준일 검사를 적용했다. 날짜 미상·미래·경고 임계값 초과면 `lookupFailed`로 전달하고 과거 finding과 저장 CPE는 보존한다. 오프라인에서 CPE 추론이나 네트워크 조회로 보완하지 않는다. NVD client의 누락 key 설명도 조회 근거 없음으로 바로잡았다. deps.dev 등 나머지 source와 과거 finding의 별도 후보/이력 모델은 계속 잔여다.
 - **회귀 검증:** 실제 H2 metadata/entry→NVD client→source adapter에서 오늘/7일/8일/40일/미래/날짜 미상 6건 중 수정 전 4건 실패했다. 수정 후 빈 결과의 미완료, finding 보존 및 CPE 추론 미호출을 확인했다. Windows/Java 25에서 `test --tests '*SnapshotImportTransactionTest' --tests '*Nvd*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 145건 통과·실패/오류/skip 0. 로그 `build/roadmap-nvd-freshness-before.log`, `build/roadmap-nvd-freshness-after.log`. 커밋 제목 `fix: preserve stale nvd snapshot coverage uncertainty`. 자체 합성 자료이며 새 외부 자료/라이브러리·UI 변경 없음. 실제 NVD 데이터의 재배포 권한을 이 검사로 승인한 것은 아니다.
 
