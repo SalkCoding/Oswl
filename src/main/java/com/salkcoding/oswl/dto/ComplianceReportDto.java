@@ -20,6 +20,7 @@ public record ComplianceReportDto(
         // ── CRA readiness ──
         int kevTotal,
         int kevUnresolved,
+        int kevUnknown,
         int criticalCves,
         int highCves,
         int mediumCves,

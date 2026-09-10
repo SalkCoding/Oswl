@@ -277,7 +277,8 @@
     <!-- KEV detail table -->
     <div class="section">
         <div class="section-title" th:text="#{report.compliance.section.kevDetail}">Actively Exploited (KEV) Vulnerabilities</div>
-        <p class="empty-note" th:if="${report.kevRows().isEmpty()}" th:text="#{report.compliance.kev.none}">No actively-exploited (CISA KEV) vulnerabilities in the current inventory.</p>
+        <p class="empty-note" th:if="${report.kevUnknown() > 0}" th:text="#{report.compliance.kev.unknown(${report.kevUnknown()})}">KEV status is unknown for some vulnerability records.</p>
+        <p class="empty-note" th:if="${report.kevRows().isEmpty()}" th:text="#{report.compliance.kev.none}">No CISA KEV-listed vulnerabilities have been confirmed in the current inventory.</p>
         <table class="kev-table" th:unless="${report.kevRows().isEmpty()}">
             <thead>
                 <tr>

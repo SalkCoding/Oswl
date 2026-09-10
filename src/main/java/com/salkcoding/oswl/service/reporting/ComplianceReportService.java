@@ -62,7 +62,7 @@ public class ComplianceReportService {
         }
 
         int criticalCves = 0, highCves = 0, mediumCves = 0, lowCves = 0, unscoredCves = 0;
-        int kevTotal = 0, kevUnresolved = 0;
+        int kevTotal = 0, kevUnresolved = 0, kevUnknown = 0;
         int licenseViolations = 0, licenseWarnings = 0, licenseUnknown = 0, licensePermitted = 0;
         List<KevRow> kevRows = new ArrayList<>();
 
@@ -83,6 +83,7 @@ public class ComplianceReportService {
                 } else {
                     unscoredCves++;
                 }
+                if (cve.getKevListed() == null) kevUnknown++;
                 if (Boolean.TRUE.equals(cve.getKevListed())) {
                     kevTotal++;
                     if (!triaged) kevUnresolved++;
@@ -136,6 +137,7 @@ public class ComplianceReportService {
                 components.size(),
                 kevTotal,
                 kevUnresolved,
+                kevUnknown,
                 criticalCves, highCves, mediumCves, lowCves, unscoredCves,
                 reviewed, deferred, untriagedRisk,
                 formatAvgTriage(triageDurations),
@@ -180,7 +182,7 @@ public class ComplianceReportService {
         return new ComplianceReportDto(
                 projectName, generatedAt, false,
                 "-", "-", 0,
-                0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, "—",
                 0, 0, 0, 0,
                 List.of());
