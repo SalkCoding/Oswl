@@ -106,6 +106,9 @@
 
 ### 10. 확정 영향·후보·미확인과 매칭 증거 모델 — P0 · [설계]
 
+- **2026-09-11 인쇄 보고서 불확실성·근거:** 실제 Chromium print media에서 긴 근거가 표를 용지 너비 밖으로 밀어내고 null 버전 상태가 '최신'으로 표시되는 문제를 세 언어에서 재현했다(각 테스트에서 두 조건 실패). 일반 화면과 인쇄 화면을 비교해 라이선스 집계의 허용/미확인 변수도 뒤바뀐 것을 확인했다. 인쇄 템플릿의 버전 true/false/null 분기를 분리하고, 허용=licenseLow/미확인=licenseMedium으로 일반 화면과 일치시켰으며 미확인 막대 구간을 보존했다. 긴 근거는 원문과 줄바꿈을 유지하며 너비 안에서 줄바꿈하고, 조회 미완료 표시는 분리되지 않게 하며 기존 회색 팔레트 안에서 대비를 높였다.
+- **검증 범위:** SecurityPrintEvidenceUiTest 3건(영어/한국어/일본어) 통과·skip/실패/오류 0. 각 언어에서 미확인/최신/구버전/지원 종료, 라이선스 미확인 4건과 허용/주의/제한 각 1건, 집계·막대 비율·조회 미완료·긴 원문 보존·표 너비를 검증했다. Chromium 인쇄 CSS 스크린샷을 직접 확인했다. 로그 `build/roadmap-print-evidence-before.log`, `build/roadmap-print-evidence-after.log`; 이미지 `build/reports/security-print-evidence-ui/`. 커밋 제목 `fix: preserve uncertainty and evidence in printed reports`. 자체 H2 fixture와 실제 앱/로그인을 사용하고 외부 데이터/라이브러리를 추가하지 않았다. 실제 프린터/PDF 페이지 분할·완전 망분리 폰트 로딩·전체 build 재실행·운영 PostgreSQL은 이번 범위에 포함하지 않았다.
+
 - **2026-09-11 상세 요약의 조회 불확실성 표시:** 화면 검증 중 성공 조회 시각 없음/일부 출처 실패인데 CVE 0건만 보고 '발견되지 않음' 배지와 안전 안내를 표시하는 문제를 확인했다. 새 Chromium 회귀 3개 상태가 수정 전 모두 실패했다. 상세 상단/설명/최신 버전 추천에서 vulnerabilitiesAnalyzed를 함께 확인하고 미완료 조회는 기존 중립 '분석 안 됨' 표시를 사용한다. 조회 완료 상태라도 안전 사용을 보장하던 문구를 조회 데이터 범위의 결과로 바꾸고, 구버전/지원 종료 안내의 취약점 없음 주장을 제거했다. 영어·한국어·일본어 문구를 함께 수정했다.
 - **검증 범위:** 실제 앱·H2·로그인·Thymeleaf·Chromium에서 완료 시각 없음/부분 실패/완료 3개 상태 × 3개 언어의 화면을 검증했다. ComponentCoverageSummary/DependencyEvidence/DetectionCoverage UI 테스트 5건, ComponentDetailService/MessagesI18nConsistency 기존 테스트 34건 통과·skip/실패/오류 0. 영어·한국어·일본어 스크린샷을 직접 확인했다. 로그 `build/roadmap-component-coverage-ui-before.log`, `build/roadmap-component-coverage-ui-after.log`, `build/roadmap-component-coverage-unit.log`; 이미지 `build/reports/component-coverage-summary-ui/`. 커밋 제목 `fix: preserve incomplete coverage in component summaries`. 자체 저장 상태와 기존 모의 공급자 fixture를 사용했고 외부 데이터/라이브러리를 추가하지 않았다. 전체 build 재실행·실제 공급자/오프라인 전환·모바일·인쇄 종단 검증은 이번 범위에 포함하지 않았다.
 

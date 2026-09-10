@@ -96,6 +96,7 @@
         .risk-bar-seg.low      { background: var(--risk-low); }
         .risk-bar-seg.permitted { background: var(--risk-permitted); }
         .risk-bar-seg.caution   { background: var(--risk-caution); }
+        .risk-bar-seg.unknown   { background: var(--grayscale-30); }
         .risk-legend { display: flex; gap: 16px; flex-wrap: wrap; }
         .risk-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--grayscale-70); letter-spacing: -0.11px; }
         .risk-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -145,7 +146,7 @@
         .comp-name-wrap { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px; }
         .comp-name { font-size: 12px; font-weight: 500; color: var(--grayscale-100); letter-spacing: -0.12px; word-break: break-all; }
         .comp-version { display: inline-block; flex-shrink: 0; font-size: 10px; color: var(--grayscale-60); background: var(--grayscale-10); padding: 1px 6px; border-radius: 4px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .comp-dep { font-size: 10px; color: var(--grayscale-50); margin-top: 2px; letter-spacing: -0.1px; }
+        .comp-dep { font-size: 10px; color: var(--grayscale-50); margin-top: 2px; letter-spacing: -0.1px; white-space: pre-wrap; overflow-wrap: anywhere; }
         /* CVE badges — solid fill, white text, exactly like table.html */
         .cve-badges { display: flex; gap: 4px; flex-wrap: wrap; }
         .cve-badge { height: 20px; min-width: 26px; padding: 0 6px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 11px; font-weight: 500; color: white; white-space: nowrap; letter-spacing: -0.11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -154,7 +155,7 @@
         .cve-badge.m { background: var(--risk-medium); color: var(--grayscale-80); }
         .cve-badge.l { background: var(--risk-low); color: var(--grayscale-60); }
         .cve-badge.n { background: var(--risk-unknown); color: var(--grayscale-50); }
-        .cve-none { color: var(--grayscale-30); font-size: 11px; }
+        .cve-none { color: var(--grayscale-60); font-size: 11px; white-space: nowrap; }
         /* Patchability — dot + text like table.html */
         .patch-cell { display: flex; align-items: flex-start; gap: 6px; }
         .patch-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -274,15 +275,16 @@
                     <div class="risk-bar" th:if="${total > 0}">
                         <div class="risk-bar-seg critical"  th:if="${licenseCritical > 0}" th:style="'flex:' + ${licenseCritical}"></div>
                         <div class="risk-bar-seg caution"   th:if="${licenseHigh > 0}"     th:style="'flex:' + ${licenseHigh}"></div>
-                        <div class="risk-bar-seg permitted" th:if="${licenseMedium > 0}"   th:style="'flex:' + ${licenseMedium}"></div>
+                        <div class="risk-bar-seg permitted" th:if="${licenseLow > 0}"   th:style="'flex:' + ${licenseLow}"></div>
+                        <div class="risk-bar-seg unknown" th:if="${licenseMedium > 0}" th:style="'flex:' + ${licenseMedium}"></div>
                     </div>
                     <div class="risk-bar" th:if="${total == 0}" style="background:var(--grayscale-15)"></div>
                 </div>
                 <div class="risk-legend">
                     <div class="risk-legend-item"><span class="risk-dot restricted"></span><span class="risk-count" th:text="${licenseCritical}">0</span><span th:text="#{securityCenter.filter.restricted}">Restricted</span></div>
                     <div class="risk-legend-item"><span class="risk-dot caution"></span><span class="risk-count" th:text="${licenseHigh}">0</span><span th:text="#{securityCenter.filter.caution}">Caution</span></div>
-                    <div class="risk-legend-item"><span class="risk-dot permitted"></span><span class="risk-count" th:text="${licenseMedium}">0</span><span th:text="#{securityCenter.filter.permitted}">Permitted</span></div>
-                    <div class="risk-legend-item"><span class="risk-dot unknown"></span><span class="risk-count" th:text="${licenseLow}">0</span><span th:text="#{securityCenter.filter.unknown}">Unknown</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot permitted"></span><span class="risk-count" th:text="${licenseLow}">0</span><span th:text="#{securityCenter.filter.permitted}">Permitted</span></div>
+                    <div class="risk-legend-item"><span class="risk-dot unknown"></span><span class="risk-count" th:text="${licenseMedium}">0</span><span th:text="#{securityCenter.filter.unknown}">Unknown</span></div>
                 </div>
             </div>
         </div>
@@ -384,9 +386,13 @@
                                     <span class="patch-latest" th:if="${comp.latestVersion != null}" th:text="'→ v' + ${comp.latestVersion}"></span>
                                 </div>
                             </div>
-                            <div class="patch-cell" th:if="${comp.deprecated == null and comp.isLatestVersion != false}">
+                            <div class="patch-cell" th:if="${comp.deprecated == null and comp.isLatestVersion == true}">
                                 <span class="patch-dot up-to-date"></span>
                                 <span class="patch-text" style="color:var(--grayscale-50)" th:text="#{securityCenter.filter.upToDate}">Up to date</span>
+                            </div>
+                            <div class="patch-cell" th:if="${comp.deprecated == null and comp.isLatestVersion == null}">
+                                <span class="patch-dot unknown"></span>
+                                <span class="patch-text" style="color:var(--grayscale-50)" th:text="#{common.unknown}">Unknown</span>
                             </div>
                         </th:block>
                     </td>
