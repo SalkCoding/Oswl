@@ -144,6 +144,8 @@ public class GitHubAdvisoryClient {
         return !airgapped && token != null && !token.isBlank() && toGitHubEcosystem(ecosystem) != null;
     }
 
+    public boolean isAirgapped() { return airgapped; }
+
     /**
      * Looks up advisories for a single package/version. Returns an empty list when the ecosystem
      * is not supported by GitHub Advisory or the client is air-gapped. Failed requests throw.

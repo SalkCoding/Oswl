@@ -137,6 +137,9 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 GHSA 오프라인 자료 부재 상태:** 원천 기준일이 최신이어도 개별 component key의 자료가 없으면 `NOT_CONFIGURED` 대신 `UNAVAILABLE`로 전달한다. 정상 빈 목록의 조회 완료와 온라인 토큰 미설정 구분은 유지한다. 이전 동작이 취약점 없음으로 확정했던 것으로 과장하지 않는다. 커밋 제목 `fix: retain unavailable coverage for missing offline github advisories`.
+- **검증·범위:** 실제 GitHub client/source adapter와 enrichment 라우팅을 실행한 모드/자료 존재 여부 3건 중 수정 전 누락 사례 1건 실패했다. Windows/Java 25의 `test --tests '*GitHubAdvisory*Test' --tests '*Advisory*Test' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*SnapshotImportTransactionTest'` 304건 통과·실패/오류/skip 0. 로그 `build/roadmap-ghsa-missing-coverage-before.log`, `build/roadmap-ghsa-missing-coverage-after.log`. 외부 원문·데이터·라이브러리를 도입하지 않은 기존 상태 전달 수정이며 원천 이용·재배포 조건을 새로 승인하지 않는다. 이번 단위의 전체 build/UI 재검증 및 공급자 실환경 검증은 수행하지 않았다.
+
 - **2026-09-11 NVD 오프라인 자료 부재 상태:** CPE 조회 대상인데 해당 component key의 오프라인 자료가 없으면 `UNSUPPORTED` 대신 `UNAVAILABLE`로 판정한다. 저장된 정상 빈 목록은 조회 완료 근거로 유지하고 온라인 모드의 후보 부재 의미도 유지한다. 기존 동작을 '취약점 없음으로 확정'했다고 과장하지 않는다. 커밋 제목 `fix: distinguish missing offline nvd coverage from unsupported lookup`.
 - **검증·범위:** enrichment의 실제 NVD 라우팅과 source adapter를 실행하는 모드/자료 존재 여부 3건 중 수정 전 누락 사례 1건 실패했다. Windows/Java 25의 `test --tests '*Nvd*Test' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*SnapshotImportTransactionTest'` 242건 통과·실패/오류/skip 0. 로그 `build/roadmap-nvd-missing-coverage-before.log`, `build/roadmap-nvd-missing-coverage-after.log`. 기존 데이터 부재 상태 전달 수정으로 외부 자료·라이브러리·배포물 도입은 없다. 전체 build/UI는 이번 단위에서 재실행하지 않았으며 데이터 갱신 운영과 전체 로드맵의 실환경 검증은 잔여다.
 
