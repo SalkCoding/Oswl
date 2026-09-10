@@ -115,7 +115,11 @@ class ComponentDetailServiceTest {
     @org.junit.jupiter.params.provider.EnumSource(value = VcsProvider.class, names = {"GITHUB", "GITLAB", "BITBUCKET"})
     void unverifiedTargetsAreRejectedBeforeEveryVcsMutation(VcsProvider provider) {
         var library = Library.builder().id(10L).name("example").version("1.0.0").ecosystem("NPM")
-                .cves(List.of(Cve.builder().fixVersion("2.0.0").build())).build();
+                .cves(List.of(Cve.builder().ghsaId("OSV-fixture").fixVersion("2.0.0").build())).build();
+        library.markFetched();
+        library.recordLookupOutcomes(Map.of("OSV", "RESOLVED"));
+        library.recordOsvFixAssessment("2.0.0", "SOURCE_FIXED_EVENT", Map.of("OSV-fixture", "2026-01-01T00:00:00Z"),
+                java.util.Set.of("OSV-fixture"), java.time.Instant.now().plusSeconds(3600));
         var component = ScanComponent.builder().id(20L).library(library).build();
         var project = Project.builder().id(1L).name("fixture").vcsProvider(provider).githubRepo("owner/repo").build();
         when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L)).thenReturn(Optional.of(component));

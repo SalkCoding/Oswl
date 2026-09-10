@@ -21,6 +21,22 @@ import static org.assertj.core.api.Assertions.*;
 
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:snapshot-budget;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT")
 class SnapshotImportTransactionTest {
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 6, 7, 8, -1, 999})
+    void candidateExpiryUsesTheOriginalSourceDateRatherThanTheLookupDate(int age) {
+        var asOf = age == 999 ? null : java.time.LocalDate.now().minusDays(age);
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("osv")
+                .sourceAsOf(asOf).importedAt(java.time.LocalDateTime.now()).build());
+        var expiry = service.sourceEvidenceValidUntil("osv");
+        assertThat(new com.salkcoding.oswl.client.OsvClient(service, true).commonFixValidUntil()).isEqualTo(expiry);
+        if (age < 0 || age == 999) assertThat(expiry).isNull();
+        else {
+            assertThat(expiry).isEqualTo(asOf.plusDays(8).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
+            assertThat(expiry.isAfter(java.time.Instant.now())).isEqualTo(age <= 7);
+        }
+        assertThat(service.isSourceStaleOrUndated("osv")).isEqualTo(age < 0 || age > 7);
+    }
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(ints = {0, 499})
     void mergeOfRepeatedComponentKeysPreservesLastOriginalAcrossBatchBoundaries(int preceding) throws Exception {

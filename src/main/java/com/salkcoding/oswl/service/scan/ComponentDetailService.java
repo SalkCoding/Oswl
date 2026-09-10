@@ -241,7 +241,7 @@ public class ComponentDetailService {
         model.addAttribute("deprecatedReason", deprecated);
         model.addAttribute("latestVersion", lib.getLatestVersion());
 
-        // CVE/OSV에 문서화된 수정 버전만 보안 권장 버전으로 사용 (deps.dev 최신 버전과 혼동하지 않음)
+        // Only a current common candidate is used here; individual fixes remain on each advisory.
         String securityFixVersion = lib.bestFixVersion();
         model.addAttribute("securityFixVersion", securityFixVersion);
         model.addAttribute("recommendedVersion", securityFixVersion);

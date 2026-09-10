@@ -383,6 +383,14 @@ public class AirgappedSnapshotService {
                 || java.time.temporal.ChronoUnit.DAYS.between(asOf, today) > stalenessWarnDays;
     }
 
+    /** Exclusive expiry under the same calendar-day policy used for snapshot coverage. */
+    @Transactional(readOnly = true)
+    public java.time.Instant sourceEvidenceValidUntil(String source) {
+        LocalDate asOf = snapshotMetaRepository.findById(source).map(SnapshotMeta::getSourceAsOf).orElse(null);
+        if (asOf == null || asOf.isAfter(LocalDate.now()) || stalenessWarnDays < 0) return null;
+        return asOf.plusDays((long) stalenessWarnDays + 1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant();
+    }
+
     /**
      * Streams every distinct (ecosystem, name, version) this instance has ever scanned, as
      * JSONL, for an offline site to hand to the {@code oswl-vdb} builder so it can fetch

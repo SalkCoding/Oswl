@@ -40,6 +40,8 @@ class DependencyEvidenceUiTest extends UiTestBase {
                 .cveId("CVE-2026-0002").severity(com.salkcoding.oswl.domain.enums.RiskLevel.HIGH).build());
         loginAsTestAdmin();
         page.navigate(url("/projects/" + project.getId() + "/components/" + component.getId() + "?lang=en"));
+        page.getByRole(com.microsoft.playwright.options.AriaRole.BUTTON,
+                new Page.GetByRoleOptions().setName("CVE-2026-0002").setExact(true)).click();
         assertThat(page.locator("#component-detail-content").innerText()).contains("CVE-2026-0002", "9.0.0");
         assertThat(page.getByRole(com.microsoft.playwright.options.AriaRole.BUTTON,
                 new Page.GetByRoleOptions().setName("Apply Patch (Create PR)")).count()).isZero();
@@ -62,6 +64,8 @@ class DependencyEvidenceUiTest extends UiTestBase {
                 .cvss3Vector(scoreState.equals("vector") ? "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H" : null).build());
         loginAsTestAdmin();
         page.navigate(url("/projects/" + project.getId() + "/components/" + component.getId() + "?lang=en"));
+        page.getByRole(com.microsoft.playwright.options.AriaRole.BUTTON,
+                new Page.GetByRoleOptions().setName("CVE-2026-0001").setExact(true)).click();
         String body = page.locator("#component-detail-content").innerText();
         assertThat(body).contains("Patchable", "CVE-2026-0001", "2.0.0", "Unscored");
         assertThat(body).doesNotContain("No security vulnerabilities detected", "Non-Patchable");

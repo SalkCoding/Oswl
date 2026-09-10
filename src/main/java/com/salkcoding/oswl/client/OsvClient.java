@@ -359,6 +359,12 @@ public class OsvClient {
         }
     }
 
+    /** Bounds cached candidate display; PR creation still performs a new target lookup. */
+    public java.time.Instant commonFixValidUntil() {
+        return airgapped ? snapshotService.sourceEvidenceValidUntil(AirgappedSnapshotService.SOURCE_OSV)
+                : java.time.Instant.now().plus(Duration.ofDays(7));
+    }
+
     @SuppressWarnings("unchecked")
     private OsvResult collectPages(OsvQuery query, Map<?, ?> page, DetailBudget details) {
         Map<String, OsvVuln> findings = new java.util.LinkedHashMap<>();

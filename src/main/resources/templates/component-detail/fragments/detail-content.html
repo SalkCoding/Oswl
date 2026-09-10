@@ -349,12 +349,12 @@
              class="bg-white border border-[var(--grayscale-15)] rounded-[10px] p-[24px] flex flex-col gap-[18px]">
             <p class="text-[14px] text-[var(--grayscale-100)] tracking-[-0.14px] leading-[1.5]">
                 <span th:if="${securityFixVersion != null}">
-                    <th:block th:text="#{componentDetail.vuln.upgradeHint}">Upgrade to version</th:block>
+                    <th:block th:text="#{componentDetail.vuln.upgradeHint}">OSV common fix candidate:</th:block>
                     <span class="font-bold text-[var(--text-accent)]" th:text="${securityFixVersion}">...</span>
-                    <th:block th:text="#{componentDetail.vuln.upgradeHint2}">to resolve known CVEs.</th:block>
+                    <th:block th:text="#{componentDetail.vuln.upgradeHint2}">— rechecked against current data before PR creation.</th:block>
                 </span>
                 <span th:if="${securityFixVersion == null}" th:text="#{componentDetail.vuln.noFix}">
-                    No patched version is currently available. Monitor this library for security updates.
+                    A current common fix candidate has not been verified. Review individual advisory fixes and source coverage.
                 </span>
             </p>
             <p th:if="${securityFixVersion == null and latestVersion != null and isLatestVersion == false}"
@@ -858,9 +858,9 @@
             <p th:if="${hasVulnerabilities}">
                 <th:block th:text="#{componentDetail.desc.hasVulnerabilities}">This version has known security vulnerabilities.</th:block>
                 <span th:if="${securityFixVersion != null}">
-                    <th:block th:text="#{componentDetail.desc.upgradeRecommended}">Upgrading to</th:block> <span class="font-medium text-[var(--text-accent)]" th:text="${securityFixVersion}">-</span> <th:block th:text="#{componentDetail.desc.upgradeRecommended2}">is recommended to resolve the known issues.</th:block>
+                    <th:block th:text="#{componentDetail.desc.upgradeRecommended}">OSV common fix candidate:</th:block> <span class="font-medium text-[var(--text-accent)]" th:text="${securityFixVersion}">-</span> <th:block th:text="#{componentDetail.desc.upgradeRecommended2}">— requires target verification before PR creation.</th:block>
                 </span>
-                <span th:if="${securityFixVersion == null}" th:text="#{componentDetail.desc.noFix}">No patched version is currently available.</span>
+                <span th:if="${securityFixVersion == null}" th:text="#{componentDetail.desc.noFix}">A current common fix candidate has not been verified.</span>
             </p>
             <p th:if="${!hasVulnerabilities and vulnerabilitiesAnalyzed}" th:text="#{componentDetail.desc.noVulns}">No known security vulnerabilities have been detected for this version.</p>
             <p th:if="${!hasVulnerabilities and !vulnerabilitiesAnalyzed}" th:text="#{securityCenter.table.notAnalyzedTooltip}">Vulnerability lookup has not completed successfully.</p>

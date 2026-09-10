@@ -41,8 +41,13 @@ class RemediationTargetUiTest extends UiTestBase {
         var project = projects.save(Project.builder().name("Unverified target fixture")
                 .vcsProvider(com.salkcoding.oswl.auth.enums.VcsProvider.GITHUB).githubRepo("fixture/repo-" + language).build());
         var scan = scans.save(ScanResult.builder().project(project).version("main").status(ScanStatus.COMPLETED).build());
-        var library = libraries.save(Library.builder().name("unverified-target-" + language).version("1.0.0").ecosystem("NPM")
-                .licenseStatus(LicenseStatus.UNKNOWN).build());
+        var library = Library.builder().name("unverified-target-" + language).version("1.0.0").ecosystem("NPM")
+                .licenseStatus(LicenseStatus.UNKNOWN).build();
+        library.markFetched();
+        library.recordLookupOutcomes(Map.of("OSV", "RESOLVED"));
+        library.recordOsvFixAssessment("2.0.0", "SOURCE_FIXED_EVENT", Map.of("OSV-fixture", "2026-01-01T00:00:00Z"),
+                Set.of("OSV-fixture", "CVE-2026-0001"), java.time.Instant.now().plusSeconds(3600));
+        library = libraries.save(library);
         var component = components.save(ScanComponent.builder().scanResult(scan).library(library).build());
         cves.save(Cve.builder().library(library).ghsaId("OSV-fixture").cveId("CVE-2026-0001").fixVersion("2.0.0").severity(RiskLevel.HIGH).build());
         loginAsTestAdmin();

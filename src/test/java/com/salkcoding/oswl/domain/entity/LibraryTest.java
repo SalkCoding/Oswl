@@ -17,6 +17,29 @@ import static org.assertj.core.api.Assertions.assertThat;
 class LibraryTest {
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"complete", "missing", "uncovered", "conflict", "expired", "partial"})
+    void recommendationUsesCompleteCurrentCommonEvidenceInsteadOfSeverity(String state) {
+        var first = Cve.builder().ghsaId("OSV-first").severity(RiskLevel.CRITICAL).fixVersion("2.0.0").build();
+        var second = Cve.builder().ghsaId("OSV-second").severity(RiskLevel.HIGH).fixVersion("3.0.0").build();
+        if (state.equals("conflict")) second.withholdFixVersion(java.util.Set.of("3.0.0", "5.0.0"));
+        String expiry = java.time.Instant.now().plusSeconds(state.equals("expired") ? -60 : 3600).toString();
+        String json = """
+                {"version":"4.0.0","reason":"SOURCE_FIXED_EVENT",
+                "advisoryRevisions":{"OSV-first":"2026-01-01T00:00:00Z","OSV-second":"2026-01-01T00:00:00Z"},
+                "findingIds":["OSV-first"%s],"validUntil":"%s"}
+                """.formatted(state.equals("uncovered") ? "" : ",\"OSV-second\"", expiry);
+        var library = Library.builder().name("example").version("1.0.0").ecosystem("NPM")
+                .cves(java.util.List.of(first, second)).latestVersion("99.0.0").isLatestVersion(false)
+                .fetchedAt(java.time.LocalDateTime.now()).vulnerabilityLookupAt(java.time.LocalDateTime.now())
+                .vulnerabilityLookupOutcomes(java.util.Map.of("OSV", "RESOLVED", "GITHUB_ADVISORY", state.equals("partial") ? "UNAVAILABLE" : "NOT_CONFIGURED"))
+                .osvFixAssessment(state.equals("missing") ? null : new Library.OsvFixAssessmentConverter().convertToEntityAttribute(json)).build();
+        assertThat(library.bestFixVersion()).isEqualTo(state.equals("complete") ? "4.0.0" : null);
+        assertThat(library.resolvePrTargetVersion()).isEqualTo(state.equals("complete") ? "4.0.0" : null);
+        assertThat(first.getFixVersion()).isEqualTo("2.0.0");
+        assertThat(second.getFixVersion()).isEqualTo(state.equals("conflict") ? null : "3.0.0");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"missing", "conflict", "current"})
     void unresolvedSecurityFixDoesNotFallBackToLatestForPr(String state) {
         Cve finding = Cve.builder().severity(RiskLevel.HIGH)
@@ -37,9 +60,13 @@ class LibraryTest {
     }
 
     @Test void knownFixRemainsThePrTargetInsteadOfLatest() {
-        Cve finding = Cve.builder().severity(RiskLevel.HIGH).fixVersion("2.0.0").build();
+        Cve finding = Cve.builder().ghsaId("OSV-fixture").severity(RiskLevel.HIGH).fixVersion("2.0.0").build();
         Library library = Library.builder().version("1.0.0").latestVersion("9.0.0")
                 .isLatestVersion(false).cves(List.of(finding)).build();
+        library.markFetched();
+        library.recordLookupOutcomes(java.util.Map.of("OSV", "RESOLVED"));
+        library.recordOsvFixAssessment("2.0.0", "SOURCE_FIXED_EVENT", java.util.Map.of("OSV-fixture", "2026-01-01T00:00:00Z"),
+                java.util.Set.of("OSV-fixture"), java.time.Instant.now().plusSeconds(3600));
         assertThat(library.resolvePrTargetVersion()).isEqualTo("2.0.0");
     }
 
@@ -98,7 +125,8 @@ class LibraryTest {
             var unscored = Cve.builder().cveId("CVE-2026-0001").severity(null).fixVersion("2.0.0").build();
             var library = includeScoredFinding ? lib(unscored, cve("CVE-2026-0002", RiskLevel.HIGH)) : lib(unscored);
             assertThat(library.computePatchability()).isEqualTo(Patchability.PATCHABLE);
-            assertThat(library.bestFixVersion()).isEqualTo("2.0.0");
+            assertThat(library.bestFixVersion()).isNull();
+            assertThat(unscored.getFixVersion()).isEqualTo("2.0.0");
         }
 
         @Test
@@ -150,26 +178,28 @@ class LibraryTest {
         }
 
         @Test
-        @DisplayName("fixVersion이 있는 CVE 중 심각도가 가장 높은 것의 픽스 버전을 반환한다")
-        void returnsBestFixVersion_forHighestSeverity() {
+        @DisplayName("심각도와 개별 수정 버전만으로 공통 후보를 확정하지 않는다")
+        void severityDoesNotEstablishACommonCandidate() {
             Cve critical = Cve.builder().cveId("CVE-1").severity(RiskLevel.CRITICAL)
                     .fixVersion("3.0.0").library(null).build();
             Cve medium   = Cve.builder().cveId("CVE-2").severity(RiskLevel.MEDIUM)
                     .fixVersion("2.5.0").library(null).build();
             Library lib = lib(medium, critical);
-            // Should pick the fix for CRITICAL (lowest ordinal = highest severity)
-            assertThat(lib.bestFixVersion()).isEqualTo("3.0.0");
+            assertThat(lib.bestFixVersion()).isNull();
+            assertThat(critical.getFixVersion()).isEqualTo("3.0.0");
+            assertThat(medium.getFixVersion()).isEqualTo("2.5.0");
         }
 
         @Test
-        @DisplayName("fixVersion이 없는 CVE는 무시된다")
-        void ignoresCvesWithoutFixVersion() {
+        @DisplayName("수정 근거가 없는 CVE를 공통 후보 선택에서 누락하지 않는다")
+        void missingFixEvidenceCannotBeIgnored() {
             Cve noFix = Cve.builder().cveId("CVE-1").severity(RiskLevel.CRITICAL)
                     .fixVersion(null).library(null).build();
             Cve hasFix = Cve.builder().cveId("CVE-2").severity(RiskLevel.HIGH)
                     .fixVersion("1.9.0").library(null).build();
             Library lib = lib(noFix, hasFix);
-            assertThat(lib.bestFixVersion()).isEqualTo("1.9.0");
+            assertThat(lib.bestFixVersion()).isNull();
+            assertThat(hasFix.getFixVersion()).isEqualTo("1.9.0");
         }
 
         @Test
