@@ -60,6 +60,8 @@ class NvdPartialEvidenceTest {
         ReflectionTestUtils.setField(client, "restClient", builder.build());
         ReflectionTestUtils.setField(client, "minIntervalMs", 0L);
         server.expect(anything()).andRespond(withSuccess("{\"startIndex\":0,\"resultsPerPage\":2000,\"totalResults\":2,\"vulnerabilities\":[" + rows + "]}", MediaType.APPLICATION_JSON));
+        if (kind.equals("page")) server.expect(anything()).andRespond(
+                org.springframework.test.web.client.response.MockRestResponseCreators.withServerError());
         server.expect(anything()).andRespond(withSuccess("{\"startIndex\":0,\"resultsPerPage\":2000,\"totalResults\":1,\"vulnerabilities\":[{\"cve\":{\"id\":\"CVE-2026-0002\"}}]}", MediaType.APPLICATION_JSON));
         var cpe = mock(CpeMatchService.class);
         when(cpe.inferCpes("fixture", "1.0")).thenReturn(List.of(

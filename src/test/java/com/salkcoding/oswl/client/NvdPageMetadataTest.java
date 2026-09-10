@@ -24,9 +24,12 @@ class NvdPageMetadataTest {
         var server = MockRestServiceServer.bindTo(builder).build();
         var client = new NvdClient();
         ReflectionTestUtils.setField(client, "restClient", builder.build());
+        ReflectionTestUtils.setField(client, "minIntervalMs", 0L);
         String body = "{" + field("totalResults", total) + field("startIndex", start) + field("resultsPerPage", size)
                 + "\"vulnerabilities\":" + (rows == 0 ? "[]" : "[{\"cve\":{\"id\":\"CVE-2026-0001\"}}]") + "}";
         server.expect(anything()).andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+        if (total.equals("2")) server.expect(anything()).andRespond(
+                org.springframework.test.web.client.response.MockRestResponseCreators.withServerError());
         if (complete) assertThat(client.findByCpeName("cpe:fixture", MatchConfidence.HIGH)).hasSize(rows);
         else assertThatThrownBy(() -> client.findByCpeName("cpe:fixture", MatchConfidence.HIGH))
                 .isInstanceOfSatisfying(NvdClient.IncompleteLookupException.class,

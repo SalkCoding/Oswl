@@ -137,6 +137,10 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 NVD 후속 페이지 수집:** 실제 수신 행 수를 다음 `startIndex`로 사용해 최대 20페이지를 수집한다. 전체 건수 변경, 잘못된 offset, 중복 ID, 진행 없는 빈 페이지, 한도 초과, 후속 HTTP/JSON/구조 오류에서는 이미 받은 발견 결과를 보존하면서 조회 미완료를 유지한다. CPE URL을 RestClient에 URI로 전달해 이미 인코딩된 콜론의 이중 인코딩도 수정했다. 커밋 제목 `fix: collect nvd pages without losing incomplete evidence`.
+- **누적 검증:** Windows/Java 25에서 `build verifyProdJar` 성공. 신규 페이지 회귀 10건을 포함한 전체 3,087건 중 3,078건 통과·기존 환경 의존 skip 9건·실패/오류 0. 운영 JAR의 local controller 제외 검사도 통과했다. 로그 `build/roadmap-nvd-pagination-build.log`; 관련 테스트 묶음 로그 `build/roadmap-nvd-pagination-after.log`.
+- **회귀 근거·범위:** 자체 합성 HTTP 응답으로 정상 후속 페이지, 중간 실패·응답 불일치·중복, 페이지 한도 및 실제 행 수 기준 offset을 검사한다. 최초 7건의 실패 원인은 정확한 URL 검사에서 드러난 이중 인코딩이었다. 페이지 수집만의 수정 전 실패로 해석하지 않는다. 기존 부분 페이지 테스트에는 후속 요청 실패를 명시해 발견 결과와 다음 CPE 후보의 보존 검증을 유지했다. 새 외부 원문·라이브러리·UI 변경은 없다. 페이지 사이 동일 건수의 데이터 교체까지 감지하는 snapshot 일관성, 응답 크기/총 실행 시간 제한, 공급자 실환경 CPE 검증 및 원천별 재배포 조건은 잔여다.
+
 - **2026-09-11 NVD 페이지 건수 검증:** `totalResults`/`startIndex`/`resultsPerPage`가 누락되거나 정수가 아니거나 음수인 응답을 미완료로 남긴다. 현재 단일 페이지 조회에서 startIndex는 0, 총건수는 실제 배열 길이와 일치해야 하며 페이지 크기는 배열보다 작을 수 없다. 잘못된 metadata에서도 정상 취약점 행은 앞서 도입한 부분 결과 경로로 보존한다. timestamp/format/version 및 전체 schema·실제 페이지 순회 검증은 별도 잔여다.
 - **누적 빌드:** `build verifyProdJar` 성공, 전체 3,077건 중 3,068건 통과·기존 환경 의존 skip 9건·실패/오류 0. 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-nvd-page-metadata-build.log`.
 - **검증·근거:** [NIST 공식 API schema](https://csrc.nist.gov/schema/nvd/api/2.0/cve_api_json_2.0.schema)(확인 2026-09-11, 문서 title 2.2.4)의 필수 정수 필드를 확인했다. 자체 합성 16건 중 수정 전 12건 실패, 수정 후 Windows/Java 25의 `test --tests '*Nvd*Test' --tests '*Advisory*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 226건 통과·실패/오류/skip 0. 기존 정상 parser/HTTP fixture에 페이지 metadata를 추가하고 원래 판정 기대값을 유지했다. 로그 `build/roadmap-nvd-page-metadata-before.log`, `build/roadmap-nvd-page-metadata-after.log`. 커밋 제목 `fix: require consistent nvd pagination metadata`.

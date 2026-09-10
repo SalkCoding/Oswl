@@ -34,6 +34,7 @@ public class NvdClient {
 
     private static final String BASE_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0";
     private static final int MAX_RETRIES = 3;
+    private static final int MAX_PAGES = 20;
     private static final long UNAUTH_INTERVAL_MS = 6_500;
     private static final long AUTH_INTERVAL_MS = 650;
     private static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(5);
@@ -105,13 +106,33 @@ public class NvdClient {
             return List.of();
         }
         String url = BASE_URL + "?cpeName=" + URLEncoder.encode(cpeName.strip(), StandardCharsets.UTF_8);
+        Map<String, NvdCve> found = new LinkedHashMap<>();
         try {
-            return parseBody(doRequest(url), confidence);
+            Long expectedTotal = null;
+            long offset = 0;
+            for (int page = 0; page < MAX_PAGES; page++) {
+                Map<String, Object> body = doRequest(offset == 0 ? url : url + "&startIndex=" + offset);
+                List<NvdCve> findings = offset == 0 ? parseBody(body, confidence) : parseBody(body, confidence, offset);
+                boolean duplicate = false;
+                for (NvdCve finding : findings) {
+                    duplicate |= found.putIfAbsent(finding.cveId(), finding) != null;
+                }
+                Long total = nonNegativeInteger(body.get("totalResults"));
+                if (duplicate || expectedTotal != null && !expectedTotal.equals(total)) {
+                    throw new IncompleteLookupException(new ArrayList<>(found.values()));
+                }
+                expectedTotal = total;
+                offset += findings.size();
+                if (offset == total) return List.copyOf(found.values());
+            }
+            throw new IncompleteLookupException(new ArrayList<>(found.values()));
         } catch (IncompleteLookupException e) {
-            log.warn("[NVD] Incomplete CPE lookup; retaining {} findings", e.findings().size());
-            throw e;
+            for (NvdCve finding : e.findings()) found.putIfAbsent(finding.cveId(), finding);
+            log.warn("[NVD] Incomplete CPE lookup; retaining {} findings", found.size());
+            throw new IncompleteLookupException(new ArrayList<>(found.values()));
         } catch (Exception e) {
             log.warn("[NVD] CPE lookup failed for {}: {}", cpeName, e.getMessage());
+            if (!found.isEmpty()) throw new IncompleteLookupException(new ArrayList<>(found.values()));
             throw new IllegalStateException("NVD lookup unavailable", e);
         }
     }
@@ -155,7 +176,7 @@ public class NvdClient {
             throttle();
             try {
                 Map<String, Object> body = restClient.get()
-                        .uri(url)
+                        .uri(java.net.URI.create(url))
                         .header("Accept", "application/json")
                         .headers(headers -> {
                             if (apiKey != null && !apiKey.isBlank()) {
@@ -212,16 +233,21 @@ public class NvdClient {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private List<NvdCve> parseBody(Map<String, Object> body, MatchConfidence confidence) {
+        return parseBody(body, confidence, 0);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<NvdCve> parseBody(Map<String, Object> body, MatchConfidence confidence, long expectedStart) {
         if (body == null) throw new IllegalArgumentException("Missing NVD response");
         Object vulns = body.get("vulnerabilities");
         if (!(vulns instanceof List<?> list)) throw new IllegalArgumentException("Missing NVD vulnerabilities");
         Long total = nonNegativeInteger(body.get("totalResults"));
         Long start = nonNegativeInteger(body.get("startIndex"));
         Long pageSize = nonNegativeInteger(body.get("resultsPerPage"));
-        boolean incomplete = total == null || total != list.size()
-                || start == null || start != 0 || pageSize == null || pageSize < list.size();
+        boolean incomplete = total == null || total < expectedStart + list.size()
+                || start == null || start != expectedStart || pageSize == null || pageSize < list.size()
+                || list.isEmpty() && total != null && expectedStart < total;
         List<NvdCve> result = new ArrayList<>();
         for (Object item : list) {
             try {
