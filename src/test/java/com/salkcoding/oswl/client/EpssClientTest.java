@@ -13,6 +13,37 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class EpssClientTest {
     @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void queriesEveryBatchAndPreservesLaterResultsAfterFailure(boolean firstFails) throws Exception {
+        var ids = java.util.stream.IntStream.range(1000, 1051).mapToObj(i -> "CVE-2026-" + i).toList();
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new EpssClient();
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        for (int start = 0; start < ids.size(); start += 50) {
+            var batch = ids.subList(start, Math.min(start + 50, ids.size()));
+            String response = mapper.writeValueAsString(java.util.Map.of("data", batch.stream()
+                    .map(id -> java.util.Map.of("cve", id, "epss", "0.5")).toList()));
+            server.expect(requestTo("https://api.first.org/data/v1/epss?cve=" + String.join(",", batch)))
+                    .andRespond(start == 0 && firstFails ? org.springframework.test.web.client.response.MockRestResponseCreators.withServerError()
+                            : withSuccess(response, MediaType.APPLICATION_JSON));
+        }
+        var result = client.fetchScores(ids);
+        assertThat(result).hasSize(firstFails ? 1 : 51).containsEntry(ids.getLast(), 0.5);
+        server.verify();
+    }
+
+    @org.junit.jupiter.api.Test
+    void offlineQueriesAreNotTruncatedToHttpBatchSize() {
+        var ids = java.util.stream.IntStream.range(1000, 1051).mapToObj(i -> "CVE-2026-" + i).toList();
+        var snapshot = org.mockito.Mockito.mock(com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.class);
+        org.mockito.Mockito.when(snapshot.findEpssScores(ids)).thenReturn(java.util.Map.of(ids.getLast(), 0.5));
+        assertThat(new EpssClient(snapshot, true).fetchScores(ids)).containsEntry(ids.getLast(), 0.5);
+        org.mockito.Mockito.verify(snapshot).findEpssScores(ids);
+    }
+
+    @ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"0.2,0.8", "0.8,0.2", "NaN,0.8", "0.8,NaN", "0.2,0.2"})
     void conflictingDuplicatesStayUnresolvedAndUnrequestedIdsAreExcluded(String first, String second) {
         var builder = RestClient.builder();

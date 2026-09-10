@@ -331,6 +331,9 @@
 - **2026-09-11 EPSS 중복 충돌/요청 대조:** live 결과는 요청한 CVE ID와 일치하는 행만 반영한다. 같은 CVE의 서로 다른 점수나 잘못된 점수가 있으면 이번 응답에서 해당 ID를 미확인으로 유지하며 나중 행으로 다시 확정하지 않는다. 동일한 점수의 중복은 하나로 합친다. bulk도 다른 중복 점수를 마지막 값으로 덮어쓰지 않고 수집 실패로 처리한다.
 - **충돌 회귀:** 순서를 뒤집은 충돌·잘못된 값 뒤 정상 값/반대 순서·동일 중복과 미요청 ID 검사 8건 중 수정 전 7건 실패를 확인했다. mock HTTP 및 실제 임시 gzip/cache 경로와 기존 보강 테스트를 포함해 `test --tests '*Epss*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 67건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-epss-conflicts-before.log`, `build/roadmap-epss-conflicts-after.log`. 커밋 제목 `fix: preserve uncertainty for conflicting epss scores`. 자체 합성 입력, 외부 자료/의존성 및 UI 변경 없음. 오프라인 번들 반입의 중복 의미, live API 전체 실패 상태/점수 기준일 전파와 저장된 과거 점수 정정은 잔여다.
 
+- **2026-09-11 EPSS 요청 누락 수정:** 보강 서비스는 전체 CVE 목록을 전달하지만 EpssClient가 첫 50개만 남기던 제한을 제거했다. 온라인은 요청 ID를 중복 제거한 뒤 50개 묶음으로 조회하며 한 묶음 실패가 다른 묶음의 정상 결과를 버리지 않는다. 오프라인은 HTTP 요청 크기 제한 없이 전체 ID를 저장소에 전달한다. 온라인 처리 중 interrupt가 있으면 추가 묶음을 시작하지 않고 이미 확인한 점수만 반환한다. 실패/미응답 점수를 0으로 만들지 않는다.
+- **묶음 회귀:** 51개 ID의 온라인 정상·첫 묶음 실패·오프라인 전체 조회 3건은 수정 전 전부 실패했다. 수정 후 mock HTTP 및 snapshot adapter와 기존 보강 검사를 포함한 `test --tests '*Epss*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 70건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-epss-batches-before.log`, `build/roadmap-epss-batches-after.log`. 커밋 제목 `fix: query epss scores beyond the first batch`. 자체 합성 입력, 외부 데이터/라이브러리 및 UI 변경 없음. 실제 공급자 rate limit/전체 경과 예산과 요청별 timeout, 누락/실패 상태의 명시적 영속 전파는 잔여다.
+
 ### 33. 조회 캐시와 전체 advisory 로컬 판정 구분 — P1 · [지원 범위별 필수]
 
 - 현재·대상: [AirgappedSnapshotService](src/main/java/com/salkcoding/oswl/service/snapshot/AirgappedSnapshotService.java)의 기존 조회 결과 export는 전체 원천 DB가 아니다.

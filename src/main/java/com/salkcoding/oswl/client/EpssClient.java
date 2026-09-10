@@ -47,7 +47,7 @@ public class EpssClient {
     }
 
     /**
-     * @param cveIds CVE- prefixed IDs (max ~50 per call)
+     * @param cveIds CVE- prefixed IDs; online requests are split into batches of 50
      * @return map CVE ID → EPSS score (0.0–1.0)
      */
     public Map<String, Double> fetchScores(List<String> cveIds) {
@@ -56,7 +56,6 @@ public class EpssClient {
                 .filter(id -> id != null && id.startsWith("CVE-"))
                 .map(String::strip)
                 .distinct()
-                .limit(50)
                 .toList();
         if (ids.isEmpty()) return Map.of();
 
@@ -66,6 +65,15 @@ public class EpssClient {
             return result;
         }
 
+        Map<String, Double> scores = new LinkedHashMap<>();
+        for (int start = 0; start < ids.size(); start += 50) {
+            if (Thread.currentThread().isInterrupted()) break;
+            scores.putAll(fetchBatch(ids.subList(start, Math.min(start + 50, ids.size()))));
+        }
+        return scores;
+    }
+
+    private Map<String, Double> fetchBatch(List<String> ids) {
         String joined = String.join(",", ids);
         try {
             @SuppressWarnings("unchecked")
