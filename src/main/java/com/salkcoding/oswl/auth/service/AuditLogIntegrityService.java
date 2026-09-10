@@ -71,8 +71,8 @@ public class AuditLogIntegrityService {
 
                 if (!currentHashed) {
                     unhashedCount++;
-                    if (previousWasHashed) {
-                        // A hashed row was followed by an unhashed one: the chain is broken.
+                    if (chainStartedInResult) {
+                        // Every unhashed row after chain creation is an integrity failure.
                         brokenCount++;
                         if (firstBrokenId == null) {
                             firstBrokenId = entry.getId();
@@ -84,31 +84,23 @@ public class AuditLogIntegrityService {
                     continue;
                 }
 
+                boolean broken = !auditLogService.computeHash(entry).equals(entry.getHash());
                 if (!chainStartedInResult) {
                     // First hashed row in the result set starts the verified segment.
                     chainStartedInResult = true;
                     // If this is the absolute chain start, prevHash must be null. When a date
                     // filter omits earlier rows we skip this check for the first hashed row.
-                    if (filter == null
-                            || (filter.getStartDate() == null && filter.getEndDate() == null)) {
-                        if (entry.getPrevHash() != null) {
-                            brokenCount++;
-                            if (firstBrokenId == null) {
-                                firstBrokenId = entry.getId();
-                            }
-                            addBrokenId(brokenIds, entry.getId());
-                        }
+                    if (filter == null || filter.getStartDate() == null) {
+                        broken |= entry.getPrevHash() != null;
                     }
-                } else if (previousWasHashed) {
-                    if (entry.getPrevHash() == null
-                            || !entry.getPrevHash().equals(previousHash)
-                            || !auditLogService.computeHash(entry).equals(entry.getHash())) {
-                        brokenCount++;
-                        if (firstBrokenId == null) {
-                            firstBrokenId = entry.getId();
-                        }
-                        addBrokenId(brokenIds, entry.getId());
-                    }
+                } else {
+                    broken |= !previousWasHashed || entry.getPrevHash() == null
+                            || !entry.getPrevHash().equals(previousHash);
+                }
+                if (broken) {
+                    brokenCount++;
+                    if (firstBrokenId == null) firstBrokenId = entry.getId();
+                    addBrokenId(brokenIds, entry.getId());
                 }
 
                 previousHash = entry.getHash();
