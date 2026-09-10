@@ -113,6 +113,9 @@
 
 ### 11. 범용 버전 비교기와 GHSA 비교 실패 처리 교체 — P0 · [코드 확인/진단]
 
+- **2026-09-11 NuGet 실제 OSV client 검증:** 공개 OSV querybatch/detail API와 애플리케이션 `OsvClient`를 실제 실행했다. System.Text.Json 7.0.0에는 GHSA-hh2w-p6rv-4g7w→8.0.4, 8.0.3에는 해당 공지 외에 GHSA-8g4q-xg66-9fp4→8.0.5도 남았고, 8.0.4에는 후자만 남았다. 따라서 한 공지의 fixed를 패키지 전체 안전 버전으로 바꾸지 않는다. 3개 조회 모두 client의 resolved=true이며 목표 공지 ID/CVE/수정 버전 경계를 확인했다. 원천 querybatch/detail의 microsecond/nanosecond modified 표현 차이도 기존 revision 검사를 통과했다.
+- **재현·범위:** Windows/Java 25에서 `OSWL_VERIFY_OSV_NUGET=true`로 `test --tests '*OsvNugetLiveVerificationTest'` 1건 통과·실패/오류/skip 0. 로그 `build/roadmap-nuget-live.log`; 기본 실행은 skip인 선택 네트워크 테스트다. 원문 응답은 저장소에 추가하지 않았고 앞서 확인한 GHSA 출처 고지 범위를 유지한다. 커밋 제목 `test: verify nuget advisory boundaries through live osv`. 전체 build/UI·실제 DB 왕복·다른 공급자 검증은 이번 실행의 범위가 아니다.
+
 - **2026-09-11 실제 NuGet 공지 검증:** Microsoft의 [CVE-2024-30105 공지](https://github.com/dotnet/runtime/security/advisories/GHSA-hh2w-p6rv-4g7w)와 GitHub Advisory Database 원본 commit `872fc2a7bd18d3a51e648444930929313098ed63`의 System.Text.Json 레코드를 대조했다. 7.0.0/8.0.3 및 별칭 08.0.03.0의 온라인 mock HTTP→상세 레코드 재평가와 bulk→snapshot mock→오프라인 client가 동일 수정 버전 8.0.4를 선택했다. 6.0.0·7.0.0·8.0.3·8.0.4·8.0.5의 범위 경계/수정 후보/bulk 발견 여부도 검증했다. 온라인 서비스 실제 호출이나 실제 DB 왕복 테스트라고 부르지 않는다.
 - **검증·권리:** Windows/Java 25의 `test --tests '*NuGet*Test' --tests '*Osv*Test' --tests '*SnapshotImportTransactionTest'` 1,194건 중 1,193건 통과·기존 환경 의존 skip 1건·실패/오류 0. 로그 `build/roadmap-nuget-official-parity.log`. 원본 JSON은 변형 없이 test resource로만 보존하고 [자료 고지](src/test/resources/advisories/README.md)에 공급자/작성자·출처·commit·SHA-256·CC-BY-4.0와 변경 없음·비보증을 명시했다. 기존 라이선스 원문을 동반하며 외부 링크의 콘텐츠는 복제하지 않았다. 커밋 제목 `test: verify nuget fixes against a pinned microsoft advisory`. 제품 코드/UI 변경 없이 검증을 추가했으며 전체 build는 재실행하지 않았다. 이 단일 공지의 통과는 모든 NuGet 공지나 원천별 재배포 조건의 검증 완료가 아니다.
 

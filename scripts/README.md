@@ -19,6 +19,13 @@ Run commands from the repository root unless a tool says otherwise. Scripts are 
 
 ## Local verification
 
+- OSV NuGet live client verification: set `OSWL_VERIFY_OSV_NUGET=true` in the current shell,
+  run `gradlew test --tests '*OsvNugetLiveVerificationTest'`, then remove the variable.
+  It sends read-only queries for System.Text.Json 7.0.0, 8.0.3 and 8.0.4 to the public OSV API.
+  The test checks the CVE-2024-30105 boundary and keeps other advisories separate; it does not
+  certify that any package version is free of vulnerabilities. It is skipped by default and
+  provider changes or network failures can fail the explicit live run.
+
 
 ## Verification drafts
 
