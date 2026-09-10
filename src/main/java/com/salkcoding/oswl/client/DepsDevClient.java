@@ -410,7 +410,7 @@ public class DepsDevClient {
             // Passing an already percent-encoded string as a URI template variable causes double-encoding to %25XX.
             // build(true) prevents re-encoding by marking it as "already encoded".
             String path = String.format("/v3/systems/%s/packages/%s/versions/%s",
-                    key.ecosystem().toUpperCase(), encodedName, encodedVersion);
+                    key.ecosystem().toUpperCase(java.util.Locale.ROOT), encodedName, encodedVersion);
             java.net.URI uri = UriComponentsBuilder.fromUriString(BASE_URL + path).build(true).toUri();
 
             @SuppressWarnings("unchecked")
@@ -548,7 +548,7 @@ public class DepsDevClient {
      * {@link #DEFAULT_VERSION_MISS} sentinel, since ConcurrentHashMap forbids null values.
      */
     private String fetchDefaultVersionForPackage(String ecosystem, String name) {
-        String cacheKey = ecosystem.toUpperCase() + "|" + name;
+        String cacheKey = ecosystem.toUpperCase(java.util.Locale.ROOT) + "|" + name;
         String cached = defaultVersionCache.get(cacheKey);
         if (cached != null) {
             return DEFAULT_VERSION_MISS.equals(cached) ? null : cached;
@@ -558,7 +558,7 @@ public class DepsDevClient {
         try {
             String encodedName = encodePackageName(ecosystem, name);
             String path = String.format("/v3/systems/%s/packages/%s",
-                    ecosystem.toUpperCase(), encodedName);
+                    ecosystem.toUpperCase(java.util.Locale.ROOT), encodedName);
             java.net.URI uri = UriComponentsBuilder.fromUriString(BASE_URL + path).build(true).toUri();
 
             @SuppressWarnings("unchecked")
@@ -682,7 +682,7 @@ public class DepsDevClient {
     }
 
     private String encodePackageName(String ecosystem, String name) {
-        return switch (ecosystem.toUpperCase()) {
+        return switch (ecosystem.toUpperCase(java.util.Locale.ROOT)) {
             case "MAVEN" -> name.replace(":", "%3A");
             case "NPM"   -> name.replace("@", "%40").replace("/", "%2F");
             case "GO"    -> name.replace("/", "%2F");

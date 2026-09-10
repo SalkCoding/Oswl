@@ -266,7 +266,7 @@ public class NvdClient {
         Object sevObj = data.get("baseSeverity");
         if (sevObj instanceof String s) {
             try {
-                RiskLevel parsed = RiskLevel.valueOf(s.toUpperCase());
+                RiskLevel parsed = RiskLevel.valueOf(s.toUpperCase(java.util.Locale.ROOT));
                 hasSeverity = true;
                 if (severity == RiskLevel.NONE || parsed.ordinal() <= severity.ordinal()) {
                     severity = parsed;
@@ -283,7 +283,7 @@ public class NvdClient {
     private static RiskLevel parseSeverity(String severity) {
         if (severity == null || severity.isBlank()) return RiskLevel.NONE;
         try {
-            return RiskLevel.valueOf(severity.strip().toUpperCase());
+            return RiskLevel.valueOf(severity.strip().toUpperCase(java.util.Locale.ROOT));
         } catch (IllegalArgumentException e) {
             return RiskLevel.NONE;
         }
@@ -292,7 +292,7 @@ public class NvdClient {
     private static MatchConfidence parseConfidence(String confidence) {
         if (confidence == null || confidence.isBlank()) return null;
         try {
-            return MatchConfidence.valueOf(confidence.strip().toUpperCase());
+            return MatchConfidence.valueOf(confidence.strip().toUpperCase(java.util.Locale.ROOT));
         } catch (IllegalArgumentException e) {
             return null;
         }

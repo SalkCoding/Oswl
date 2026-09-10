@@ -689,6 +689,10 @@
 
 ### 61. 표준 교환·언어·시간·규정 대응 증거 — P3 · [조건부 확장]
 
+- **2026-09-11 기존 진단 경로의 로캘 독립성:** deps.dev의 생태계 요청 경로/기본 버전 cache key/패키지 인코딩 분기와 NVD의 live·offline 심각도 및 매칭 신뢰도 변환에 `Locale.ROOT`를 적용했다. 터키어·아제르바이잔어 기본 로캘에서 `pypi` 요청 및 `critical`/`high` 판독이 달라지는 오류를 수정했다. UI 언어나 패키지 원문을 바꾸지 않는다.
+- **누적 빌드:** `build verifyProdJar` 성공, 전체 3,052건 중 3,043건 통과·기존 환경 의존 skip 9건·실패/오류 0. 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-advisory-locale-build.log`.
+- **검증:** 영어/터키어/아제르바이잔어 환경의 실제 deps.dev client HTTP 요청 및 NVD 파서 6건 중 수정 전 4건 실패, 수정 후 `test --tests '*AdvisoryLocaleTest' --tests '*DepsDev*Test' --tests '*Nvd*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 102건 통과·실패/오류/skip 0. Windows/Java 25 로그 `build/roadmap-advisory-locale-before.log`, `build/roadmap-advisory-locale-after.log`. 로캘을 변경하는 테스트는 격리 실행하며 원래 기본/표시/형식 로캘을 복원한다. 커밋 제목 `fix: make advisory protocol casing independent of host locale`. 자체 합성 입력이며 외부 자료/라이브러리·UI 변경 없음. 이 검사는 다른 client/표준 교환·시간대·Linux 전반의 동일성 검증이나 61번 전체 완료를 대신하지 않는다.
+
 - 현재·대상: 기존 CycloneDX/SBOM/VEX/SARIF, 영어/한국어/일본어는 유지하고 신규 표준/기관 요구만 확장한다.
 - [ ] 수정: SPDX/CSAF 등 채택 버전·lossy 변환·schema/round-trip을 검증한다. UTC/offset·locale·DST·CSV/Unicode 경로·Windows/Linux의 동일 판정과 원문/번역 구분을 유지한다. SBOM·조치·예외·지원 이력의 규정별 증거 묶음을 설계한다.
 - 선행: 2·10·16·42~43·45번. 규정 적용/제출 자동화는 기관별 조건 확인 후.
