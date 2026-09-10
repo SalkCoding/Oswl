@@ -7,6 +7,7 @@ import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVul
 import com.salkcoding.oswl.service.vulnerability.VulnerabilityEnrichmentService;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -139,13 +140,11 @@ final class OsvBulkSource {
             // the server for a long time (Debian/Ubuntu's haven't moved since Oct 2024, verified
             // 2026-08-13, while npm's updates same-day) and stamping "now" here would silently
             // defeat the air-gapped staleness-warning system for exactly the ecosystems where it
-            // matters most. Falls back to "today" only if the server didn't send the header, with
-            // a visible warning rather than a silent optimistic guess.
+            // matters most. Missing source dates cannot establish a dated snapshot.
             LocalDate asOf = fetched.lastModified();
             if (asOf == null) {
-                System.err.println("[oswl-vdb] WARNING: " + bucket + "/all.zip had no Last-Modified header — "
-                        + "assuming today's date for its freshness, which may overstate how current this data is");
-                asOf = LocalDate.now();
+                throw new IOException("OSV " + bucket + "/all.zip has no Last-Modified source date; "
+                        + "refresh the source cache and its date metadata before building a snapshot");
             }
             asOfByBucket.put(ecosystem, asOf);
 
@@ -162,18 +161,24 @@ final class OsvBulkSource {
                     processVulnEntry(content, ecosystem, namesWanted, result, unresolvedKeys);
                 }
             }
+            if (entriesScanned == 0) {
+                throw new IOException("OSV " + bucket + "/all.zip contains no advisory records; coverage is unknown");
+            }
             System.err.println("[oswl-vdb] OSV " + bucket + ": " + entriesScanned + " vuln entries scanned");
         }
         return new Result(result, unresolvedKeys, asOfByBucket);
     }
 
     private void processVulnEntry(byte[] content, String ecosystem, Map<String, Set<String>> namesWanted,
-                                   Map<String, List<SnapshotVuln>> result, Set<String> unresolvedKeys) {
+                                   Map<String, List<SnapshotVuln>> result, Set<String> unresolvedKeys) throws IOException {
         JsonNode vuln;
         try {
             vuln = mapper.readTree(content);
         } catch (Exception e) {
-            return; // malformed entry — skip, matches the ingest-side tolerance elsewhere in this codebase
+            throw new IOException("Malformed OSV advisory JSON; source coverage cannot be established", e);
+        }
+        if (vuln == null || !vuln.isObject() || !vuln.path("id").isTextual() || vuln.path("id").asText().isBlank()) {
+            throw new IOException("OSV advisory has no valid identity; source coverage cannot be established");
         }
         OsvWithdrawal withdrawal = OsvWithdrawal.from(vuln);
         if (withdrawal == OsvWithdrawal.WITHDRAWN) return;
@@ -185,13 +190,16 @@ final class OsvBulkSource {
             return;
         }
         JsonNode affectedList = vuln.path("affected");
-        if (!affectedList.isArray()) return;
+        if (!affectedList.isArray()) throw new IOException("OSV advisory has no affected array; source coverage is unknown");
         boolean anyMatch = false;
         for (JsonNode affected : affectedList) {
             JsonNode pkg = affected.path("package");
             String pkgEcosystem = pkg.path("ecosystem").asText(null);
             String pkgName = pkg.path("name").asText(null);
-            if (pkgName == null || pkgEcosystem == null) continue;
+            if (!pkg.path("name").isTextual() || !pkg.path("ecosystem").isTextual()
+                    || pkgName.isBlank() || pkgEcosystem.isBlank()) {
+                throw new IOException("OSV affected entry has no valid package identity; source coverage is unknown");
+            }
             if (!ecosystem.equals(AirgappedSnapshotService.normalizeEcosystem(pkgEcosystem))) continue;
             Set<String> versionsWanted = namesWanted.get(pkgName);
             if (versionsWanted == null || versionsWanted.isEmpty()) continue;

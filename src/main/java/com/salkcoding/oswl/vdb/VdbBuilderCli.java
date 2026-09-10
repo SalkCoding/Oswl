@@ -194,6 +194,11 @@ public final class VdbBuilderCli {
             }
         }
 
+        if (anyFailure) {
+            System.err.println("[oswl-vdb] Source collection failed; output bundle was not changed");
+            return 1;
+        }
+
         VdbBundleWriter.WantedListInfo wantedListInfo = null;
         List<WantedComponent> unresolvedComponents = List.of();
         if (opts.wantedList() != null) {
@@ -221,7 +226,7 @@ public final class VdbBuilderCli {
                 + (wantedListInfo != null ? " (wanted=" + wantedListInfo.wantedCount()
                         + " resolved=" + wantedListInfo.resolvedCount()
                         + " unresolved.jsonl=" + unresolvedComponents.size() + ")" : ""));
-        return anyFailure ? 1 : 0;
+        return 0;
     }
 
     private record Resolution(int resolvedCount, List<WantedComponent> unresolved) {}
