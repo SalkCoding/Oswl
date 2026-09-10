@@ -372,6 +372,9 @@
 - **2026-09-10 MERGE 기준일 보존:** 부분 갱신 전에 기존 데이터가 있는 소스의 기준일을 확보한다. 새 번들을 MERGE할 때 이전·새 기준일 중 오래된 날짜를 소스 기준일로 저장하고 어느 한쪽이 미확인이면 null을 유지한다. 모든 잔여 행이 갱신됐다는 증거가 없으므로 일부 행의 최신 날짜로 소스 전체를 최신화하지 않는다. REPLACE는 새 소스 기준일을 적용한다. 전체 기준일 집계도 날짜 미확인인 반입 소스가 있으면 null로 남기며 헬스 응답은 미반입뿐 아니라 일부 기준일 누락도 설명한다.
 - **부분 갱신 회귀:** 오래된/미확인/더 이른 날짜의 MERGE와 REPLACE 5건 중 수정 전 2건 실패를 확인했다. 실제 H2 데이터 보존·교체 및 다른 날짜 있는 소스와의 전체 기준일 집계까지 검사했다. `test --tests '*Snapshot*Test' --tests '*CocoaPodsSnapshotTest' --tests '*Vdb*Test'` 47건 중 46건 통과, 기존 대용량 환경 의존 skip 1건, 실패/error 0. 헬스 설명 보완 후 compileJava도 성공. Windows/Java 25, 로그 `build/roadmap-snapshot-merge-date-before.log`, `build/roadmap-snapshot-merge-date-after.log`, `build/roadmap-snapshot-merge-date-compile.log`. 커밋 제목 `fix: preserve conservative freshness across snapshot merges`. 자체 합성 자료, 외부 데이터/의존성 및 화면 코드 변경 없음. 행별 revision/기준일과 검증된 동기화 시점, 동시 반입 세대 잠금, export 원 날짜 전파는 잔여다.
 
+- **2026-09-10 스캔 결과 재포장 기준일:** 일반 export가 스캔 결과를 포장하면서 각 source.asOf를 현재 날짜로 지정하던 로직을 제거했다. scan-derived 행에는 검증된 원천 기준일이 없으므로 asOf를 미확인으로 내보낸다. 직접 저장 원문을 반출하는 CocoaPods Specs의 기존 원 기준일/출처 보존은 유지한다. builtAt은 포장 시점으로 계속 기록하며 데이터 기준일과 혼동하지 않는다. source metadata만으로 개별 스캔 결과의 원천 날짜를 추정해 붙이지 않는다.
+- **재포장 회귀:** 오프라인 Podfile 분석→취약점 보강→export→재반입의 기존 실제 서비스/H2 검사에 원천 날짜 미확인 보존 단언을 추가해 수정 전 실패를 확인했다. 수정 후 취약점 결과 유지와 함께 통과했고 CocoaPods 날짜 보존 검사도 통과했다. `test --tests '*Snapshot*Test' --tests '*CocoaPodsSnapshotTest' --tests '*Osv*Test'` 137건 중 136건 통과, 기존 대용량 환경 의존 skip 1건, 실패/error 0. Windows/Java 25, 로그 `build/roadmap-snapshot-export-date-before.log`, `build/roadmap-snapshot-export-date-after.log`. 커밋 제목 `fix: avoid refreshing source dates when exporting scans`. 자체 합성 데이터, 외부 자료/라이브러리 및 화면 코드 변경 없음. 일반 스캔 행의 원천 revision/기준일 영속화와 온라인 데이터셋의 검증된 동기화 시점 전파는 잔여다. 재반입 후 freshness가 UNKNOWN/DOWN인 것은 날짜 근거가 없음을 반영한다.
+
 ### 37. staging 활성화·세대 고정·실패 복구 — P0 · [설계]
 
 - 현재·대상: 기존 REPLACE/MERGE/upsert와 reader가 사용하는 데이터 세대의 트랜잭션 경계.

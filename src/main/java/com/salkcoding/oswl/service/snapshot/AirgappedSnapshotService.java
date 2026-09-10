@@ -989,10 +989,8 @@ public class AirgappedSnapshotService {
 
         String bundleId = UUID.randomUUID().toString();
         LocalDateTime builtAt = LocalDateTime.now();
-        // This export is derived entirely from already-scanned data, not a fresh upstream pull —
-        // "asOf" is therefore only as fresh as this instance's own enrichment, approximated here
-        // as "now" (the export moment). EXPORT_ORIGIN discloses the derivation on every source.
-        LocalDate asOf = LocalDate.now();
+        // Scan-derived rows do not carry a verified upstream date. Repackaging cannot
+        // establish freshness; only directly preserved source records retain their date.
 
         ObjectNode meta = objectMapper.createObjectNode();
         meta.put("format", BUNDLE_FORMAT);
@@ -1002,20 +1000,20 @@ public class AirgappedSnapshotService {
         meta.put("builtAt", builtAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         meta.put("builder", "oswl-airgapped-export");
         ObjectNode sources = meta.putObject("sources");
-        putSourceMeta(sources, SOURCE_OSV, osvRecords, asOf);
-        putSourceMeta(sources, SOURCE_UNRESOLVED, unresolvedRecords, asOf);
+        putSourceMeta(sources, SOURCE_OSV, osvRecords, null);
+        putSourceMeta(sources, SOURCE_UNRESOLVED, unresolvedRecords, null);
         putSourceMeta(sources, SOURCE_COCOAPODS_SPECS, specKeys.size(), null);
         snapshotMetaRepository.findById(SOURCE_COCOAPODS_SPECS).ifPresent(saved -> {
             ObjectNode source = (ObjectNode) sources.get(SOURCE_COCOAPODS_SPECS);
             if (saved.getSourceAsOf() != null) source.put("asOf", saved.getSourceAsOf().toString());
             if (saved.getOrigin() != null) source.put("origin", saved.getOrigin());
         });
-        putSourceMeta(sources, SOURCE_DEPSDEV_VERSION, versionRecords, asOf);
-        putSourceMeta(sources, SOURCE_DEPSDEV_ADVISORY, advisories.size(), asOf);
-        putSourceMeta(sources, SOURCE_GITHUB_ADVISORY, githubAdvisoryRecords, asOf);
-        putSourceMeta(sources, SOURCE_NVD, nvdRecords, asOf);
-        putSourceMeta(sources, SOURCE_EPSS, epss.size(), asOf);
-        putSourceMeta(sources, SOURCE_KEV, kev.size(), asOf);
+        putSourceMeta(sources, SOURCE_DEPSDEV_VERSION, versionRecords, null);
+        putSourceMeta(sources, SOURCE_DEPSDEV_ADVISORY, advisories.size(), null);
+        putSourceMeta(sources, SOURCE_GITHUB_ADVISORY, githubAdvisoryRecords, null);
+        putSourceMeta(sources, SOURCE_NVD, nvdRecords, null);
+        putSourceMeta(sources, SOURCE_EPSS, epss.size(), null);
+        putSourceMeta(sources, SOURCE_KEV, kev.size(), null);
         ObjectNode files = meta.putObject("files");
         putFileMeta(files, "osv.jsonl", osvContent, osvRecords);
         putFileMeta(files, "unresolved.jsonl", unresolved.toString(), unresolvedRecords);

@@ -69,6 +69,7 @@ class CocoaPodsSnapshotTest {
         assertThat(missing.getVulnerabilityLookupOutcomes()).containsEntry("OSV","UNSUPPORTED");
         byte[] exported = service.exportBundle();
         service.importBundle(new ByteArrayInputStream(exported));
+        assertThat(metadata.findById("osv").orElseThrow().getSourceAsOf()).isNull();
         var afterExport = new OsvClient(service,true).queryBatch(List.of(new OsvClient.OsvQuery("SwiftURL","github.com/fixture/EndToEndPod","1.0"))).getFirst();
         assertThat(afterExport.resolved()).isTrue();
         assertThat(afterExport.vulns()).extracting(OsvClient.OsvVuln::cveId).contains("CVE-2026-0002");
