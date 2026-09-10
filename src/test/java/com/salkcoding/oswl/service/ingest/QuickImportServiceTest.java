@@ -39,6 +39,37 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("QuickImportService 단위 테스트 (공개 API)")
 class QuickImportServiceTest {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"{", "{\"dependencies\":{\"net8.0\":{\"Fixture\":{}}}}"})
+    void brokenNugetLockFailsBeforeCreatingProjectOrScan(String json,
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path directory) throws Exception {
+        ReflectionTestUtils.setField(quickImportService, "configuredTempDir", directory.toString());
+        ReflectionTestUtils.setField(quickImportService, "dependencyManifestParserService",
+                new DependencyManifestParserService(mock(MavenBomVersionResolver.class), mock(CondaPypiMappingService.class)));
+        var cleanup = mock(CloneCleanupService.class);
+        ReflectionTestUtils.setField(quickImportService, "cloneCleanupService", cleanup);
+        var cloned = new java.util.concurrent.atomic.AtomicReference<java.nio.file.Path>();
+        doAnswer(invocation -> {
+            java.nio.file.Path target = invocation.getArgument(3);
+            cloned.set(target);
+            java.nio.file.Files.writeString(target.resolve("packages.lock.json"), json);
+            return null;
+        }).when(gitCloneExecutor).clone(eq("https://github.com/user/repo.git"), isNull(), eq("main"), any(), anyString());
+
+        String jobId = quickImportService.startImport("https://github.com/user/repo", "main", 1L);
+        org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(5)).untilAsserted(() -> {
+            var status = quickImportService.getJobStatus(jobId, 1L);
+            assertThat(status.getPhase()).isEqualTo(Phase.FAILED);
+            assertThat(status.getMessageKey()).isEqualTo(com.salkcoding.oswl.dto.QuickImportMessageKeys.PARSE_FAILED);
+            assertThat(status.getProjectId()).isNull();
+            assertThat(status.getScanResultId()).isNull();
+            assertThat(status.getComponentCount()).isNull();
+            assertThat(quickImportService.listJobsSnapshot(1L).getActiveSlotsUsed()).isZero();
+        });
+        assertThat(cloned.get()).isNotNull().startsWith(directory.toRealPath());
+        verify(cleanup).submit(cloned.get());
+        verifyNoInteractions(projectService, apiKeyService, scanIngestService, scanResultRepository);
+    }
 
     @Mock UserVcsConnectionRepository vcsConnectionRepository;
     @Mock EncryptionService            encryptionService;

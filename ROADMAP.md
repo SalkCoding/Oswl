@@ -397,6 +397,9 @@
 
 ### 25. NuGet TFM·RID·정규화 버전과 publish 결과 — P1 · [지원 범위별 필수]
 
+- **2026-09-11 Quick Import 파싱 실패 상태:** 공개 startImport→실제 가상 스레드 작업 실행→실제 공용 NuGet 파서를 연결해 손상 JSON과 resolved 누락 2조건을 검증했다. 작업이 FAILED/PARSE_FAILED로 종료되고 projectId/scanResultId/componentCount는 없으며 프로젝트·API 키·스캔 생성 서비스는 호출되지 않는다. 실행 슬롯 반환과 해당 복제 경로의 정리 요청도 확인했다. Git 복제는 자체 fixture 작성 대역, 정리는 호출 관찰 대역이고 임시 경로의 최종 제거는 JUnit이 담당한다.
+- **검증 범위:** QuickImportService/NuGetLockParser 29건 통과·실패/오류/skip 0. 로그 `build/roadmap-nuget-quick-import.log`. 커밋 제목 `test: verify nuget parse failures stop quick import`. 외부 연결/자료 도입과 제품 코드 변경은 없다. 실제 VCS·durable job DB·SSE/화면과 별도 삭제 worker 검증, 전체 build는 이번 실행에 포함하지 않았다.
+
 - **2026-09-11 parse 응답·정리 검증:** standalone MockMvc에 실제 ScanController/GlobalExceptionHandler와 실제 ManifestArchiveService/DependencyManifestParserService를 연결했다. 중첩 경로의 packages.lock.json ZIP을 업로드해 손상 JSON·resolved 누락은 HTTP 표현상 400/error/status 및 성공 componentCount 없음, 정상 파일은 200/구성요소 1개/8.0.3을 확인했다. 3조건 모두 실제 임시 디렉터리 삭제와 ScanIngestService 미호출을 검증했다. archive service는 동작을 유지한 spy로 정리 경로만 관찰했다.
 - **검증 범위:** ScanController/NuGetLockParser 27건 통과·실패/오류/skip 0. 로그 `build/roadmap-nuget-parse-http.log`. 커밋 제목 `test: verify nuget parse errors and archive cleanup`. 제품 코드 변경 없이 자체 합성 ZIP만 사용했다. 인증 필터·실제 네트워크 서버·Quick Import 작업 상태와 전체 build는 이번 검증에 포함하지 않았다.
 
