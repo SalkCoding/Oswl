@@ -111,8 +111,18 @@ public class OsvClient {
         }
     }
 
-    /** Result set for a single query, aligned with the input batch index. */
-    public record OsvResult(List<OsvVuln> vulns, boolean resolved) {
+    /**
+     * Result set for a single query, aligned with the input batch index.
+     * commonFix is scoped to returned OSV evidence, not all advisories or other providers.
+     * A resolved lookup can still lack the range evidence required for a common fix.
+     */
+    public record OsvResult(List<OsvVuln> vulns, boolean resolved, OsvFixVersionSelector.Selection commonFix) {
+        public OsvResult {
+            if (!resolved || commonFix == null) {
+                commonFix = new OsvFixVersionSelector.Selection(null, resolved ? "NO_RANGE_EVIDENCE" : "INCOMPLETE_LOOKUP");
+            }
+        }
+        public OsvResult(List<OsvVuln> vulns, boolean resolved) { this(vulns, resolved, null); }
         public OsvResult(List<OsvVuln> vulns) { this(vulns, true); }
         public static OsvResult unresolved() { return new OsvResult(List.of(), false); }
     }
@@ -278,6 +288,7 @@ public class OsvClient {
     @SuppressWarnings("unchecked")
     private OsvResult collectPages(OsvQuery query, Map<?, ?> page, DetailBudget details) {
         Map<String, OsvVuln> findings = new java.util.LinkedHashMap<>();
+        Map<String, com.fasterxml.jackson.databind.JsonNode> rangeEvidence = new java.util.LinkedHashMap<>();
         Set<String> cursors = new LinkedHashSet<>();
         Set<String> untrustedIds = new LinkedHashSet<>();
         boolean resolved = true;
@@ -312,6 +323,8 @@ public class OsvClient {
                         resolved = false;
                         continue;
                     }
+                    // Retain even currently unaffected entries: an upgrade candidate may enter their range.
+                    rangeEvidence.putIfAbsent(id, JSON.valueToTree(detail));
                     if (membership == OsvRangeEvaluator.Result.NOT_AFFECTED) continue;
                     findings.putIfAbsent(id, parseVuln(detail, query));
                 }
@@ -345,7 +358,9 @@ public class OsvClient {
                 break;
             }
         }
-        return new OsvResult(List.copyOf(findings.values()), resolved);
+        var commonFix = resolved ? OsvFixVersionSelector.selectAcrossAdvisories(
+                List.copyOf(rangeEvidence.values()), query.ecosystem(), query.name(), query.version()) : null;
+        return new OsvResult(List.copyOf(findings.values()), resolved, commonFix);
     }
 
     private static boolean sameRevision(Object queried, Object hydrated) {
