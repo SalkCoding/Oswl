@@ -15,6 +15,44 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 class OsvPaginationTest {
+    @ParameterizedTest
+    @ValueSource(strings = {"changed", "reversed", "withdrawn", "legacy", "metadata", "identical"})
+    void offlineDuplicateRevisionsDoNotAuthorizeIndividualFixes(String state) throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var original = json.readTree("""
+                {"id":"OSV-duplicate","modified":"2026-01-01T00:00:00Z","affected":[{
+                "package":{"ecosystem":"npm","name":"example"},"ranges":[{"type":"SEMVER",
+                "events":[{"introduced":"0"},{"fixed":"2.0.0"}]}]}]}
+                """);
+        var other = original.deepCopy();
+        if (!state.equals("identical") && !state.equals("metadata")) ((com.fasterxml.jackson.databind.node.ObjectNode) other).put("modified", "2026-01-02T00:00:00Z");
+        if (state.equals("withdrawn")) ((com.fasterxml.jackson.databind.node.ObjectNode) other).put("withdrawn", "2026-01-02T00:00:00Z");
+        var first = new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln(
+                "OSV-duplicate", null, null, "2.0.0", null, null, null, null, null, java.util.Set.of(), original);
+        var second = new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln(
+                "OSV-duplicate", null, null, "2.0.0", null, null, null, null, null,
+                state.equals("metadata") ? java.util.Set.of("2.0.0", "3.0.0") : java.util.Set.of(), state.equals("legacy") ? null : other);
+        var independentRaw = ((com.fasterxml.jackson.databind.node.ObjectNode) original.deepCopy()).put("id", "OSV-independent");
+        var independent = new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln(
+                "OSV-independent", null, null, "2.0.0", null, null, null, null, null, java.util.Set.of(), independentRaw);
+        var snapshots = org.mockito.Mockito.mock(com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.class);
+        ReflectionTestUtils.setField(client, "airgapped", true);
+        ReflectionTestUtils.setField(client, "snapshotService", snapshots);
+        String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey("npm", "example", "1.0.0");
+        org.mockito.Mockito.when(snapshots.findOsvVulns(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(key,
+                state.equals("reversed") ? List.of(second, first, independent) : List.of(first, second, independent)));
+        var result = client.queryBatch(List.of(query())).getFirst();
+        assertThat(result.resolved()).isEqualTo(state.equals("identical"));
+        assertThat(result.vulns()).hasSize(2);
+        assertThat(result.vulns()).filteredOn(v -> v.osvId().equals("OSV-duplicate")).singleElement().satisfies(v -> {
+            assertThat(v.osvId()).isEqualTo("OSV-duplicate");
+            assertThat(v.fixVersion()).isEqualTo(state.equals("identical") ? "2.0.0" : null);
+        });
+        assertThat(result.vulns()).filteredOn(v -> v.osvId().equals("OSV-independent")).singleElement()
+                .satisfies(v -> assertThat(v.fixVersion()).isEqualTo("2.0.0"));
+        assertThat(result.commonFix().version()).isEqualTo(state.equals("identical") ? "2.0.0" : null);
+        server.verify();
+    }
     private final RestClient.Builder builder = RestClient.builder().baseUrl("https://api.osv.dev");
     private final MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
     private final OsvClient client = new OsvClient();

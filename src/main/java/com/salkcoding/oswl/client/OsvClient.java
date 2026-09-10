@@ -186,8 +186,30 @@ public class OsvClient {
     private static OsvResult snapshotResult(List<SnapshotVuln> vulns, OsvQuery query, boolean current, boolean resolved) {
         List<OsvVuln> findings = new ArrayList<>();
         List<SnapshotVuln> evidence = new ArrayList<>();
+        Map<String, SnapshotVuln> revisions = new java.util.LinkedHashMap<>();
+        Set<String> conflictingIds = new LinkedHashSet<>();
+        Set<String> handledOriginalIds = new LinkedHashSet<>();
+        // Detect conflicts before filtering withdrawn or currently unaffected entries.
+        for (SnapshotVuln vuln : vulns) {
+            if (vuln.osvAdvisory() != null && !vuln.fixVersionConflictCandidates().isEmpty()) conflictingIds.add(vuln.osvId());
+            var previous = revisions.putIfAbsent(vuln.osvId(), vuln);
+            if (previous != null && (previous.osvAdvisory() != null || vuln.osvAdvisory() != null)
+                    && (!java.util.Objects.equals(previous.osvAdvisory(), vuln.osvAdvisory())
+                    || !previous.fixVersionConflictCandidates().isEmpty() || !vuln.fixVersionConflictCandidates().isEmpty())) {
+                conflictingIds.add(vuln.osvId());
+            }
+        }
         for (SnapshotVuln vuln : vulns) {
             var advisory = vuln.osvAdvisory();
+            if (conflictingIds.contains(vuln.osvId())) {
+                resolved = false;
+                if (handledOriginalIds.add(vuln.osvId())) {
+                    String id = vuln.osvId();
+                    findings.add(new OsvVuln(id, id.startsWith("CVE-") ? id : null, null, null, null));
+                }
+                continue;
+            }
+            if (advisory != null && !handledOriginalIds.add(vuln.osvId())) continue;
             String fix = vuln.fixVersion();
             if (advisory != null) {
                 var withdrawal = OsvWithdrawal.from(advisory);
