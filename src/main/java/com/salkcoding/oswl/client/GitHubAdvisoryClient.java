@@ -47,7 +47,7 @@ public class GitHubAdvisoryClient {
                     identifiers { type value }
                     summary
                     withdrawnAt
-                    cvss { score vectorString }
+                    cvssSeverities { cvssV3 { score vectorString } }
                   }
                   package { name ecosystem }
                   firstPatchedVersion { identifier }
@@ -311,7 +311,8 @@ public class GitHubAdvisoryClient {
         Double cvssScore = null;
         String cvssVector = null;
         if (advisory != null) {
-            Object cvss = advisory.get("cvss");
+            Object scores = advisory.get("cvssSeverities");
+            Object cvss = scores instanceof Map<?, ?> severities ? severities.get("cvssV3") : null;
             if (cvss instanceof Map<?, ?> cvssMap) {
                 Object score = cvssMap.get("score");
                 if (score instanceof Number n) cvssScore = n.doubleValue();
@@ -369,6 +370,7 @@ public class GitHubAdvisoryClient {
 
     private static RiskLevel parseSeverity(String severity) {
         if (severity == null || severity.isBlank()) return RiskLevel.NONE;
+        if ("MODERATE".equalsIgnoreCase(severity.strip())) return RiskLevel.MEDIUM;
         try {
             return RiskLevel.valueOf(severity.strip().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {

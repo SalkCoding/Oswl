@@ -18,6 +18,32 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class GitHubAdvisoryRangeTest {
     @ParameterizedTest
+    @CsvSource({"MODERATE,false,MEDIUM", "UNKNOWN,true,CRITICAL"})
+    void preservesCurrentSeverityFields(String severity, boolean scored, String expected) throws Exception {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
+                Duration.ofSeconds(1), Duration.ofSeconds(1));
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var response = mapper.readTree(page("GHSA-fixture", false, "end"));
+        var node = (com.fasterxml.jackson.databind.node.ObjectNode) response.path("data").path("securityVulnerabilities").path("nodes").get(0);
+        node.put("severity", severity);
+        String vector = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H";
+        var scores = ((com.fasterxml.jackson.databind.node.ObjectNode) node.path("advisory")).putObject("cvssSeverities");
+        if (scored) scores.putObject("cvssV3").put("score", 9.8).put("vectorString", vector);
+        else scores.putNull("cvssV3");
+        server.expect(requestTo("https://api.github.com/graphql")).andRespond(withSuccess(mapper.writeValueAsString(response), MediaType.APPLICATION_JSON));
+        var result = new GitHubAdvisorySource(client).lookup("npm", "fixture", "1.0.0", List.of());
+        assertThat(result.lookupFailed()).isFalse();
+        var finding = result.findings().getFirst();
+        assertThat(finding.severity().name()).isEqualTo(expected);
+        assertThat(finding.cvssScore()).isEqualTo(scored ? 9.8 : null);
+        assertThat(finding.cvss3Vector()).isEqualTo(scored ? vector : null);
+        server.verify();
+    }
+
+    @ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"active", "withdrawn", "invalid-date", "wrong-name", "wrong-ecosystem", "missing-package"})
     void respectsIdentityAndWithdrawal(String condition) throws Exception {
         var builder = RestClient.builder();
