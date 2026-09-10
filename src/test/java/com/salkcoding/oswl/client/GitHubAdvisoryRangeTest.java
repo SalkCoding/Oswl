@@ -17,6 +17,51 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class GitHubAdvisoryRangeTest {
+    @org.junit.jupiter.api.Test
+    void pageBudgetStopsRequestsWithoutClaimingCompletion() throws Exception {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
+                Duration.ofSeconds(1), Duration.ofSeconds(1));
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        for (int index = 0; index < 10; index++) {
+            server.expect(requestTo("https://api.github.com/graphql")).andRespond(withSuccess(
+                    page("GHSA-" + index, true, "cursor-" + index), MediaType.APPLICATION_JSON));
+        }
+        var result = new GitHubAdvisorySource(client).lookup("npm", "fixture", "1.0.0", List.of());
+        assertThat(result.lookupFailed()).isTrue();
+        assertThat(result.findings()).hasSize(10);
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"complete", "http-failure", "repeated-cursor"})
+    void followsCursorAndPreservesEarlierPagesOnFailure(String outcome) throws Exception {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
+                Duration.ofSeconds(1), Duration.ofSeconds(1));
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        server.expect(requestTo("https://api.github.com/graphql")).andRespond(withSuccess(page("GHSA-first", true, "cursor-one"), MediaType.APPLICATION_JSON));
+        server.expect(requestTo("https://api.github.com/graphql"))
+                .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.content().string(
+                        org.hamcrest.Matchers.containsString("\"after\":\"cursor-one\"")))
+                .andRespond(outcome.equals("http-failure")
+                        ? org.springframework.test.web.client.response.MockRestResponseCreators.withServerError()
+                        : withSuccess(page("GHSA-second", outcome.equals("repeated-cursor"), "cursor-one"), MediaType.APPLICATION_JSON));
+        var result = new GitHubAdvisorySource(client).lookup("npm", "fixture", "1.0.0", List.of());
+        assertThat(result.lookupFailed()).isEqualTo(!outcome.equals("complete"));
+        assertThat(result.findings()).extracting(GitHubAdvisoryClient.GitHubAdvisory::ghsaId)
+                .containsExactlyElementsOf(outcome.equals("http-failure") ? List.of("GHSA-first") : List.of("GHSA-first", "GHSA-second"));
+        server.verify();
+    }
+
+    private String page(String id, boolean more, String cursor) throws Exception {
+        return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("data", Map.of("securityVulnerabilities",
+                Map.of("pageInfo", Map.of("hasNextPage", more, "endCursor", cursor), "nodes", List.of(Map.of(
+                        "vulnerableVersionRange", "< 2.0.0", "advisory", Map.of("identifiers", List.of(Map.of("type", "GHSA", "value", id)))))))));
+    }
+
     @ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"bad-first", "bad-last", "pagination", "graphql-error", "missing-page-info"})
     void incompleteLookupRetainsConfirmedFindings(String failure) throws Exception {

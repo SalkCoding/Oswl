@@ -39,9 +39,9 @@ public class GitHubAdvisoryClient {
     private static final Duration DEFAULT_READ_TIMEOUT = Duration.ofSeconds(20);
 
     private static final String QUERY = """
-            query($ecosystem: SecurityAdvisoryEcosystem, $package: SecurityAdvisoryPackageName, $first: Int!) {
-              securityVulnerabilities(ecosystem: $ecosystem, package: $package, first: $first) {
-                pageInfo { hasNextPage }
+            query($ecosystem: SecurityAdvisoryEcosystem, $package: SecurityAdvisoryPackageName, $first: Int!, $after: String) {
+              securityVulnerabilities(ecosystem: $ecosystem, package: $package, first: $first, after: $after) {
+                pageInfo { hasNextPage endCursor }
                 nodes {
                   advisory {
                     identifiers { type value }
@@ -195,12 +195,44 @@ public class GitHubAdvisoryClient {
         return result;
     }
 
-    @SuppressWarnings("unchecked")
     private List<GitHubAdvisory> query(String ghEcosystem, String name, String version) throws Exception {
-        Map<String, Object> variables = Map.of(
+        List<GitHubAdvisory> findings = new ArrayList<>();
+        java.util.Set<String> cursors = new java.util.HashSet<>();
+        String cursor = null;
+        boolean incomplete = false;
+        long started = System.nanoTime();
+        // Bound provider work; reaching either budget leaves the lookup explicitly incomplete.
+        for (int page = 0; page < 10 && System.nanoTime() - started < Duration.ofSeconds(30).toNanos(); page++) {
+            AdvisoryPage fetched;
+            try {
+                fetched = queryPage(ghEcosystem, name, version, cursor);
+            } catch (Exception failure) {
+                if (findings.isEmpty()) throw failure;
+                var partial = new IncompleteLookupException(findings);
+                partial.initCause(failure);
+                throw partial;
+            }
+            findings.addAll(fetched.findings());
+            incomplete |= fetched.incomplete();
+            if (fetched.nextCursor() == null) {
+                if (incomplete) throw new IncompleteLookupException(findings);
+                return findings;
+            }
+            if (!cursors.add(fetched.nextCursor())) throw new IncompleteLookupException(findings);
+            cursor = fetched.nextCursor();
+        }
+        throw new IncompleteLookupException(findings);
+    }
+
+    private record AdvisoryPage(List<GitHubAdvisory> findings, boolean incomplete, String nextCursor) { }
+
+    @SuppressWarnings("unchecked")
+    private AdvisoryPage queryPage(String ghEcosystem, String name, String version, String cursor) {
+        Map<String, Object> variables = new LinkedHashMap<>(Map.of(
                 "ecosystem", ghEcosystem,
                 "package", name,
-                "first", 100);
+                "first", 100));
+        if (cursor != null) variables.put("after", cursor);
         Map<String, Object> body = Map.of("query", QUERY, "variables", variables);
 
         Map<String, Object> response = restClient.post()
@@ -220,8 +252,13 @@ public class GitHubAdvisoryClient {
         if (!(data instanceof Map<?, ?> dataMap)) throw new IllegalStateException("Missing GraphQL data");
         Object sv = dataMap.get("securityVulnerabilities");
         if (!(sv instanceof Map<?, ?> svMap)) throw new IllegalStateException("Missing vulnerability connection");
-        if (!(svMap.get("pageInfo") instanceof Map<?, ?> pageInfo) || !Boolean.FALSE.equals(pageInfo.get("hasNextPage")))
+        String nextCursor = null;
+        if (!(svMap.get("pageInfo") instanceof Map<?, ?> pageInfo) || !(pageInfo.get("hasNextPage") instanceof Boolean)) {
             incomplete = true;
+        } else if (Boolean.TRUE.equals(pageInfo.get("hasNextPage"))) {
+            if (pageInfo.get("endCursor") instanceof String end && !end.isBlank() && end.length() <= 4096) nextCursor = end;
+            else incomplete = true;
+        }
         Object nodes = svMap.get("nodes");
         if (!(nodes instanceof List<?> nodeList)) throw new IllegalStateException("Missing advisory nodes");
 
@@ -240,8 +277,7 @@ public class GitHubAdvisoryClient {
                 incomplete = true;
             }
         }
-        if (incomplete) throw new IncompleteLookupException(result);
-        return result;
+        return new AdvisoryPage(result, incomplete, nextCursor);
     }
 
     @SuppressWarnings("unchecked")
