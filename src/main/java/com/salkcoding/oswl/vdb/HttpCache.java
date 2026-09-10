@@ -7,6 +7,10 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -70,12 +74,12 @@ final class HttpCache {
             if (Files.isRegularFile(cached)) {
                 if (offlineOnly) {
                     System.err.println("[oswl-vdb] offline-sources hit: " + cacheKey);
-                    return new FetchResult(Files.readAllBytes(cached), readSidecar(sidecar));
+                    return readCached(cached, sidecar);
                 }
                 Instant mtime = Files.getLastModifiedTime(cached).toInstant();
                 if (Duration.between(mtime, Instant.now()).compareTo(MAX_AGE) < 0) {
                     System.err.println("[oswl-vdb] cache hit: " + cacheKey);
-                    return new FetchResult(Files.readAllBytes(cached), readSidecar(sidecar));
+                    return readCached(cached, sidecar);
                 }
             }
         }
@@ -101,20 +105,48 @@ final class HttpCache {
         LocalDate lastModified = parseLastModified(response.headers().firstValue("Last-Modified").orElse(null));
         if (cacheDir != null) {
             Files.createDirectories(cacheDir);
-            Files.write(cacheDir.resolve(cacheKey), body);
-            if (lastModified != null && sidecar != null) {
-                Files.writeString(sidecar, lastModified.toString());
+            Path bodyStage = Files.createTempFile(cacheDir, ".source-", ".tmp");
+            Path dateStage = null;
+            try {
+                dateStage = Files.createTempFile(cacheDir, ".source-date-", ".tmp");
+                Files.write(bodyStage, body);
+                Files.writeString(dateStage, (lastModified == null ? "unknown" : lastModified.toString())
+                        + "\n" + digest(body));
+                // Publish digest-bound metadata first: an interrupted/mixed generation has an
+                // unknown date until its matching complete body becomes visible.
+                Files.move(dateStage, sidecar, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                Files.move(bodyStage, cacheDir.resolve(cacheKey), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } finally {
+                Files.deleteIfExists(bodyStage);
+                if (dateStage != null) Files.deleteIfExists(dateStage);
             }
         }
         return new FetchResult(body, lastModified);
     }
 
-    private static LocalDate readSidecar(Path sidecar) {
+    private static FetchResult readCached(Path bodyPath, Path sidecar) throws IOException {
+        byte[] body = Files.readAllBytes(bodyPath);
+        return new FetchResult(body, readSidecar(sidecar, body));
+    }
+
+    private static String digest(byte[] body) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(body));
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 is required by the Java runtime", impossible);
+        }
+    }
+
+    private static LocalDate readSidecar(Path sidecar, byte[] body) {
         if (sidecar == null || !Files.isRegularFile(sidecar)) {
             return null;
         }
         try {
-            return LocalDate.parse(Files.readString(sidecar).strip());
+            var lines = Files.readAllLines(sidecar);
+            if (lines.isEmpty() || lines.size() > 2) return null;
+            // Legacy offline-sources date files remain readable. New writes bind the date to bytes.
+            if (lines.size() == 2 && !lines.get(1).equals(digest(body))) return null;
+            return LocalDate.parse(lines.getFirst().strip());
         } catch (IOException | DateTimeParseException e) {
             return null;
         }

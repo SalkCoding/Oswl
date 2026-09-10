@@ -307,6 +307,10 @@
 - [ ] 수정: 원문 published/modified, source revision·검증된 동기화 checkpoint, collected/built/imported/evaluated 시각을 분리한다. record/source partition별 provenance를 보존하고 stale/시계 이상을 정책에 전달한다.
 - 선행: 2·10·32·34번.
 - DoD: 오래된 자료 재포장/일부 신규 row 추가가 기존 자료를 최신으로 바꾸지 않는다. 반대로 오래된 advisory라도 정상 전체 동기화를 확인했다면 단순 발표일 때문에 stale로 오인하지 않는다.
+- **2026-09-10 캐시 기준일 보완:** `HttpCache`가 새 응답에 Last-Modified가 없을 때 이전 응답의 sidecar 날짜를 재사용하던 문제를 수정했다. 새 캐시는 date/unknown과 본문 SHA-256을 함께 기록하고, 재조회 시 본문 불일치의 날짜를 UNKNOWN으로 처리한다. 본문·metadata를 각각 임시 파일에 완성하고 atomic move하며 metadata를 먼저 공개한다. 두 파일의 혼합/중단 구간은 최신 날짜를 추측하지 않는다. digest는 전송 서명/권리 검증이 아니며 기존 한 줄 날짜 sidecar는 호환 유지하므로 legacy 데이터의 출처 결합 검증을 보장하지 않는다. atomic move 미지원 파일시스템에서는 수집 실패로 처리한다.
+- **캐시 회귀:** 자체 loopback HTTP 응답으로 무날짜 갱신→offline 재조회, 날짜 있는 갱신, 본문 교체 후 날짜 불일치, HTTP 503 시 기존 본문/날짜 보존을 검증했다. 수정 전 4건 중 2건 실패를 확인했고 수정 후 4건 및 실제 bulk/CLI 검사 12건이 통과했다. 명령 `.\gradlew.bat test --tests '*HttpCacheConsistencyTest' --tests '*OsvBulkInputIntegrityTest'`, 로그 `build/roadmap-cache-before.log`, `build/roadmap-cache-after.log`. 커밋 제목 `fix: bind cached source dates to response content`. 외부 자료/의존성 도입과 UI 변경은 없다. export/import DB row의 원 기준일 전파, source partition/checkpoint 및 실제 프로세스 강제 종료/다중 프로세스 검증은 잔여다.
+
+- **누적 빌드 검증:** Windows/Java 25의 `.\gradlew.bat build verifyProdJar` 성공. 전체 1,137건 중 1,128건 통과·9건 skip·실패/오류 0, 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-cache-build.log`. skip은 외부 저장소/모델/실환경/대형 heap 조건이 필요한 기존 검사이며 완료 근거로 계산하지 않는다.
 
 ### 37. staging 활성화·세대 고정·실패 복구 — P0 · [설계]
 
