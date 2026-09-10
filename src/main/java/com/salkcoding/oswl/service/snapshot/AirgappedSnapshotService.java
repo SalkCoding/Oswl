@@ -760,13 +760,13 @@ public class AirgappedSnapshotService {
             root.path("sources").fields().forEachRemaining(e -> {
                 JsonNode s = e.getValue();
                 LocalDate asOf = null;
-                String asOfText = text(s, "asOf");
-                if (asOfText != null) {
-                    try {
-                        asOf = LocalDate.parse(asOfText);
-                    } catch (Exception ignored) {
-                        // Left null — an unparseable asOf is not fatal, just unreported.
-                    }
+                if (s.hasNonNull("asOf")) {
+                    JsonNode declaredDate = s.path("asOf");
+                    if (!declaredDate.isTextual() || declaredDate.asText().isBlank())
+                        throw new InvalidRequestException("Snapshot source asOf must be a date string");
+                    asOf = LocalDate.parse(declaredDate.asText());
+                    if (asOf.isAfter(LocalDate.now()))
+                        throw new InvalidRequestException("Snapshot source asOf cannot be in the future");
                 }
                 Integer records = s.path("records").isNumber() ? s.path("records").asInt() : null;
                 sources.put(e.getKey(), new BundleSourceMeta(records, asOf, text(s, "origin")));

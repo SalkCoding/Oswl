@@ -141,6 +141,19 @@ class SnapshotImportTransactionTest {
         assertThat(service.oldestSourceAsOf()).isEqualTo(expected == null ? null : java.time.LocalDate.parse(expected));
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"\"not-a-date\"", "\"2026-02-30\"", "\"2099-01-01\"", "123", "{}", "\"\""})
+    void invalidSourceDatesCannotEstablishFreshness(String date) throws Exception {
+        String line = "{\"cveId\":\"CVE-NEW\",\"score\":0.8}";
+        String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(line.getBytes(StandardCharsets.UTF_8)));
+        String meta = "{\"formatVersion\":2,\"sources\":{\"epss\":{\"asOf\":" + date
+                + "}},\"files\":{\"epss.jsonl\":{\"sha256\":\"" + hash + "\",\"lines\":1}}}";
+        assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of("meta.json", meta, "epss.jsonl", line)))))
+                .isInstanceOf(InvalidRequestException.class);
+        assertOldSource();
+    }
+
     @Test void importsMultipleChunksAndCleansStagingFiles() throws Exception {
         Set<Path> before = stagedFiles();
         StringBuilder lines = new StringBuilder();
