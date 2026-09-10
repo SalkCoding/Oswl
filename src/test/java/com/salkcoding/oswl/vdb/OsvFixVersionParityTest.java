@@ -23,15 +23,42 @@ class OsvFixVersionParityTest {
     private final ObjectMapper mapper = new ObjectMapper();
 
     @ParameterizedTest
-    @CsvSource({"3.8.2,3.8.3", "4.3.6,4.3.8", "4.3.7,4.3.8", "5.1.4,5.1.5"})
-    void pinnedOfficialAdvisorySelectsTheInstalledReleaseFixInBothModes(String installed, String fixed) throws Exception {
+    @CsvSource({"6.0.0,false", "7.0.0,true", "8.0.3,true", "8.0.4,false", "8.0.5,false"})
+    void microsoftNugetAdvisoryPreservesIntroducedAndFixedBoundaries(String installed, boolean affected) throws Exception {
         byte[] bytes;
-        try (var input = getClass().getResourceAsStream("/advisories/GHSA-wf6x-7x77-mvgw.json")) {
+        try (var input = getClass().getResourceAsStream("/advisories/GHSA-hh2w-p6rv-4g7w.json")) {
+            assertThat(input).isNotNull();
+            bytes = input.readAllBytes();
+        }
+        var document = mapper.readTree(bytes);
+        var ranges = document.path("affected").get(0).path("ranges");
+        assertThat(OsvRangeEvaluator.evaluate("NUGET", installed, null, ranges)).isEqualTo(affected
+                ? OsvRangeEvaluator.Result.AFFECTED : OsvRangeEvaluator.Result.NOT_AFFECTED);
+        assertThat(OsvFixVersionSelector.select(document, "NuGet", "System.Text.Json", installed).version())
+                .isEqualTo(affected ? "8.0.4" : null);
+        Map<String, List<SnapshotVuln>> findings = new LinkedHashMap<>();
+        Set<String> unresolved = new LinkedHashSet<>();
+        ReflectionTestUtils.invokeMethod(new OsvBulkSource(mapper), "processVulnEntry", bytes, "NUGET",
+                Map.of("System.Text.Json", Set.of(installed)), findings, unresolved);
+        assertThat(findings.isEmpty()).isEqualTo(!affected);
+        assertThat(unresolved).isEmpty();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"GHSA-wf6x-7x77-mvgw,npm,immutable,3.8.2,3.8.3", "GHSA-wf6x-7x77-mvgw,npm,immutable,4.3.6,4.3.8",
+            "GHSA-wf6x-7x77-mvgw,npm,immutable,4.3.7,4.3.8", "GHSA-wf6x-7x77-mvgw,npm,immutable,5.1.4,5.1.5",
+            "GHSA-hh2w-p6rv-4g7w,NuGet,System.Text.Json,7.0.0,8.0.4",
+            "GHSA-hh2w-p6rv-4g7w,NuGet,System.Text.Json,8.0.3,8.0.4",
+            "GHSA-hh2w-p6rv-4g7w,NuGet,System.Text.Json,08.0.03.0,8.0.4"})
+    void pinnedOfficialAdvisorySelectsTheInstalledReleaseFixInBothModes(String id, String ecosystem, String name,
+                                                                      String installed, String fixed) throws Exception {
+        byte[] bytes;
+        try (var input = getClass().getResourceAsStream("/advisories/" + id + ".json")) {
             assertThat(input).isNotNull();
             bytes = input.readAllBytes();
         }
         Map<String, Object> document = mapper.readValue(bytes, new TypeReference<>() { });
-        var query = new OsvClient.OsvQuery("npm", "immutable", installed);
+        var query = new OsvClient.OsvQuery(ecosystem, name, installed);
         var builder = org.springframework.web.client.RestClient.builder().baseUrl("https://api.osv.dev");
         var server = org.springframework.test.web.client.MockRestServiceServer.bindTo(builder).build();
         var client = new OsvClient();
@@ -53,9 +80,9 @@ class OsvFixVersionParityTest {
 
         Map<String, List<SnapshotVuln>> findings = new LinkedHashMap<>();
         Set<String> unresolved = new LinkedHashSet<>();
-        ReflectionTestUtils.invokeMethod(new OsvBulkSource(mapper), "processVulnEntry", bytes, "NPM",
-                Map.of("immutable", Set.of(installed)), findings, unresolved);
-        String key = AirgappedSnapshotService.componentKey("npm", "immutable", installed);
+        ReflectionTestUtils.invokeMethod(new OsvBulkSource(mapper), "processVulnEntry", bytes, ecosystem.toUpperCase(java.util.Locale.ROOT),
+                Map.of(name, Set.of(installed)), findings, unresolved);
+        String key = AirgappedSnapshotService.componentKey(ecosystem, name, installed);
         assertThat(findings).containsKey(key);
         assertThat(unresolved).isEmpty();
         var snapshots = mock(AirgappedSnapshotService.class);

@@ -113,6 +113,9 @@
 
 ### 11. 범용 버전 비교기와 GHSA 비교 실패 처리 교체 — P0 · [코드 확인/진단]
 
+- **2026-09-11 실제 NuGet 공지 검증:** Microsoft의 [CVE-2024-30105 공지](https://github.com/dotnet/runtime/security/advisories/GHSA-hh2w-p6rv-4g7w)와 GitHub Advisory Database 원본 commit `872fc2a7bd18d3a51e648444930929313098ed63`의 System.Text.Json 레코드를 대조했다. 7.0.0/8.0.3 및 별칭 08.0.03.0의 온라인 mock HTTP→상세 레코드 재평가와 bulk→snapshot mock→오프라인 client가 동일 수정 버전 8.0.4를 선택했다. 6.0.0·7.0.0·8.0.3·8.0.4·8.0.5의 범위 경계/수정 후보/bulk 발견 여부도 검증했다. 온라인 서비스 실제 호출이나 실제 DB 왕복 테스트라고 부르지 않는다.
+- **검증·권리:** Windows/Java 25의 `test --tests '*NuGet*Test' --tests '*Osv*Test' --tests '*SnapshotImportTransactionTest'` 1,194건 중 1,193건 통과·기존 환경 의존 skip 1건·실패/오류 0. 로그 `build/roadmap-nuget-official-parity.log`. 원본 JSON은 변형 없이 test resource로만 보존하고 [자료 고지](src/test/resources/advisories/README.md)에 공급자/작성자·출처·commit·SHA-256·CC-BY-4.0와 변경 없음·비보증을 명시했다. 기존 라이선스 원문을 동반하며 외부 링크의 콘텐츠는 복제하지 않았다. 커밋 제목 `test: verify nuget fixes against a pinned microsoft advisory`. 제품 코드/UI 변경 없이 검증을 추가했으며 전체 build는 재실행하지 않았다. 이 단일 공지의 통과는 모든 NuGet 공지나 원천별 재배포 조건의 검증 완료가 아니다.
+
 - **NuGet 별칭 변경 검증:** Windows/Java 25의 `test --tests '*NuGet*Test' --tests '*Osv*Test' --tests '*GitHubAdvisory*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 전체 1,189건 중 1,188건 통과·기존 환경 의존 skip 1건·실패/오류 0. 이번 단위에서 전체 build/UI는 재실행하지 않았다.
 
 - **2026-09-11 NuGet 명시 버전 목록의 별칭 판정:** 공통 OSV 평가기에서 1.0/1.0.0, 숫자 0 채움, 4번째 0, prerelease 대소문자와 metadata 차이를 NuGet 버전 동등성으로 비교한다. 설치 버전의 문법을 정확 문자열 일치보다 먼저 검사해 `1.*`가 목록에 있다는 이유로 영향받음이 되지 않게 했다. 목록의 잘못된 버전도 정상 비영향 근거로 사용하지 않는다. 커밋 제목 `fix: match nuget listed versions by native identity`.
