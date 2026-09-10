@@ -137,6 +137,10 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 공지 갱신의 심각도 충돌 보존:** deps.dev 상세 갱신이 `mergeSeverity` 전에 기존 심각도를 덮어쓰던 순서를 제거했다. 다른 출처 또는 출처 미상인 기존 근거와 다르면 기존 병합 규칙에 따라 높은 심각도와 충돌 표시를 보존한다. deps.dev 단독으로 확인된 충돌 없는 행은 정상 revision의 상향/하향 정정을 허용한다. CVSS가 누락된 상세 갱신은 기존 심각도를 `NONE`으로 바꾸지 않는다. 신규 미평가 기록은 기존의 미평가 처리를 유지한다.
+- **누적 빌드:** 최종 변경의 `build verifyProdJar` 성공. 전체 2,997건 중 2,988건 통과·기존 환경 의존 skip 9건·실패/오류 0, 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-severity-evidence-build.log`. 실제 공급자 응답/운영 PostgreSQL 검증을 대신하지 않는다.
+- **회귀 검증:** 엔티티 7건과 기존/신규·최신/오래된 공지·CVSS 유무를 조합한 서비스 8건 중 수정 전 3건 실패를 재현했다. 수정 후 `test --tests '*CveSeverityEvidenceTest' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*SnapshotImportTransactionTest'` 176건 통과·실패/오류/skip 0. 이어 출처 미상인 과거 행의 심각도 보존 검사 1건을 추가했다. Windows/Java 25 로그 `build/roadmap-severity-evidence-before.log`, `build/roadmap-severity-evidence-after.log`. 커밋 제목 `fix: preserve severity evidence during advisory refresh`. 자체 합성 입력으로 기존 병합 계약을 검증했으며 외부 자료/라이브러리 도입이나 UI 변경은 없다. 출처별 점수·vector·revision의 개별 영속화와 과거 충돌의 확정 해소는 잔여다. 단일 집계 심각도를 각 공급자의 동일 평가로 해석하지 않는다.
+
 - **2026-09-11 OSV 입력 식별자 경계 통일:** 온라인 질의와 오프라인 snapshot key 생성 전에 공통으로 null 질의·누락 필드·빈 문자열·공백만 있는 ecosystem/name/version을 제외한다. 제외된 입력은 원래 위치의 미확인을 유지하고 정상 이웃 질의는 계속 처리한다. 기존 온라인 경로는 공백 필드를 전송하고 null 질의에서 예외가 발생했으며, 오프라인 경로도 공백 식별자로 key를 만들 수 있었다. 구체적인 버전 문법·생태계 지원 여부의 판정까지 이 검사로 확정하지 않는다.
 - **회귀 검증:** null 질의와 각 필드의 빈 문자열/공백 7건이 수정 전 모두 실패했다. 수정 후 실제 client의 HTTP 요청 내용과 snapshot 조회 key, 두 모드의 결과 위치·미확인/정상 빈 결과를 함께 확인했다. Windows/Java 25의 `test --tests '*Osv*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 200건 통과·실패/오류/skip 0. 로그 `build/roadmap-osv-identity-before.log`, `build/roadmap-osv-identity-after.log`. 커밋 제목 `fix: preserve unknown results for incomplete osv identities`. 자체 합성 입력이며 새 외부 데이터/코드/라이브러리와 UI 변경은 없다. 스냅샷 전체 패키지 키 정규화·기존 저장 키 migration 및 지원 생태계 계약은 여전히 잔여다.
 
