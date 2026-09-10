@@ -8,7 +8,8 @@ public final class AdvisoryPackageNames {
 
     public static String canonical(String ecosystem, String name) {
         if ("NUGET".equalsIgnoreCase(ecosystem)) {
-            if (name == null || name.isBlank() || name.length() > 4096)
+            if (name == null || name.length() > 4096
+                    || !name.matches("[\\p{L}\\p{Mn}\\p{Nd}\\p{Pc}]++(?:[.-][\\p{L}\\p{Mn}\\p{Nd}\\p{Pc}]++)*"))
                 throw new IllegalArgumentException("Invalid NuGet package name");
             return name.toLowerCase(Locale.ROOT);
         }
