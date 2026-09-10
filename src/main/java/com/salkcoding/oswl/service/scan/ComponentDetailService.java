@@ -110,7 +110,7 @@ public class ComponentDetailService {
         var request = new AiAnalysisService.CveSummaryRequest(
                 cveId != null ? cveId : "unknown",
                 cve.getSeverity() != null ? cve.getSeverity().name() : "NONE",
-                cve.getCvssScore() != null ? cve.getCvssScore() : 0.0,
+                cve.getCvssScore(),
                 lib.getName() + " " + lib.getVersion(),
                 cve.getTitle(), cve.getSummary(), cve.getFixVersion(),
                 cve.getCweId(), cve.getCvss3Vector(),

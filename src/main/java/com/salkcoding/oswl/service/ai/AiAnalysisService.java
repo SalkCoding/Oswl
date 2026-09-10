@@ -70,7 +70,7 @@ public class AiAnalysisService {
     private static final int BATCH_ITEM_OUTPUT_CHAR_BUDGET = 70 + 120 + 100;
 
     public record CveSummaryRequest(
-            String id, String severity, double cvssScore, String component,
+            String id, String severity, Double cvssScore, String component,
             String title, String osvSummary, String fixVersion, String cweId,
             String cvssVector, String dependencyType, String patchability,
             Double epssScore, boolean kevListed) {}
@@ -98,7 +98,7 @@ public class AiAnalysisService {
     }
 
     @Transactional(readOnly = true)
-    public String summarizeCve(String cveId, String severity, double cvssScore, String component) {
+    public String summarizeCve(String cveId, String severity, Double cvssScore, String component) {
         AiSetting setting = getActiveSetting();
         if (setting == null) return null;
         String prompt = promptTemplates.cveSingle(cveId, severity, cvssScore, component);

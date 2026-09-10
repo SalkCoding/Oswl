@@ -45,6 +45,22 @@ class AiPromptTemplateServiceTest {
         assertThat(prompt).doesNotContain("{cveId}");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"en", "ko", "ja"})
+    void missingCvssRemainsDistinctFromZeroInSingleAndBatchPrompts(String locale) {
+        service.reloadWithLocale(locale);
+        Double missing = null;
+        assertThat(service.cveSingle("CVE-1", "HIGH", missing, "fixture"))
+                .contains("unknown").doesNotContain("0.0");
+        assertThat(service.cveSingleWithType("CVE-1", "HIGH", missing, "fixture-type", "fixture"))
+                .contains("unknown").doesNotContain("0.0");
+        var request = new AiAnalysisService.CveSummaryRequest("CVE-1", "HIGH", missing,
+                "fixture", null, null, null, null, null, "direct", "UNKNOWN", null, false);
+        assertThat(service.batchCvePrompt(List.of(request), "SAAS"))
+                .contains("unknown").doesNotContain("0.0");
+        assertThat(service.cveSingle("CVE-1", "NONE", 0.0, "fixture")).contains("0.0");
+    }
+
     @Test
     @DisplayName("증가/감소 방향이 트렌드 프롬프트에 반영된다")
     void securityTrend_usesDirectionWords() {

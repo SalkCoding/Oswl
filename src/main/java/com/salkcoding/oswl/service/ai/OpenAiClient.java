@@ -76,7 +76,7 @@ public class OpenAiClient implements AiAnalysisClient {
     // ── Called only within the package (delegated by AiAnalysisService) ───────────────
 
     @Override
-    public String summarizeCve(String cveId, String severity, double cvssScore,
+    public String summarizeCve(String cveId, String severity, Double cvssScore,
                                String cveType, String component) {
         return call(promptTemplates.cveSingleWithType(cveId, severity, cvssScore, cveType, component),
                 null, "cve.single", null);

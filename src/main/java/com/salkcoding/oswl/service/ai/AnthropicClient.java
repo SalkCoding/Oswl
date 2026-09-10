@@ -53,7 +53,7 @@ public class AnthropicClient implements AiAnalysisClient {
     private boolean promptCachingEnabled;
 
     @Override
-    public String summarizeCve(String cveId, String severity, double cvssScore,
+    public String summarizeCve(String cveId, String severity, Double cvssScore,
                                String cveType, String component) {
         return call(promptTemplates.cveSingleWithType(cveId, severity, cvssScore, cveType, component),
                 null, "cve.single", null);

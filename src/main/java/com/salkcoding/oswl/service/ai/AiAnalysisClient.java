@@ -11,12 +11,12 @@ public interface AiAnalysisClient {
      *
      * @param cveId      "CVE-2024-11053"
      * @param severity   "CRITICAL"
-     * @param cvssScore  9.8
+     * @param cvssScore  reported score, or null when unavailable
      * @param cveType    "RCE"
      * @param component  Component name + version
      * @return One-sentence summary
      */
-    String summarizeCve(String cveId, String severity, double cvssScore,
+    String summarizeCve(String cveId, String severity, Double cvssScore,
                         String cveType, String component);
 
     /**

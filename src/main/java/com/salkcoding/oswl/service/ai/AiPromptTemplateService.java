@@ -231,7 +231,7 @@ public class AiPromptTemplateService {
             "license.single"
     );
 
-    public String cveSingle(String cveId, String severity, double cvssScore, String component) {
+    public String cveSingle(String cveId, String severity, Double cvssScore, String component) {
         return cveSingleRich(cveId, severity, cvssScore, component,
                 "-", "-", "-", "-", "-", "unknown", "UNKNOWN");
     }
@@ -247,7 +247,7 @@ public class AiPromptTemplateService {
         return m;
     }
 
-    private String cveSingleRich(String cveId, String severity, double cvssScore, String component,
+    private String cveSingleRich(String cveId, String severity, Double cvssScore, String component,
                                 String title, String osvSummary, String fixVersion, String cweId,
                                 String cvssVector, String dependencyType, String patchability) {
         return render("cve.single", vars(
@@ -264,7 +264,7 @@ public class AiPromptTemplateService {
                 "patchability", patchability));
     }
 
-    public String cveSingleWithType(String cveId, String severity, double cvssScore,
+    public String cveSingleWithType(String cveId, String severity, Double cvssScore,
                                     String cveType, String component) {
         return render("cve.single.withType", vars(
                 "cveId", cveId,
@@ -539,8 +539,8 @@ public class AiPromptTemplateService {
         return Math.abs(delta);
     }
 
-    private static String formatCvss(double score) {
-        return String.format("%.1f", score);
+    private static String formatCvss(Double score) {
+        return score == null ? "unknown" : String.format(java.util.Locale.ROOT, "%.1f", score);
     }
 
     private static String nullToDash(String value) {

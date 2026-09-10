@@ -173,6 +173,9 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **AI 누락 CVSS 수정 누적 검증:** Windows/Java 25에서 `build verifyProdJar` 성공. 전체 4,200건 중 4,189건 통과·환경 의존/opt-in skip 11건·실패/오류 0. 로그 `build/roadmap-ai-missing-cvss-build.log`.
+- **2026-09-11 AI 요청의 누락 CVSS 보존:** 상세 재생성 및 스캔 일괄 분석에서 null 점수를 0.0으로 바꾸지 않는다. AI 요청 DTO·클라이언트 인터페이스·단일/일괄 프롬프트는 nullable 점수를 받아 `unknown`으로 전달하며, 실제 0.0은 유지한다. 분석 캐시 키도 null과 0.0을 구분해 예전 기본 0점에 기반한 캐시가 누락 점수에 재사용되지 않도록 했다. 점수가 없는 경우 벡터는 별도 필드로 전달하며 추측한 점수를 추가하지 않는다. 3개 언어의 null 입력은 수정 전 primitive 자동 변환 예외로 실패했고 수정 후 단일/유형별/일괄 프롬프트 검사를 통과했다. 기존 enrich 검사를 null/0.0/9.5로 확장해 실제 요청 인자 보존과 캐시 키 구분을 확인했다. AI·취약점 enrichment·상세 관련 검사 232건 중 231건 통과·기존 skip 1건·실패/오류 0. 로그 `build/roadmap-ai-missing-cvss-before.log`, `build/roadmap-ai-missing-cvss-after.log`. 커밋 제목 `fix: preserve unknown cvss scores in ai analysis`. 자체 합성 입력이며 외부 API 호출·데이터/라이브러리 도입·UI 변경 없음. 실제 AI 모델 답변의 정확성 및 이미 저장된 AI 문장의 일괄 정정은 검증하지 않았다.
+
 - **누락 CVSS 수정 누적 검증:** Windows/Java 25에서 `build verifyProdJar` 성공. 전체 4,195건 중 4,184건 통과·환경 의존/opt-in skip 11건·실패/오류 0. 로그 `build/roadmap-missing-cvss-build.log`. 브라우저 4건은 별도 실행했다.
 - **2026-09-11 누락 CVSS 표시 보존:** 상세 화면과 AI 재생성 응답의 CveDto.cvssScore를 nullable로 유지한다. 저장 점수가 없으면 유효한 벡터에서 계산하며 둘 다 없으면 null이다. 화면은 기존 3개 언어의 common.unknown을 사용하고 환경 점수 비교도 null을 허용한다. API 소비자는 이전의 기본 0.0 대신 null을 처리해야 한다. 실제 0.0 및 CVSS v3.1 벡터의 9.8은 유지한다. 실제 H2 저장·로그인·Chromium 검사에서 수정 전 missing 사례 1건 실패, 수정 후 점수 3상태와 기존 긴 의존성 근거 검사 총 4건 통과·skip/실패/오류 0. 로그 `build/roadmap-missing-cvss-before.log`, `build/roadmap-missing-cvss-after.log`; 화면 `build/reports/dependency-evidence-ui/unscored-patch-missing.png` 확인. 자체 합성 입력이며 외부 자료·라이브러리 추가 없음. 커밋 제목 `fix: preserve missing cvss scores in component details`. AI 분석 요청 내부의 primitive 점수 기본값과 추천문구의 미평가 개수 누락은 잔여다.
 
