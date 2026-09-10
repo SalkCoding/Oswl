@@ -351,6 +351,9 @@
 - **2026-09-10 v2 행 수 검증:** manifest의 파일별 lines를 필수 비음수 정수(int 범위)로 검증한다. 기존 행 길이 사전 검사에서 물리적 행 수를 함께 세어 선언과 다르면 쓰기 트랜잭션 전에 거부한다. 끝의 개행은 추가 빈 행으로 세지 않으며 빈 파일은 0이다. 기존 앱/CLI 생성기는 이미 lines를 출력한다. 해시만 기록하던 정상 테스트 fixture에는 실제 행 수를 추가했으며 파일 목록/해시 오류 테스트가 여전히 해당 오류까지 도달하도록 보완했다.
 - **행 수 회귀:** null·음수·소수·문자열·정수 overflow·실제보다 작거나 큰 값 7건은 수정 전 전부 실패했다. 수정 후 실제 ZIP 반입 거부와 기존 source 보존을 확인했고 정상 export/import 검사도 통과했다. `test --tests '*Snapshot*Test' --tests '*CocoaPodsSnapshotTest' --tests '*Vdb*Test'` 42건 중 41건 통과, 기존 대용량 환경 의존 skip 1건, 실패/error 0. Windows/Java 25, 로그 `build/roadmap-snapshot-lines-before.log`, `build/roadmap-snapshot-lines-after.log`. 커밋 제목 `fix: validate snapshot file line counts`. 자체 합성 자료이며 외부 의존성/데이터 및 UI 변경 없음. source.records는 delta의 전체 상태 건수와 파일 행 수를 구별해야 하며, 중복/삭제/부분 소스의 레코드 수 의미 검증은 잔여다.
 
+- **2026-09-10 EPSS 값 검증:** [FIRST 공식 EPSS 설명](https://www.first.org/epss/)(확인 2026-09-10)의 0~1 확률 계약에 따라 반입 score를 유한 숫자·범위 내 값으로 제한한다. 점수 누락/형식 오류, identity 누락과 잘못된 삭제 표시도 반입 실패로 전달해 기존 source를 보존한다. 저장된 NaN/Infinity/범위 밖 값은 조회에서 제외하며 0으로 바꾸지 않는다. 정상 경계값 0/1은 유지한다.
+- **EPSS 회귀 및 누적 빌드:** 실제 ZIP/H2 반입과 직접 저장 payload 조회의 오류 11건은 수정 전 전부 실패했다. 수정 후 정상 0/0.5/1 왕복 검사를 포함한 `test --tests '*Snapshot*Test' --tests '*CocoaPodsSnapshotTest' --tests '*Vdb*Test'` 67건 중 66건 통과, 기존 대용량 skip 1건, 실패/error 0. 이후 `build verifyProdJar` 성공: 전체 2,732건 중 2,723건 통과·기존 환경 의존 skip 9건·실패/error 0, 운영 JAR local controller 제외 확인. Windows/Java 25, 로그 `build/roadmap-snapshot-epss-before.log`, `build/roadmap-snapshot-epss-after.log`, `build/roadmap-snapshot-integrity-build.log`. 커밋 제목 `fix: validate offline epss probabilities`. 자체 합성 입력이며 외부 데이터/라이브러리·UI 변경 없음. 공식 설명은 점수 의미의 근거이고 데이터 재배포 허가를 뜻하지 않으며 부록 A의 이용조건 미확인 상태를 유지한다. live/CLI EPSS 파서 및 CVE identity 전체 문법 검증은 잔여다.
+
 ### 35. 오프라인 서명·신뢰 루트·이전 세대 방어 — P0 · [설계]
 
 - 현재·대상: checksum은 파일과 hash를 함께 바꾼 위조를 막지 못한다. 최초 trust root와 signer scope가 필요하다.

@@ -154,6 +154,30 @@ class SnapshotImportTransactionTest {
         assertOldSource();
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"null", "\"0.5\"", "-0.01", "1.01", "1e999", "{}"})
+    void invalidEpssScoresDoNotReplaceExistingData(String score) throws Exception {
+        String line = "{\"cveId\":\"CVE-NEW\",\"score\":" + score + "}";
+        assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of("epss.jsonl", line)))))
+                .isInstanceOf(InvalidRequestException.class);
+        assertOldSource();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"NaN", "Infinity", "-Infinity", "-0.01", "1.01"})
+    void invalidStoredEpssScoresAreNotReturned(String score) {
+        entries.saveAndFlush(SnapshotEntry.builder().source("epss").entryKey("CVE-INVALID").payload(score).build());
+        assertThat(service.findEpssScores(List.of("CVE-OLD", "CVE-INVALID"))).containsOnly(entry("CVE-OLD", 0.25));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(doubles = {0, 0.5, 1})
+    void validEpssProbabilitiesRoundTrip(double score) throws Exception {
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("epss.jsonl",
+                "{\"cveId\":\"CVE-NEW\",\"score\":" + score + "}"))));
+        assertThat(service.findEpssScores(List.of("CVE-NEW"))).containsOnly(entry("CVE-NEW", score));
+    }
+
     @Test void importsMultipleChunksAndCleansStagingFiles() throws Exception {
         Set<Path> before = stagedFiles();
         StringBuilder lines = new StringBuilder();

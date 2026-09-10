@@ -284,7 +284,10 @@ public class AirgappedSnapshotService {
         Map<String, Double> result = new LinkedHashMap<>();
         findPayloads(SOURCE_EPSS, keys).forEach((key, payload) -> {
             try {
-                result.put(key, Double.parseDouble(payload.trim()));
+                double score = Double.parseDouble(payload.trim());
+                if (!Double.isFinite(score) || score < 0 || score > 1)
+                    throw new NumberFormatException("Invalid EPSS probability");
+                result.put(key, score);
             } catch (NumberFormatException e) {
                 log.warn("[Snapshot] Skipping corrupt epss entry key={}", key);
             }
@@ -708,22 +711,22 @@ public class AirgappedSnapshotService {
             JsonNode node = objectMapper.readTree(line);
             String cveId = text(node, "cveId");
             if (isBlank(cveId)) {
-                log.warn("[Snapshot] Skipping epss line with missing cveId");
-                return;
+                throw new InvalidRequestException("Snapshot EPSS record requires cveId");
             }
             String key = cveId.strip().toUpperCase(Locale.ROOT);
+            if (node.has("_deleted") && !node.path("_deleted").isBoolean())
+                throw new InvalidRequestException("Snapshot EPSS deletion marker must be boolean");
             if (node.path("_deleted").asBoolean(false)) {
                 buffer.add(new ParsedLine(key, null, true));
                 return;
             }
             JsonNode score = node.path("score");
-            if (!score.isNumber()) {
-                log.warn("[Snapshot] Skipping epss line with missing score");
-                return;
+            if (!score.isNumber() || !Double.isFinite(score.asDouble()) || score.asDouble() < 0 || score.asDouble() > 1) {
+                throw new InvalidRequestException("Snapshot EPSS score must be a finite probability from 0 to 1");
             }
             buffer.add(new ParsedLine(key, Double.toString(score.asDouble()), false));
         } catch (Exception e) {
-            log.warn("[Snapshot] Skipping malformed epss line: {}", e.getMessage());
+            throw new InvalidRequestException("Malformed snapshot EPSS record: " + e.getMessage());
         }
     }
 
