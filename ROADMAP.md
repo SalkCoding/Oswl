@@ -113,6 +113,11 @@
 
 ### 11. 범용 버전 비교기와 GHSA 비교 실패 처리 교체 — P0 · [코드 확인/진단]
 
+- **NuGet 별칭 변경 검증:** Windows/Java 25의 `test --tests '*NuGet*Test' --tests '*Osv*Test' --tests '*GitHubAdvisory*Test' --tests '*VulnerabilityEnrichmentServiceTest'` 전체 1,189건 중 1,188건 통과·기존 환경 의존 skip 1건·실패/오류 0. 이번 단위에서 전체 build/UI는 재실행하지 않았다.
+
+- **2026-09-11 NuGet 명시 버전 목록의 별칭 판정:** 공통 OSV 평가기에서 1.0/1.0.0, 숫자 0 채움, 4번째 0, prerelease 대소문자와 metadata 차이를 NuGet 버전 동등성으로 비교한다. 설치 버전의 문법을 정확 문자열 일치보다 먼저 검사해 `1.*`가 목록에 있다는 이유로 영향받음이 되지 않게 했다. 목록의 잘못된 버전도 정상 비영향 근거로 사용하지 않는다. 커밋 제목 `fix: match nuget listed versions by native identity`.
+- **근거·회귀:** 앞서 권리/해시를 기록한 공식 NuGet.Versioning 7.9.0 DLL의 `VersionRelease.Equals`를 직접 실행했다. `1.0.0--1`과 `1.0.0--01`은 Compare=0이지만 Equals=false이므로 순서 비교의 동률을 식별값 일치로 대체하지 않는 별도 함수를 사용했다. 새 9건 중 수정 전 7건 실패, 수정 후 통과했다. 로그 `build/roadmap-nuget-identity-before.log`, `build/roadmap-nuget-identity-after.log`. 기존 local oracle를 재사용했으며 외부 코드/데이터·라이브러리·UI는 추가하지 않았다. 실제 NuGet 공지/패키지 자료 왕복 검증과 전체 입력 별칭 지원은 잔여다.
+
 - **2026-09-11 NuGet 구체 버전 비교기 구현:** 1~4개 숫자 요소, prerelease의 점 구분/대소문자 무시/숫자와 문자 순서, metadata 제외를 처리하는 `NuGetVersionComparator`를 구현했다. NuGet VersionRelease의 Int32 범위를 넘는 prerelease 숫자 문자열 처리도 고정 native 정답과 일치시켰다. 입력 길이 제한과 잘못된 구체 버전 거부를 유지하며 dependency range 문법을 구체 버전으로 비교하지 않는다. OSV ECOSYSTEM 범위의 공통 평가/수정 버전 선택과 GHSA 범위/수정 버전 선택 모두 연결했다. 커밋 제목 `feat: compare nuget advisory versions with native ordering`.
 - **누적 빌드:** Windows/Java 25의 `build verifyProdJar` 성공. 전체 4,039건 중 4,030건 통과·기존 환경 의존 skip 9건·실패/오류 0. 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-nuget-build.log`. comparator의 Int32 설명 주석은 빌드 시작 후 보완했으며 실행 코드는 동일하다.
 - **근거·회귀:** 공식 NuGet.Versioning 7.9.0의 900개 정답 조합과 일치하고, 잘못된 버전 11개는 Java와 실제 native parser 모두 거부했다. OSV 범위 4건은 연결 전 UNKNOWN으로 실패했고 연결 후 정상 판정했다. mock GHSA HTTP→client→source와 OSV 공통 평가/선택의 4건으로 alpha10/alpha2/metadata 경계 및 invalid 입력을 비교했다. 연결 검증 중 GHSA 수정 버전 비교기 선택 누락을 고쳤다. 이전 미지원 NuGet 검사는 새 native 검증으로 대체하고 미지원 RubyGems/Composer 검사는 유지했다. 로그 `build/roadmap-nuget-comparator.log`, `build/roadmap-nuget-range-before.log`, `build/roadmap-nuget-integration.log`.

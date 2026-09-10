@@ -10,6 +10,17 @@ public final class NuGetVersionComparator {
 
     private NuGetVersionComparator() { }
 
+    static boolean sameVersion(String left, String right) {
+        Version a = parse(left), b = parse(right);
+        if (!java.util.Arrays.equals(a.release, b.release)) return false;
+        if (a.labels == null || b.labels == null) return a.labels == b.labels;
+        if (a.labels.length != b.labels.length) return false;
+        for (int i = 0; i < a.labels.length; i++) {
+            if (!a.labels[i].equalsIgnoreCase(b.labels[i])) return false;
+        }
+        return true;
+    }
+
     public static int compare(String left, String right) {
         Version a = parse(left), b = parse(right);
         for (int i = 0; i < 4; i++) {

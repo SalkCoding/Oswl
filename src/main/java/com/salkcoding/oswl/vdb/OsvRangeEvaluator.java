@@ -58,6 +58,13 @@ public final class OsvRangeEvaluator {
 
     public static Result evaluate(String ecosystem, String version, Set<String> versions, JsonNode ranges) {
         if (version == null || version.isBlank()) return Result.UNKNOWN;
+        if ("NUGET".equalsIgnoreCase(ecosystem)) {
+            try {
+                NuGetVersionComparator.compare(version, version);
+            } catch (IllegalArgumentException invalidVersion) {
+                return Result.UNKNOWN;
+            }
+        }
         if ("MAVEN".equalsIgnoreCase(ecosystem)) {
             try {
                 MavenVersionComparator.validate(version);
@@ -67,6 +74,15 @@ public final class OsvRangeEvaluator {
         }
         if (versions != null && versions.contains(version)) return Result.AFFECTED;
         boolean unknown = false;
+        if ("NUGET".equalsIgnoreCase(ecosystem) && versions != null) {
+            for (String listed : versions) {
+                try {
+                    if (NuGetVersionComparator.sameVersion(version, listed)) return Result.AFFECTED;
+                } catch (IllegalArgumentException invalid) {
+                    unknown = true;
+                }
+            }
+        }
         if ("MAVEN".equalsIgnoreCase(ecosystem) && versions != null) {
             for (String listed : versions) {
                 try {

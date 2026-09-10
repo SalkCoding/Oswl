@@ -16,6 +16,14 @@ class OsvRangeEvaluatorTest {
     private static final ObjectMapper JSON = new ObjectMapper();
 
     @ParameterizedTest
+    @CsvSource({"1.0,1.0.0,AFFECTED", "01.0.0.0,1.0,AFFECTED", "1.0.0+one,1.0.0+two,AFFECTED",
+            "1.0.0-RC.1,1.0.0-rc.1,AFFECTED", "1.0.0--1,1.0.0--01,NOT_AFFECTED",
+            "1.0.0.1,1.0.0,NOT_AFFECTED", "1.*,1.*,UNKNOWN", "1.0,invalid,UNKNOWN", "invalid,1.0,UNKNOWN"})
+    void nugetListedVersionsUseNativeIdentity(String installed, String listed, OsvRangeEvaluator.Result expected) {
+        assertThat(OsvRangeEvaluator.evaluate("NUGET", installed, Set.of(listed), null)).isEqualTo(expected);
+    }
+
+    @ParameterizedTest
     @CsvSource({"1.0.0-alpha10,AFFECTED", "1.0.0-alpha2,NOT_AFFECTED", "1.0.0-alpha2+build,NOT_AFFECTED", "1.0.0,NOT_AFFECTED"})
     void nugetRangesUseNativePrereleaseOrdering(String version, OsvRangeEvaluator.Result expected) throws Exception {
         var ranges = range("ECOSYSTEM", "[{\"introduced\":\"0\"},{\"fixed\":\"1.0.0-alpha2\"}]");

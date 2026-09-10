@@ -18,8 +18,10 @@ No upstream implementation or documentation text is copied into these synthetic 
 These results cover concrete ordering, not vulnerability facts, range syntax, dependency
 resolution, or complete NuGet compatibility. `NuGetVersionComparatorTest` checks the Java
 comparator against this matrix; OSV ECOSYSTEM ranges and GHSA range/fix comparisons use it.
-Other accepted NuGet spellings, enumerated-version identity normalization and full provider
-data parity need separate verification.
+Enumerated-version identity uses `VersionRelease.Equals` semantics, not Compare=0:
+`1.0.0--1` and `1.0.0--01` have equal ordering but distinct identity in the native library.
+The OSV evaluator has separate identity regression cases. Other accepted NuGet spellings
+and full provider data parity need separate verification.
 
 `pep440.csv` contains 1,444 pairwise comparisons of 38 synthetic version strings.
 It was generated on 2026-09-10 with Python 3.14 and pip's vendored `packaging` 26.2:
