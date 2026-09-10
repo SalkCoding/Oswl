@@ -137,6 +137,9 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 deps.dev CVSS 점수 경계 통일:** 온라인 HTTP와 오프라인 공지 결과가 공유하는 `AdvisoryInfo`에서 유한한 0~10 점수만 유지한다. 범위 초과·NaN·무한대는 null로 처리하며 0으로 보정하지 않는다. 공지 ID/alias와 발견 근거는 보존한다. [공식 GetAdvisory 계약](https://docs.deps.dev/api/v3/#getadvisory)(확인 2026-09-11)의 점수 범위를 적용했다.
+- **회귀 검증:** HTTP/오프라인 정상 경계·누락·음수·10 초과·숫자 overflow 및 저장 NaN/무한대 11건 중 수정 전 7건 실패했다. 수정 후 Windows/Java 25의 `test --tests '*DepsDev*Test' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*SnapshotImportTransactionTest'` 187건 통과·실패/오류/skip 0. 로그 `build/roadmap-depsdev-score-before.log`, `build/roadmap-depsdev-score-after.log`. 커밋 제목 `fix: withhold invalid deps dev cvss scores`. 이번 변경은 대상 테스트와 컴파일로 검증했으며 전체 build/UI 검사를 다시 실행한 기록은 아니다. 자체 합성 응답만 사용하고 외부 공지 전문/라이브러리를 도입하지 않았다. 기존 원천별 이용/재배포 조건을 변경하지 않는다. 다른 공급자의 숫자 검증 및 vector와 점수의 수학적 일치 검증은 잔여다.
+
 - **2026-09-11 CVSS 점수/vector의 관측 단위 보존:** deps.dev 상세에서 점수 또는 vector가 갱신되면 두 필드를 같은 응답의 값으로 교체하고, 그 응답에 없는 짝은 null로 둔다. 둘 다 없으면 기존 관측을 보존한다. OSV/GHSA/NVD의 기존 행 보강도 두 필드가 모두 없을 때만 한 관측으로 채우며, 서로 다른 출처의 부분 필드를 합성하지 않는다. 별도 필드 setter를 제거하고 실제 보강 호출부를 함께 바꿨다. 기존 부분 정보의 출처를 추정해 보완하지 않는다.
 - **누적 빌드:** Windows/Java 25의 `build verifyProdJar` 성공. 전체 3,006건 중 2,997건 통과·기존 환경 의존 skip 9건·실패/오류 0, 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-cvss-pair-build.log`. 실제 외부 공급자·운영 PostgreSQL 검증은 별도다.
 - **회귀 검증:** 갱신/보강 9건 중 수정 전 5건 실패를 재현했다. 수정 후 Windows/Java 25의 `test --tests '*CveCvssEvidenceTest' --tests '*CveSeverityEvidenceTest' --tests '*VulnerabilityEnrichmentServiceTest'` 80건 통과·실패/오류/skip 0. 로그 `build/roadmap-cvss-pair-before.log`, `build/roadmap-cvss-pair-after.log`. 커밋 제목 `fix: keep cvss scores and vectors from one observation`. 자체 합성 관측 표식을 사용한 저장/병합 검사이며 외부 데이터·코드·라이브러리 도입이나 UI 변경은 없다. CVSS 수식/문법 검증, 출처별 복수 관측 영속화와 이미 섞여 저장된 과거 행의 복구는 별도 잔여다.

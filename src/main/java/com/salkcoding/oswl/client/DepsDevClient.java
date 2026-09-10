@@ -176,6 +176,12 @@ public class DepsDevClient {
             Double cvss3Score,
             String cvss3Vector,
             boolean current) {
+        public AdvisoryInfo {
+            if (cvss3Score != null && (!Double.isFinite(cvss3Score) || cvss3Score < 0 || cvss3Score > 10)) {
+                cvss3Score = null;
+            }
+        }
+
         public AdvisoryInfo(String ghsaId, String title, List<String> aliases,
                             Double cvss3Score, String cvss3Vector) {
             this(ghsaId, title, aliases, cvss3Score, cvss3Vector, true);
