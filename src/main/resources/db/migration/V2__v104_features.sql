@@ -1,4 +1,4 @@
--- OsWL v1.0.4 additive schema (roadmap #13 Flyway introduction).
+-- OsWL v1.0.4 additive schema (Flyway introduction).
 --
 -- Adoption path: Flyway is opt-in (OSWL_FLYWAY_ENABLED, default false). When first enabled on an
 -- existing database, baseline-on-migrate marks the current schema at V1 and applies V2+ forward.

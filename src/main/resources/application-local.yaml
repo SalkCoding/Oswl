@@ -4,9 +4,9 @@ spring:
       on-profile: local
 
   datasource:
-    # LOCK_TIMEOUT bumped from H2's 2000ms default: a large offline-snapshot import (E1-E3) does a
+    # LOCK_TIMEOUT bumped from H2's 2000ms default: a large offline-snapshot import does a
     # single bulk delete+insert per source in one transaction, and the default margin proved too
-    # tight under momentary contention from an adjacent request during live E5/E6 testing — this
+    # tight under momentary contention from an adjacent request during live testing — this
     # only widens the wait window when there IS contention, it doesn't change normal-path latency.
     url: jdbc:h2:file:./oswl-db;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;LOCK_TIMEOUT=30000
     driver-class-name: org.h2.Driver
@@ -43,9 +43,9 @@ logging:
   level:
     root: INFO
     com.salkcoding.oswl: INFO
-    com.salkcoding.oswl.service.QuickImportService: DEBUG
-    com.salkcoding.oswl.service.ScanIngestService: INFO
-    com.salkcoding.oswl.service.VulnerabilityEnrichmentService: DEBUG
+    com.salkcoding.oswl.service.ingest.QuickImportService: DEBUG
+    com.salkcoding.oswl.service.ingest.ScanIngestService: DEBUG
+    com.salkcoding.oswl.service.vulnerability.VulnerabilityEnrichmentService: DEBUG
     com.salkcoding.oswl.service.ai: DEBUG
     com.salkcoding.oswl.client: DEBUG
     com.salkcoding.oswl.auth.security: INFO
@@ -58,14 +58,15 @@ logging:
 
 oswl:
   encryption:
-    # Stable local default so VCS tokens survive restarts. Override with OSWL_ENCRYPTION_KEY in .env.
+    # Stable local default so VCS tokens survive restarts. Override with the OSWL_ENCRYPTION_KEY process environment variable.
     # (32-byte key, Base64) — dev-only; never use in production.
     key: ${OSWL_ENCRYPTION_KEY:b3N3bC1sb2NhbC1kZXYtZW5jcnlwdGlvbi1rZXkhITA=}
   ai:
     debug:
       heartbeat-seconds: 10
-      log-prompt-excerpt: true
-      log-response-excerpt: true
-  # encryption.key: set OSWL_ENCRYPTION_KEY in .env (see .env.example). No repo default.
+      # Keep request timing/heartbeat metadata at DEBUG without logging source-derived prompts,
+      # model reasoning, or response bodies. Developers can opt in explicitly when needed.
+      log-prompt-excerpt: ${OSWL_AI_DEBUG_LOG_PROMPT:false}
+      log-response-excerpt: ${OSWL_AI_DEBUG_LOG_RESPONSE:false}
   clone:
     temp-dir: ""

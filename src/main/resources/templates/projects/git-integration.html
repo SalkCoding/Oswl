@@ -8,6 +8,9 @@
         loadingRepos:       /*[[#{gitIntegration.loading.loadingRepos}]]*/ 'Loading repositories\u2026',
         connectionFailed:   /*[[#{gitIntegration.error.connectionFailed}]]*/ 'Connection failed. Check your token.',
         networkError:       /*[[#{gitIntegration.error.networkError}]]*/ 'Network error. Please try again.',
+        reposLoadFailed:    /*[[#{gitIntegration.error.reposLoadFailed}]]*/ 'Could not load repositories. Check your token, then retry.',
+        importFailed:       /*[[#{gitIntegration.error.importFailed}]]*/ '{0} import(s) failed. Check repository access and try again.',
+        selectItem:         /*[[#{common.selectItem}]]*/ 'Select {0}',
         justNow:            /*[[#{common.time.justNow}]]*/ 'just now',
         minuteAgo:          /*[[#{common.time.minuteAgo}]]*/ '1 minute ago',
         minutesAgo:         /*[[#{common.time.minutesAgo}]]*/ '{0} minutes ago',
@@ -48,6 +51,7 @@
                 selectedRepos:  [],
                 importedRepos:  [],
                 importFeedback: false,
+                importError:    '',
                 importing:      false,
 
                 /* ── add account state ── */
@@ -64,6 +68,7 @@
                 /* ── reload state ── */
                 reloading: false,
                 repoStatus: '',        // '' | 'loading' | 'done'
+                reposError: '',        // non-empty when the last repo fetch failed
                 _repoStatusTimer: null,
                 lastImportedProjectId: null,
 
@@ -193,7 +198,11 @@
                     if (showStatus) this._setRepoStatus('loading');
                     try {
                         const res = await fetch('/api/github/repos?account=' + encodeURIComponent(login));
-                        if (!res.ok) return;
+                        if (!res.ok) {
+                            if (showStatus) this._setRepoStatus('');
+                            if (!this.repoCache[login]) this.reposError = _gitI18n.reposLoadFailed;
+                            return;
+                        }
                         const data = await res.json();
                         const itemBranches = {};
                         data.forEach(r => { itemBranches[r.id] = r.defaultBranch || 'main'; });
@@ -212,9 +221,13 @@
                         // Kick off date loading in background
                         this._loadAllBranchDates(data, itemBranches, allBranchDates, login);
                         if (showStatus) this._setRepoStatus('done');
+                        this.reposError = '';
                     } catch (e) {
                         console.error('[GitHub] Failed to fetch repos for', login, e);
                         if (showStatus) this._setRepoStatus('');
+                        // Only flag an error when there is nothing to show — a stale cache is
+                        // still useful, but an empty table with no message reads as a bug.
+                        if (!this.repoCache[login]) this.reposError = _gitI18n.reposLoadFailed;
                     }
                 },
 
@@ -234,32 +247,44 @@
                 async importSelected() {
                     if (this.selectedRepos.length === 0 || this.importing) return;
                     this.importing = true;
+                    let failed = 0;
                     for (const rawId of this.selectedRepos) {
                         const id = Number(rawId);
                         const repo = this.repos.find(r => r.id === id);
                         if (!repo || this.importedRepos.includes(id)) continue;
-                        await this._importOne(repo);
+                        if (!await this._importOne(repo)) failed++;
                     }
                     this.selectedRepos = [];
                     this.selectAll = false;
-                    this.importFeedback = true;
                     this.importing = false;
+                    this._showImportOutcome(failed);
                     window.dispatchEvent(new CustomEvent('project-imported'));
-                    setTimeout(() => { this.importFeedback = false; }, 2000);
                 },
 
                 async importAll() {
                     if (this.importing) return;
                     this.importing = true;
+                    let failed = 0;
                     for (const repo of this.filteredRepos) {
                         if (this.importedRepos.includes(repo.id)) continue;
-                        await this._importOne(repo);
+                        if (!await this._importOne(repo)) failed++;
                     }
                     this.selectedRepos = [];
                     this.selectAll = false;
-                    this.importFeedback = true;
                     this.importing = false;
+                    this._showImportOutcome(failed);
                     window.dispatchEvent(new CustomEvent('project-imported'));
+                },
+
+                // Success flash only when everything imported; otherwise say how many failed
+                // instead of showing "✓ Imported!" over a partial failure.
+                _showImportOutcome(failed) {
+                    if (failed > 0) {
+                        this.importError = _gitI18n.importFailed.replace('{0}', failed);
+                        setTimeout(() => { this.importError = ''; }, 5000);
+                        return;
+                    }
+                    this.importFeedback = true;
                     setTimeout(() => { this.importFeedback = false; }, 2000);
                 },
 
@@ -279,10 +304,12 @@
                             this.importedRepos.push(repo.id);
                             const data = await res.json();
                             this.lastImportedProjectId = data.projectId;
+                            return true;
                         }
                     } catch (e) {
                         console.error('[GitHub] Import failed for', repo.name, e);
                     }
+                    return false;
                 },
 
                 /* ── branches (pre-loaded in parallel) — writes into provided target object ── */
@@ -507,6 +534,7 @@
                                         <button
                                             @click.stop="disconnectAccount(account)"
                                             th:title="#{gitIntegration.btn.disconnectAccount}"
+                                            th:aria-label="#{gitIntegration.btn.disconnectAccount}"
                                             class="pr-[12px] pl-[4px] py-[10px] flex items-center text-[var(--grayscale-30)] hover:text-red-500 transition-colors">
                                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                                 <circle cx="12" cy="12" r="10"></circle>
@@ -541,6 +569,7 @@
                             type="button"
                             @click="reloadRepos()"
                             th:title="#{gitIntegration.btn.reloadRepos}"
+                            th:aria-label="#{gitIntegration.btn.reloadRepos}"
                             :disabled="reloading || repoStatus === 'loading'"
                             :class="(reloading || repoStatus === 'loading') ? 'cursor-wait opacity-60' : 'cursor-pointer'"
                             class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] p-[7px] rounded-[6px] text-[var(--grayscale-60)] hover:bg-[var(--grayscale-10)] hover:text-[var(--grayscale-90)] transition-colors focus:outline-none shrink-0">
@@ -685,6 +714,9 @@
                 <input type="text" x-model="searchQuery" th:placeholder="#{gitIntegration.placeholder.search}" class="bg-transparent text-[13px] text-[var(--grayscale-90)] outline-none border-none placeholder-[var(--grayscale-50)] w-full">
             </div>
             
+            <!-- Import failure feedback (the success flash on the Import button only shows when nothing failed) -->
+            <span x-show="importError" x-cloak class="text-[12px] text-red-600 font-medium self-center shrink-0 ml-auto" x-text="importError"></span>
+
             <!-- Buttons -->
             <div class="flex gap-[12px] items-center w-[250px] shrink-0">
                 <button type="button" @click="importAll()"
@@ -711,7 +743,7 @@
         <div class="bg-[var(--grayscale-5)] border-y border-[var(--grayscale-20)] flex items-center w-full h-[40px]">
             <div class="flex items-center justify-center w-[72px] pl-[24px] pr-[4px] shrink-0 h-full">
                 <label class="cursor-pointer relative flex items-center justify-center p-2">
-                    <input type="checkbox" class="sr-only" x-model="selectAll" @change="toggleSelectAll()">
+                    <input type="checkbox" class="sr-only" x-model="selectAll" @change="toggleSelectAll()" th:aria-label="#{common.selectAll}">
                     <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors"
                          :class="selectAll ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
@@ -732,7 +764,23 @@
 
         <!-- Table Rows Container -->
         <div class="flex flex-col w-full h-full flex-1">
-            
+
+            <!-- Fetch failure: say so and offer a retry instead of a blank table -->
+            <div x-show="reposError" x-cloak
+                 class="flex items-center gap-[10px] px-[24px] py-[20px] text-[13px] text-[var(--grayscale-60)]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-red-400 shrink-0" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span x-text="reposError"></span>
+                <button type="button" @click="reposError = ''; reloadRepos()"
+                        class="shrink-0 text-[12px] font-semibold text-[var(--primary-120)] hover:underline"
+                        th:text="#{common.retry}">Retry</button>
+            </div>
+
+            <!-- Empty state: account has no repos, or the search matched nothing -->
+            <div x-show="!reposError && repoStatus !== 'loading' && !loadingAccounts && filteredRepos.length === 0" x-cloak
+                 class="flex flex-col items-center justify-center gap-[8px] py-[40px] text-[var(--grayscale-40)]">
+                <p class="text-[13px] font-medium" th:text="#{gitIntegration.table.empty}">No repositories found for this account.</p>
+            </div>
+
             <!-- Mock rows via Alpine loop over filteredRepos -->
             <template x-for="repo in filteredRepos" :key="repo.id">
                 <div class="border-b border-[var(--grayscale-20)] flex items-center w-full min-h-[48px] hover:bg-[var(--primary-20)]/20 transition-colors"
@@ -742,7 +790,8 @@
                     <!-- Checkbox -->
                     <div class="flex items-center justify-center w-[72px] pl-[24px] pr-[4px] shrink-0 h-full">
                         <label class="cursor-pointer relative flex items-center justify-center p-2">
-                            <input type="checkbox" class="sr-only" :value="repo.id" x-model="selectedRepos">
+                            <input type="checkbox" class="sr-only" :value="repo.id" x-model="selectedRepos"
+                                   :aria-label="_gitI18n.selectItem.replace('{0}', repo.fullName || repo.name)">
                             <div class="w-[16px] h-[16px] rounded border-[1.5px] flex items-center justify-center transition-colors"
                                  :class="selectedRepos.some(v => String(v) === String(repo.id)) ? 'bg-[var(--primary-120)] border-[var(--primary-120)]' : 'border-[var(--grayscale-40)]'">
                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"

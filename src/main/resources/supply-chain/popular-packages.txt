@@ -1,5 +1,5 @@
 # Compact top-N popular package list per ecosystem, used by SupplyChainHeuristicsService
-# for typosquat similarity checks (roadmap #16).
+# for typosquat similarity checks.
 #
 # Format: one entry per line — <ECOSYSTEM>:<package-name>
 #   - ECOSYSTEM matches Library.ecosystem: NPM | PYPI | MAVEN

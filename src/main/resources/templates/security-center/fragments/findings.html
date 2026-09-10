@@ -1,0 +1,50 @@
+<div th:fragment="findings" data-no-print="true" class="w-full px-[16px] sm:px-[24px] md:px-[40px] lg:px-[60px] pb-[24px] flex-shrink-0 bg-white">
+    <details class="group" th:open="${secretIacFindingCount != null and secretIacFindingCount <= 10}">
+        <summary class="flex cursor-pointer list-none items-center gap-[8px] mb-[8px]">
+            <span class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px]" th:text="#{securityCenter.findings.heading}">Secret &amp; IaC Findings</span>
+            <span th:if="${secretIacFindingCount != null and secretIacFindingCount > 0}"
+                  class="text-[13px] text-[var(--grayscale-60)]"
+                  th:text="#{securityCenter.findings.count(${secretIacFindingCount})}">(3 findings)</span>
+            <span class="ml-auto text-[12px] text-[var(--grayscale-60)] group-open:hidden" aria-hidden="true">+</span>
+            <span class="ml-auto text-[12px] text-[var(--grayscale-60)] hidden group-open:inline" aria-hidden="true">−</span>
+        </summary>
+        <p class="text-[12px] text-[var(--grayscale-60)] mb-[12px] m-0" th:text="#{securityCenter.findings.noValueNote}">
+            The matched value is never stored — only its location and a non-reversible fingerprint.
+        </p>
+
+    <div class="bg-white rounded-[10px] border border-[var(--grayscale-20)] overflow-hidden overflow-x-auto max-h-[360px] overflow-y-auto">
+        <table class="w-full text-[13px]">
+            <thead>
+            <tr class="text-left text-[12px] text-[var(--grayscale-70)] border-b border-[var(--grayscale-20)] bg-[var(--grayscale-5)]">
+                <th class="px-[18px] py-[12px] font-bold" th:text="#{securityCenter.findings.table.type}">Type</th>
+                <th class="px-[18px] py-[12px] font-bold" th:text="#{securityCenter.findings.table.severity}">Severity</th>
+                <th class="px-[18px] py-[12px] font-bold" th:text="#{securityCenter.findings.table.rule}">Rule</th>
+                <th class="px-[18px] py-[12px] font-bold" th:text="#{securityCenter.findings.table.file}">File</th>
+                <th class="px-[18px] py-[12px] font-bold" th:text="#{securityCenter.findings.table.description}">Description</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:if="${#lists.isEmpty(secretIacFindings)}">
+                <td colspan="5" class="px-[18px] py-[28px] text-center text-[13px] text-[var(--grayscale-60)]" th:text="#{securityCenter.findings.empty}">
+                    No secrets or IaC misconfigurations were found in this scan.
+                </td>
+            </tr>
+            <tr th:each="f : ${secretIacFindings}" class="border-b border-[var(--grayscale-10)] last:border-b-0 hover:bg-[var(--grayscale-5)]">
+                <td class="px-[18px] py-[12px] text-[var(--grayscale-90)]"
+                    th:text="${f.type == 'SECRET'} ? #{securityCenter.findings.type.secret} : #{securityCenter.findings.type.iac}">Secret</td>
+                <td class="px-[18px] py-[12px]" th:switch="${f.severity}">
+                    <span th:case="'CRITICAL'" class="text-[11px] font-bold text-[var(--text-critical)] bg-[var(--grayscale-5)] px-[8px] py-[3px] rounded-[4px]" th:text="#{settings.policy.severity.critical}">Critical</span>
+                    <span th:case="'HIGH'" class="text-[11px] font-bold text-[var(--text-critical)] bg-[var(--grayscale-5)] px-[8px] py-[3px] rounded-[4px]" th:text="#{settings.policy.severity.high}">High</span>
+                    <span th:case="'MEDIUM'" class="text-[11px] font-bold text-[var(--text-caution)] bg-[var(--grayscale-5)] px-[8px] py-[3px] rounded-[4px]" th:text="#{settings.policy.severity.medium}">Medium</span>
+                    <span th:case="*" class="text-[11px] font-bold text-[var(--grayscale-60)] bg-[var(--grayscale-5)] px-[8px] py-[3px] rounded-[4px]" th:text="#{settings.policy.severity.low}">Low</span>
+                </td>
+                <td class="px-[18px] py-[12px] font-mono text-[12px] text-[var(--grayscale-90)]" th:text="${f.ruleId}">generic-api-key</td>
+                <td class="px-[18px] py-[12px] font-mono text-[12px] text-[var(--grayscale-70)]"
+                    th:text="${f.filePath} + (${f.lineNumber} != null ? ':' + ${f.lineNumber} : '')">path/to/file:12</td>
+                <td class="px-[18px] py-[12px] text-[var(--grayscale-80)]" th:text="${f.description}">Description</td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+    </details>
+</div>

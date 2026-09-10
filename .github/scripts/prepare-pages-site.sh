@@ -39,6 +39,7 @@ test -f _site/index.html
 test -f _site/landing-i18n.js
 test -f _site/i18n/en.json
 test -f _site/i18n/ko.json
+test -f _site/i18n/ja.json
 test -f _site/css/tailwind.css
 test -f _site/icon/icon-logo.svg
 test -f _site/graphic/symbol_w.svg

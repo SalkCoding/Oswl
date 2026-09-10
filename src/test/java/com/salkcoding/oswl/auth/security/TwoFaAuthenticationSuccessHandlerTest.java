@@ -57,6 +57,7 @@ class TwoFaAuthenticationSuccessHandlerTest {
         when(securitySettingService.getOrCreate()).thenReturn(settings);
         when(authentication.getPrincipal()).thenReturn(buildPrincipal(1L, false));
         when(request.getContextPath()).thenReturn("");
+        when(loginCompletionService.resolvePostLoginDestination(any())).thenReturn("/projects");
 
         handler.onAuthenticationSuccess(request, response, authentication);
 
@@ -72,6 +73,7 @@ class TwoFaAuthenticationSuccessHandlerTest {
         when(securitySettingService.getOrCreate()).thenReturn(settings);
         when(authentication.getPrincipal()).thenReturn(buildPrincipal(1L, true));
         when(request.getContextPath()).thenReturn("");
+        when(loginCompletionService.resolvePostLoginDestination(any())).thenReturn("/change-password");
 
         handler.onAuthenticationSuccess(request, response, authentication);
 
@@ -86,6 +88,7 @@ class TwoFaAuthenticationSuccessHandlerTest {
         when(securitySettingService.getOrCreate()).thenReturn(settings);
         when(authentication.getPrincipal()).thenReturn(buildPrincipal(1L, false));
         when(request.getContextPath()).thenReturn("/app");
+        when(loginCompletionService.resolvePostLoginDestination(any())).thenReturn("/projects");
 
         handler.onAuthenticationSuccess(request, response, authentication);
 
@@ -104,6 +107,7 @@ class TwoFaAuthenticationSuccessHandlerTest {
         when(authentication.getPrincipal()).thenReturn(principal);
         when(trustedDeviceService.isTrusted(5L, request)).thenReturn(true);
         when(request.getContextPath()).thenReturn("");
+        when(loginCompletionService.resolvePostLoginDestination(any())).thenReturn("/projects");
 
         handler.onAuthenticationSuccess(request, response, authentication);
 
@@ -122,6 +126,7 @@ class TwoFaAuthenticationSuccessHandlerTest {
         when(authentication.getPrincipal()).thenReturn(principal);
         when(trustedDeviceService.isTrusted(5L, request)).thenReturn(true);
         when(request.getContextPath()).thenReturn("");
+        when(loginCompletionService.resolvePostLoginDestination(any())).thenReturn("/change-password");
 
         handler.onAuthenticationSuccess(request, response, authentication);
 

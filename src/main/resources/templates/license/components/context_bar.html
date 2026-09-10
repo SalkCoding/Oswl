@@ -22,9 +22,11 @@
                      th:attr="data-init-value=${context.deployment}, data-l-saas=#{license.deployment.saas}, data-l-binary=#{license.deployment.binary}, data-l-library=#{license.deployment.library}, data-l-embedded=#{license.deployment.embedded}"
                      x-data="{ open: false, value: '', get options() { const d = $el.dataset; return [{value:'SAAS',label:d.lSaas},{value:'BINARY',label:d.lBinary},{value:'LIBRARY',label:d.lLibrary},{value:'EMBEDDED',label:d.lEmbedded}]; }, get label() { return this.options.find(o => o.value === this.value)?.label || this.value; } }"
                      x-init="value = $el.dataset.initValue"
-                     @click.away="open = false">
+                     @click.away="open = false"
+                     @keydown.escape.stop="open = false">
                     <input type="hidden" name="deployment" :value="value"/>
                     <button type="button" @click="open = !open"
+                            :aria-expanded="open" aria-haspopup="listbox" aria-controls="license-deployment-menu"
                             class="px-[12px] py-[8px] pr-[28px] border rounded-[8px] text-[13px] bg-white min-w-[160px] text-left relative cursor-pointer transition-colors"
                             :class="open ? 'border-[#33D1B7]' : 'border-[var(--grayscale-20)]'">
                         <span class="truncate block pr-[4px] text-[var(--grayscale-80)]" x-text="label"></span>
@@ -32,6 +34,7 @@
                              :class="open ? 'rotate-180' : ''" alt="" aria-hidden="true">
                     </button>
                     <div x-show="open" x-cloak
+                         id="license-deployment-menu" role="listbox"
                          class="absolute z-50 top-full mt-[4px] left-0 bg-white rounded-[8px] shadow-lg overflow-hidden" style="min-width:100%">
                         <template x-for="opt in options" :key="opt.value">
                             <button type="button"
@@ -51,9 +54,11 @@
                      th:attr="data-init-value=${context.linking}, data-l-dynamic=#{license.linking.dynamic}, data-l-static=#{license.linking.static}"
                      x-data="{ open: false, value: '', get options() { const d = $el.dataset; return [{value:'DYNAMIC',label:d.lDynamic},{value:'STATIC',label:d.lStatic}]; }, get label() { return this.options.find(o => o.value === this.value)?.label || this.value; } }"
                      x-init="value = $el.dataset.initValue"
-                     @click.away="open = false">
+                     @click.away="open = false"
+                     @keydown.escape.stop="open = false">
                     <input type="hidden" name="linking" :value="value"/>
                     <button type="button" @click="open = !open"
+                            :aria-expanded="open" aria-haspopup="listbox" aria-controls="license-linking-menu"
                             class="px-[12px] py-[8px] pr-[28px] border rounded-[8px] text-[13px] bg-white min-w-[140px] text-left relative cursor-pointer transition-colors"
                             :class="open ? 'border-[#33D1B7]' : 'border-[var(--grayscale-20)]'">
                         <span class="truncate block pr-[4px] text-[var(--grayscale-80)]" x-text="label"></span>
@@ -61,6 +66,7 @@
                              :class="open ? 'rotate-180' : ''" alt="" aria-hidden="true">
                     </button>
                     <div x-show="open" x-cloak
+                         id="license-linking-menu" role="listbox"
                          class="absolute z-50 top-full mt-[4px] left-0 bg-white rounded-[8px] shadow-lg overflow-hidden" style="min-width:100%">
                         <template x-for="opt in options" :key="opt.value">
                             <button type="button"

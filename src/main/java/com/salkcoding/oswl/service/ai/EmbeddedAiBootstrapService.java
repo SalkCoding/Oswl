@@ -2,7 +2,7 @@ package com.salkcoding.oswl.service.ai;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.domain.enums.AiProvider;
-import com.salkcoding.oswl.service.VulnerabilityEnrichmentService;
+import com.salkcoding.oswl.service.vulnerability.VulnerabilityEnrichmentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

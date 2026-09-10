@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 
+import java.util.List;
+
 @Schema(description = "Project list card — includes security and license summary figures based on the latest completed scan")
 @Getter
 @Builder
@@ -72,4 +74,13 @@ public class ProjectSummaryDto {
 
     @Schema(description = "Unacknowledged new-CVE alerts raised by continuous monitoring since the last scan", example = "2")
     private final long newCveAlerts;
+
+    @Schema(description = "Owning team id — null when the project has no team", example = "1")
+    private final Long teamId;
+
+    @Schema(description = "Owning team name — null when the project has no team", example = "Payments")
+    private final String teamName;
+
+    @Schema(description = "Free-form labels for filtering on the project list", example = "[\"backend\", \"pci\"]")
+    private final List<String> tags;
 }

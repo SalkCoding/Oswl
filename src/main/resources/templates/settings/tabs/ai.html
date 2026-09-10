@@ -3,7 +3,6 @@
 <body>
 <div th:fragment="tab"
      x-data="aiTab()"
-     x-init="init()"
      class="flex flex-col gap-[20px]">
 
     <!-- Heading -->
@@ -26,22 +25,32 @@
         <p class="text-[12px] text-[var(--grayscale-60)] leading-[1.5] m-0" th:text="#{settings.ai.backfillNote}">After connecting a provider, insights for recent scans are generated automatically in the background (this can take a minute). Per-CVE summaries apply to scans run after the connection — re-scan a project to fill them in.</p>
     </div>
 
+    <!-- Sub-tabs: Provider (usage + provider), Scope/Context (what+how AI analyzes), Prompts/Backfill. -->
+    <div role="tablist" th:aria-label="#{settings.ai.heading}" class="flex items-center gap-[40px] border-b border-[var(--grayscale-20)] px-[8px]">
+        <div th:replace="~{fragments/settings-subtabs :: subtabButton('provider', #{settings.ai.subtab.provider})}"></div>
+        <div th:replace="~{fragments/settings-subtabs :: subtabButton('context', #{settings.ai.subtab.context})}"></div>
+        <div th:replace="~{fragments/settings-subtabs :: subtabButton('prompts', #{settings.ai.subtab.prompts})}"></div>
+    </div>
+
+    <!-- ===================== PROVIDER ===================== -->
+    <div x-show="subTab==='provider'" x-cloak class="flex flex-col gap-[20px]">
+
     <!-- Usage summary -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[28px] py-[24px] flex flex-col gap-[16px]">
+    <div class="order-2 bg-white border border-[var(--grayscale-20)] rounded-[10px] px-[28px] py-[24px] flex flex-col gap-[16px]">
         <h3 class="font-bold text-[18px] text-black tracking-[-0.18px]" th:text="#{settings.ai.usage.heading}">Usage today</h3>
         <p x-show="!usageStats || !usageStats.provider" x-cloak class="text-[13px] text-[var(--grayscale-60)]" th:text="#{settings.ai.usage.noProvider}">Enable an AI provider to track usage here.</p>
         <template x-if="usageStats && usageStats.provider">
             <div class="flex flex-col gap-[16px]">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-[12px]">
                     <div class="bg-[var(--grayscale-5)] rounded-[8px] px-[14px] py-[12px]">
-                        <p class="text-[11px] text-[var(--grayscale-50)] mb-[4px]" th:text="#{settings.ai.usage.calls}">API calls</p>
+                        <p class="text-[11px] text-[var(--grayscale-60)] mb-[4px]" th:text="#{settings.ai.usage.calls}">API calls</p>
                         <p class="font-bold text-[20px] text-[var(--grayscale-100)]">
                             <span x-text="usageStats.todayCallCount"></span>
-                            <span class="text-[13px] font-medium text-[var(--grayscale-50)]" x-show="usageStats.dailyCallCap > 0"> / <span x-text="usageStats.dailyCallCap"></span></span>
+                            <span class="text-[13px] font-medium text-[var(--grayscale-60)]" x-show="usageStats.dailyCallCap > 0"> / <span x-text="usageStats.dailyCallCap"></span></span>
                         </p>
                     </div>
                     <div class="bg-[var(--grayscale-5)] rounded-[8px] px-[14px] py-[12px]">
-                        <p class="text-[11px] text-[var(--grayscale-50)] mb-[4px]" th:text="#{settings.ai.usage.tokens}">Tokens</p>
+                        <p class="text-[11px] text-[var(--grayscale-60)] mb-[4px]" th:text="#{settings.ai.usage.tokens}">Tokens</p>
                         <!-- Abbreviated (12.3K / 1.2M); the exact counts stay available on hover. -->
                         <p class="font-bold text-[16px] text-[var(--grayscale-100)]"
                            :title="exactTokens(usageStats.todayPromptTokens) + ' / '
@@ -53,16 +62,31 @@
                         </p>
                     </div>
                     <div class="bg-[var(--grayscale-5)] rounded-[8px] px-[14px] py-[12px]">
-                        <p class="text-[11px] text-[var(--grayscale-50)] mb-[4px]" th:text="#{settings.ai.usage.estimatedCost}">Estimated cost</p>
+                        <p class="text-[11px] text-[var(--grayscale-60)] mb-[4px]" th:text="#{settings.ai.usage.estimatedCost}">Estimated cost</p>
                         <p class="font-bold text-[20px] text-[var(--grayscale-100)]">$<span x-text="Number(usageStats.todayEstimatedCostUsd || 0).toFixed(4)"></span></p>
                     </div>
                 </div>
-                <p class="text-[11px] text-[var(--grayscale-50)]" th:text="#{settings.ai.usage.pricingDisclaimer}">Cost figures are rough estimates from configured per-million token rates, not provider invoices.</p>
+                <p class="text-[11px] text-[var(--grayscale-60)]" th:text="#{settings.ai.usage.pricingDisclaimer}">Cost figures are rough estimates from configured per-million token rates, not provider invoices.</p>
+                <!-- Context-hash cache efficiency, all time (survives the recent-calls FIFO cap) -->
+                <div x-show="(usageStats.cacheHitCount + usageStats.cacheMissCount) > 0" class="bg-[var(--grayscale-5)] rounded-[8px] px-[14px] py-[12px] flex flex-col gap-[6px]">
+                    <p class="text-[11px] text-[var(--grayscale-60)]" th:text="#{settings.ai.usage.cache.heading}">Context cache efficiency (all time)</p>
+                    <div class="flex items-baseline gap-[16px] flex-wrap">
+                        <p class="font-bold text-[20px] text-[var(--grayscale-100)]"><span x-text="cacheHitRate(usageStats)"></span>%</p>
+                        <p class="text-[12px] text-[var(--grayscale-60)]">
+                            <span th:text="#{settings.ai.usage.cache.hits}">Hits</span>&nbsp;<span class="font-medium" x-text="exactTokens(usageStats.cacheHitCount)"></span>
+                            / <span th:text="#{settings.ai.usage.cache.misses}">misses</span>&nbsp;<span class="font-medium" x-text="exactTokens(usageStats.cacheMissCount)"></span>
+                        </p>
+                        <p class="text-[12px] text-[var(--grayscale-60)]" x-show="usageStats.estimatedAvoidedCostUsd != null">
+                            <span th:text="#{settings.ai.usage.cache.avoided}">Est. avoided</span>&nbsp;$<span class="font-medium" x-text="Number(usageStats.estimatedAvoidedCostUsd || 0).toFixed(4)"></span>
+                        </p>
+                    </div>
+                    <p class="text-[11px] text-[var(--grayscale-60)]" th:text="#{settings.ai.usage.cache.note}">Unchanged CVEs/licenses reuse their previous AI summary instead of a new API call. Avoided cost is a rough estimate from your recorded average cost per summarized item.</p>
+                </div>
                 <div x-show="usageEvents.length" class="flex flex-col gap-[8px]">
                     <p class="font-medium text-[13px] text-[var(--grayscale-80)]" th:text="#{settings.ai.usage.recent}">Recent calls</p>
                     <div class="overflow-x-auto">
                         <table class="w-full text-[12px]">
-                            <thead><tr class="text-left text-[var(--grayscale-50)] border-b border-[var(--grayscale-15)]">
+                            <thead><tr class="text-left text-[var(--grayscale-60)] border-b border-[var(--grayscale-15)]">
                                 <th class="py-[6px] pr-[8px]" th:text="#{settings.ai.usage.time}">Time</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.usage.project}">Project</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.usage.branch}">Branch</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.usage.operation}">Operation</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.provider.label}">Provider</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.label.model}">Model</th><th class="py-[6px] pr-[8px]" th:text="#{settings.ai.usage.totalTokens}">Tokens</th><th class="py-[6px]" th:text="#{settings.ai.usage.estCost}">Est. $</th>
                             </tr></thead>
                             <tbody>
@@ -84,18 +108,18 @@
                     <!-- Pagination footer (same pattern as the quick-import repo browser) -->
                     <template x-if="usageEventTotalPages > 1">
                         <div class="flex items-center justify-between px-[8px] py-[6px] border-t border-[var(--grayscale-15)]">
-                            <span class="text-[12px] text-[var(--grayscale-50)]">
+                            <span class="text-[12px] text-[var(--grayscale-60)]">
                                 <span th:text="#{settings.ai.usage.page}">Page</span> <span x-text="usageEventPage + 1"></span>
                                 <span th:text="#{settings.ai.usage.of}">of</span> <span x-text="usageEventTotalPages"></span>
                             </span>
                             <div class="flex items-center gap-[6px]">
                                 <button @click="usageEventsPrevPage()"
-                                        :disabled="usageEventPage <= 0"
+                                        :disabled="usageEventPage <= 0" th:aria-label="#{common.pagination.previous}"
                                         class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                                 </button>
                                 <button @click="usageEventsNextPage()"
-                                        :disabled="usageEventPage + 1 >= usageEventTotalPages"
+                                        :disabled="usageEventPage + 1 >= usageEventTotalPages" th:aria-label="#{common.pagination.next}"
                                         class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                                 </button>
@@ -108,7 +132,8 @@
     </div>
 
     <!-- Provider Card -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
+    <div data-dirty-scope="ai-provider"
+         class="order-1 bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[38px] flex flex-col gap-[32px]">
 
         <!-- Card Title -->
         <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.ai.provider.label}">AI Provider</h3>
@@ -120,7 +145,7 @@
             <span class="flex items-center gap-[8px] flex-wrap">
                 <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.disabled}">Do not use AI</span>
                 <span x-show="activeProviderKind==='OFF'" x-cloak
-                      class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--primary-120)] bg-[rgba(0,160,147,0.10)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
+                      class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--text-accent)] bg-[rgba(0,160,147,0.05)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
                     <span class="w-[5px] h-[5px] rounded-full bg-[#00A093]"></span><span th:text="#{settings.ai.provider.activeBadge}">Active</span>
                 </span>
             </span>
@@ -128,13 +153,13 @@
 
         <!-- ── Option 2: OpenAI (GPT) ── -->
         <div class="flex flex-col gap-[24px]">
-            <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='OPENAI'">
+            <div class="flex gap-[8px] items-start cursor-pointer" data-dirty-mark @click="mode='OPENAI'">
                 <img :src="mode==='OPENAI' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
                     <span class="flex items-center gap-[8px] flex-wrap">
                         <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.openai}">OpenAI (GPT)</span>
                         <span x-show="activeProviderKind==='OPENAI'" x-cloak
-                              class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--primary-120)] bg-[rgba(0,160,147,0.10)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
+                              class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--text-accent)] bg-[rgba(0,160,147,0.05)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
                             <span class="w-[5px] h-[5px] rounded-full bg-[#00A093]"></span><span th:text="#{settings.ai.provider.activeBadge}">Active</span>
                         </span>
                     </span>
@@ -171,21 +196,23 @@
                                    @input="forms.OPENAI.modelName = modelSearch; open = true"
                                    @focus="open = true"
                                    @keydown.escape="open=false; modelSearch = forms.OPENAI.modelName || ''"
+                                   role="combobox" :aria-expanded="open" aria-autocomplete="list" aria-controls="ai-model-menu-openai"
                                    placeholder="e.g. gpt-5.6-terra"
-                                   class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                                   class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-60)]"/>
                             <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.openaiModelInput.focus())}else{modelSearch=forms.OPENAI.modelName||''}"
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
+                             id="ai-model-menu-openai" role="listbox"
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
                             <template x-for="opt in filterModels('OPENAI', modelSearch)" :key="opt">
                                 <button type="button" @click="forms.OPENAI.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                        :class="forms.OPENAI.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        :class="forms.OPENAI.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
                             <div x-show="filterModels('OPENAI', modelSearch).length === 0"
-                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
+                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-60)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
                         </div>
                     </div>
                 </div>
@@ -194,13 +221,13 @@
 
         <!-- ── Option 3: Anthropic (Claude) ── -->
         <div class="flex flex-col gap-[24px]">
-            <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='ANTHROPIC'">
+            <div class="flex gap-[8px] items-start cursor-pointer" data-dirty-mark @click="mode='ANTHROPIC'">
                 <img :src="mode==='ANTHROPIC' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
                     <span class="flex items-center gap-[8px] flex-wrap">
                         <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.anthropic}">Anthropic (Claude)</span>
                         <span x-show="activeProviderKind==='ANTHROPIC'" x-cloak
-                              class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--primary-120)] bg-[rgba(0,160,147,0.10)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
+                              class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--text-accent)] bg-[rgba(0,160,147,0.05)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
                             <span class="w-[5px] h-[5px] rounded-full bg-[#00A093]"></span><span th:text="#{settings.ai.provider.activeBadge}">Active</span>
                         </span>
                     </span>
@@ -230,21 +257,23 @@
                                    @input="forms.ANTHROPIC.modelName = modelSearch; open = true"
                                    @focus="open = true"
                                    @keydown.escape="open=false; modelSearch = forms.ANTHROPIC.modelName || ''"
+                                   role="combobox" :aria-expanded="open" aria-autocomplete="list" aria-controls="ai-model-menu-anthropic"
                                    placeholder="e.g. claude-sonnet-5"
-                                   class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                                   class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-60)]"/>
                             <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.anthropicModelInput.focus())}else{modelSearch=forms.ANTHROPIC.modelName||''}"
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
+                             id="ai-model-menu-anthropic" role="listbox"
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
                             <template x-for="opt in filterModels('ANTHROPIC', modelSearch)" :key="opt">
                                 <button type="button" @click="forms.ANTHROPIC.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                        :class="forms.ANTHROPIC.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        :class="forms.ANTHROPIC.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
                             <div x-show="filterModels('ANTHROPIC', modelSearch).length === 0"
-                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
+                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-60)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
                         </div>
                     </div>
                 </div>
@@ -253,13 +282,13 @@
 
         <!-- ── Option 4: Google Gemini ── -->
         <div class="flex flex-col gap-[24px]">
-            <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='GEMINI'">
+            <div class="flex gap-[8px] items-start cursor-pointer" data-dirty-mark @click="mode='GEMINI'">
                 <img :src="mode==='GEMINI' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
                     <span class="flex items-center gap-[8px] flex-wrap">
                         <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.gemini}">Google (Gemini)</span>
                         <span x-show="activeProviderKind==='GEMINI'" x-cloak
-                              class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--primary-120)] bg-[rgba(0,160,147,0.10)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
+                              class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--text-accent)] bg-[rgba(0,160,147,0.05)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
                             <span class="w-[5px] h-[5px] rounded-full bg-[#00A093]"></span><span th:text="#{settings.ai.provider.activeBadge}">Active</span>
                         </span>
                     </span>
@@ -289,21 +318,23 @@
                                    @input="forms.GEMINI.modelName = modelSearch; open = true"
                                    @focus="open = true"
                                    @keydown.escape="open=false; modelSearch = forms.GEMINI.modelName || ''"
+                                   role="combobox" :aria-expanded="open" aria-autocomplete="list" aria-controls="ai-model-menu-gemini"
                                    placeholder="e.g. gemini-3.1-pro"
-                                   class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                                   class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-60)]"/>
                             <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){modelSearch='';$nextTick(()=>$refs.geminiModelInput.focus())}else{modelSearch=forms.GEMINI.modelName||''}"
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
                         <div x-show="open" x-cloak
+                             id="ai-model-menu-gemini" role="listbox"
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[#C5CFD3] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-y-auto max-h-[200px]">
                             <template x-for="opt in filterModels('GEMINI', modelSearch)" :key="opt">
                                 <button type="button" @click="forms.GEMINI.modelName = opt; modelSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                        :class="forms.GEMINI.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        :class="forms.GEMINI.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
                             <div x-show="filterModels('GEMINI', modelSearch).length === 0"
-                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
+                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-60)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
                         </div>
                     </div>
                 </div>
@@ -312,13 +343,13 @@
 
         <!-- ── Option 5: Local / Ollama ── -->
         <div class="flex flex-col gap-[24px]">
-            <div class="flex gap-[8px] items-start cursor-pointer" @click="mode='LOCAL'">
+            <div class="flex gap-[8px] items-start cursor-pointer" data-dirty-mark @click="mode='LOCAL'">
                 <img :src="mode==='LOCAL' ? '/icon/icon-radio-on.svg' : '/icon/icon-radio-off.svg'" class="mt-[2px] w-[20px] h-[20px] shrink-0" alt="" aria-hidden="true">
                 <div class="flex flex-col gap-[8px] flex-1 min-w-0">
                     <span class="flex items-center gap-[8px] flex-wrap">
                         <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.provider.local}">Local / Ollama</span>
                         <span x-show="activeProviderKind==='LOCAL'" x-cloak
-                              class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--primary-120)] bg-[rgba(0,160,147,0.10)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
+                              class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--text-accent)] bg-[rgba(0,160,147,0.05)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
                             <span class="w-[5px] h-[5px] rounded-full bg-[#00A093]"></span><span th:text="#{settings.ai.provider.activeBadge}">Active</span>
                         </span>
                     </span>
@@ -352,7 +383,7 @@
                                    @focus="open = true"
                                    @keydown.escape="open=false; localSearch = forms.LOCAL.modelName || ''"
                                    placeholder="e.g. llama3.3"
-                                   class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-40)]"/>
+                                   class="flex-1 bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)] placeholder:text-[var(--grayscale-60)]"/>
                             <img src="/icon/icon-triangle-down.svg" :class="open ? 'rotate-180' : ''" @click.stop="open=!open; if(open){localSearch='';$nextTick(()=>$refs.localModelInput.focus())}else{localSearch=forms.LOCAL.modelName||''}"
                                  class="transition-transform duration-150 shrink-0 cursor-pointer w-[14px] h-[14px]" alt="" aria-hidden="true">
                         </div>
@@ -361,11 +392,11 @@
                             <template x-for="opt in filterModels('LOCAL', localSearch)" :key="opt">
                                 <button type="button" @click="forms.LOCAL.modelName = opt; localSearch = opt; open = false"
                                         class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                        :class="forms.LOCAL.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        :class="forms.LOCAL.modelName === opt ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="opt"></button>
                             </template>
                             <div x-show="filterModels('LOCAL', localSearch).length === 0"
-                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-50)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
+                                 class="px-[12px] py-[9px] text-[12px] text-[var(--grayscale-60)] italic" th:text="#{settings.ai.customModel}">Custom model will be used</div>
                         </div>
                     </div>
                 </div>
@@ -385,13 +416,13 @@
                     <span class="flex items-center gap-[8px] flex-wrap">
                         <span class="font-medium text-[16px] text-black tracking-[-0.16px] leading-[1.3]" th:text="#{settings.ai.embedded.title}">Embedded AI (built-in local model)</span>
                         <span x-show="activeProviderKind==='EMBEDDED'" x-cloak
-                              class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--primary-120)] bg-[rgba(0,160,147,0.10)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
+                              class="inline-flex items-center gap-[5px] text-[11px] font-semibold text-[var(--text-accent)] bg-[rgba(0,160,147,0.05)] border border-[rgba(0,160,147,0.35)] rounded-[5px] px-[7px] py-[2px]">
                             <span class="w-[5px] h-[5px] rounded-full bg-[#00A093]"></span><span th:text="#{settings.ai.provider.activeBadge}">Active</span>
                         </span>
                         <span x-show="embedded.running" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-emerald-600 font-semibold">
                             <span class="w-[5px] h-[5px] rounded-full bg-emerald-500"></span><span th:text="#{settings.ai.embedded.running}">Running</span>
                         </span>
-                        <span x-show="!embedded.running" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-[var(--grayscale-50)] font-semibold">
+                        <span x-show="!embedded.running" x-cloak class="inline-flex items-center gap-[5px] text-[11px] text-[var(--grayscale-60)] font-semibold">
                             <span class="w-[5px] h-[5px] rounded-full bg-[var(--grayscale-30)]"></span><span th:text="#{settings.ai.embedded.stopped}">Stopped</span>
                         </span>
                     </span>
@@ -399,7 +430,7 @@
                 </div>
             </div>
             <!-- Embedded Fields -->
-            <div x-show="mode==='EMBEDDED'" x-cloak class="flex flex-col gap-[14px] pl-[28px]">
+            <div x-show="mode==='EMBEDDED'" x-cloak data-dirty-scope="ai-embedded" class="flex flex-col gap-[14px] pl-[28px]">
                 <div class="flex items-center gap-[16px]">
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.embedded.model}">Model</span>
                     <div class="flex-1 max-w-[400px] flex items-center gap-[8px] flex-wrap">
@@ -407,7 +438,7 @@
                                 class="flex-1 min-w-[180px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] text-[13px] text-[var(--grayscale-100)] font-mono disabled:opacity-40">
                             <option value="" th:text="#{settings.ai.embedded.modelAuto}">Auto (preference order)</option>
                             <template x-for="m in embedded.availableModels" :key="m">
-                                <option :value="m" x-text="m"></option>
+                                <option :value="m" x-text="embeddedModelLabel(m)"></option>
                             </template>
                         </select>
                         <span x-show="embedded.fallbackUsed" x-cloak
@@ -415,6 +446,8 @@
                               th:text="#{settings.ai.embedded.fallbackUsed}">Started with fallback model</span>
                     </div>
                 </div>
+                <p class="text-[12px] text-[var(--grayscale-60)] leading-[1.5] pl-[126px] max-w-[526px]" x-text="embeddedModelHint()"></p>
+                <p class="text-[12px] text-[var(--grayscale-60)] leading-[1.5] pl-[126px] max-w-[526px]" th:text="#{settings.ai.embedded.hardwareNote}"></p>
                 <div class="flex items-center gap-[16px]" x-show="embedded.activeModel" x-cloak>
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.embedded.activeModel}">Active</span>
                     <span class="text-[13px] font-mono text-[var(--grayscale-90)]" x-text="embedded.activeModel"></span>
@@ -433,9 +466,10 @@
 
                 <!-- Status notes -->
                 <div class="flex flex-col gap-[6px] pl-[126px] max-w-[526px] text-[12px] leading-[1.5]">
+                    <p class="m-0 text-[var(--grayscale-60)]" th:text="#{settings.ai.embedded.layoutHint}"></p>
                     <p class="m-0 text-amber-600" x-show="!embedded.binaryFound" x-cloak
                        th:text="#{settings.ai.embedded.binaryMissing}">llama-server binary not found.</p>
-                    <p class="m-0 text-[var(--grayscale-50)]" x-show="embedded.binaryFound &amp;&amp; !embedded.modelFile &amp;&amp; !embedded.downloading &amp;&amp; !embedded.airgapped" x-cloak
+                    <p class="m-0 text-[var(--grayscale-60)]" x-show="embedded.binaryFound &amp;&amp; !embedded.modelFile &amp;&amp; !embedded.downloading &amp;&amp; !embedded.airgapped" x-cloak
                        th:text="#{settings.ai.embedded.modelMissing}">No .gguf model yet — Start downloads it automatically.</p>
                     <p class="m-0 text-amber-600" x-show="embedded.binaryFound &amp;&amp; !embedded.modelFile &amp;&amp; embedded.airgapped" x-cloak
                        th:text="#{settings.ai.embedded.modelMissingAirgapped}">No .gguf model yet, and this host is air-gapped.</p>
@@ -458,7 +492,7 @@
                     <button type="button" x-show="!embedded.running"
                             @click="startEmbedded()"
                             :disabled="embeddedBusy || !embedded.binaryFound"
-                            class="bg-[#00A093] hover:bg-[#008f83] disabled:opacity-40 text-white text-[13px] font-semibold px-[14px] py-[8px] rounded-[8px] transition-colors cursor-pointer"
+                            class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] disabled:opacity-40 text-white text-[13px] font-semibold px-[14px] py-[8px] rounded-[8px] transition-colors cursor-pointer"
                             x-text="embeddedButtonLabel()"></button>
                     <button type="button" x-show="embedded.running" x-cloak
                             @click="stopEmbedded()"
@@ -488,15 +522,16 @@
                          class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
                         <template x-for="opt in effortOptions" :key="opt.value">
                             <button type="button"
+                                    data-dirty-mark
                                     @click="preferences.reasoningEffort=opt.value; effortDropdownOpen=false"
                                     class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                    :class="preferences.reasoningEffort===opt.value ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                    :class="preferences.reasoningEffort===opt.value ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                     x-text="opt.label"></button>
                         </template>
                     </div>
                 </div>
             </div>
-            <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.effort}">Higher effort means the model reasons longer before answering.</p>
+            <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.effort}">Higher effort means the model reasons longer before answering.</p>
             <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px] font-mono" x-text="effortWireHint()"></p>
         </div>
 
@@ -518,7 +553,7 @@
             <button type="button"
                     @click="saveProvider()"
                     :disabled="savingProvider"
-                    class="bg-[#00A093] hover:bg-[#008f83] px-[12px] py-[8px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
+                    class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] px-[12px] py-[8px] rounded-[8px] shadow-[0px_0px_20px_0px_rgba(0,29,53,0.03)] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
                     <polyline points="17 21 17 13 7 13 7 21"/>
@@ -530,6 +565,14 @@
         </div>
 
     </div>
+    </div><!-- /PROVIDER -->
+
+    <!-- ===================== SCOPE / CONTEXT ===================== -->
+    <div x-show="subTab==='context'" x-cloak class="flex flex-col gap-[20px]">
+    <div x-show="mode==='off'" x-cloak class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] rounded-[10px] px-[20px] py-[16px] text-[13px] text-[var(--grayscale-60)]"
+         th:text="#{settings.ai.hint.backfillNeedsProvider}">Select and save an AI provider above first.</div>
+    <template x-if="mode!=='off'">
+    <div class="flex flex-col gap-[20px]" data-dirty-scope="ai-context">
 
     <!-- Scan Enrichment — split into one card per concern. As a single card it ran to
          seven unrelated sections and one Save button at the very bottom. -->
@@ -549,10 +592,11 @@
                     <div class="flex flex-wrap gap-[8px] flex-1 max-w-[400px]">
                         <template x-for="level in ['CRITICAL','HIGH','MEDIUM','LOW']" :key="level">
                             <button type="button"
+                                    data-dirty-mark
                                     @click="toggleCveSeverity(level, !preferences.cveSeverities.includes(level))"
                                     class="px-[12px] py-[6px] rounded-[8px] border text-[13px] font-medium tracking-[-0.13px] transition-colors cursor-pointer"
                                     :class="preferences.cveSeverities.includes(level)
-                                        ? 'border-[var(--primary-120)] bg-[rgba(0,160,147,0.08)] text-[var(--primary-120)]'
+                                        ? 'border-[var(--primary-120)] bg-[rgba(0,160,147,0.08)] text-[var(--text-accent)]'
                                         : 'border-[var(--grayscale-20)] bg-white text-[var(--grayscale-70)] hover:border-[var(--grayscale-40)]'"
                                     x-text="level"></button>
                         </template>
@@ -565,7 +609,7 @@
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.cveLimit}">Caps API cost: if a scan has more matching CVEs, only the top N by severity are summarized (1–50).</p>
+                <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.cveLimit}">Caps API cost: if a scan has more matching CVEs, only the top N by severity are summarized (1–50).</p>
             </div>
         </div>
         <!-- License summaries -->
@@ -584,22 +628,8 @@
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.licenseLimit}">If more components qualify, only the highest-risk N are summarized per scan (1–50).</p>
+                <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.licenseLimit}">If more components qualify, only the highest-risk N are summarized per scan (1–50).</p>
             </div>
-        </div>
-        <!-- Each card saves the whole enrichment payload; the button is repeated per card
-             so an edit is never stranded behind a save further down the page. -->
-        <div class="flex gap-[12px] items-center justify-end">
-            <button type="button" @click="saveEnrichment()" :disabled="savingEnrichment"
-                    class="bg-[#00A093] hover:bg-[#008f83] px-[12px] py-[8px] rounded-[8px] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                    <polyline points="17 21 17 13 7 13 7 21"/>
-                    <polyline points="7 3 7 8 15 8"/>
-                </svg>
-                <span class="font-medium text-[14px] text-white tracking-[-0.14px] whitespace-nowrap"
-                      x-text="savingEnrichment ? _aiI18n.saving : _aiI18n.save"></span>
-            </button>
         </div>
     </div>
 
@@ -626,17 +656,17 @@
                         </button>
                         <div x-show="localeDropdownOpen" x-cloak
                              class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
-                            <button type="button" @click="preferences.promptsLocale='en'; localeDropdownOpen=false"
+                            <button type="button" data-dirty-mark @click="preferences.promptsLocale='en'; localeDropdownOpen=false"
                                     class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                    :class="preferences.promptsLocale==='en' ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                    :class="preferences.promptsLocale==='en' ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                     th:text="#{settings.ai.locale.en}">English</button>
-                            <button type="button" @click="preferences.promptsLocale='ko'; localeDropdownOpen=false"
+                            <button type="button" data-dirty-mark @click="preferences.promptsLocale='ko'; localeDropdownOpen=false"
                                     class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                    :class="preferences.promptsLocale==='ko' ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                    :class="preferences.promptsLocale==='ko' ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                     th:text="#{settings.ai.locale.ko}">Korean</button>
-                            <button type="button" @click="preferences.promptsLocale='ja'; localeDropdownOpen=false"
+                            <button type="button" data-dirty-mark @click="preferences.promptsLocale='ja'; localeDropdownOpen=false"
                                     class="w-full text-left px-[12px] py-[8px] text-[13px] transition-colors"
-                                    :class="preferences.promptsLocale==='ja' ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                    :class="preferences.promptsLocale==='ja' ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                     th:text="#{settings.ai.locale.ja}">Japanese</button>
                         </div>
                     </div>
@@ -659,28 +689,15 @@
                          class="absolute z-20 top-full left-0 mt-[4px] w-full bg-white border border-[var(--grayscale-20)] rounded-[8px] shadow-[0px_4px_20px_rgba(0,29,53,0.10)] overflow-hidden">
                         <template x-for="opt in deploymentOptions" :key="opt.value">
                             <button type="button"
+                                    data-dirty-mark
                                     @click="preferences.defaultDeploymentProfile=opt.value; deploymentDropdownOpen=false"
                                     class="w-full text-left px-[12px] py-[9px] text-[13px] transition-colors"
-                                    :class="preferences.defaultDeploymentProfile===opt.value ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                    :class="preferences.defaultDeploymentProfile===opt.value ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                     x-text="opt.label"></button>
                         </template>
                     </div>
                 </div>
             </div>
-        </div>
-        <!-- Each card saves the whole enrichment payload; the button is repeated per card
-             so an edit is never stranded behind a save further down the page. -->
-        <div class="flex gap-[12px] items-center justify-end">
-            <button type="button" @click="saveEnrichment()" :disabled="savingEnrichment"
-                    class="bg-[#00A093] hover:bg-[#008f83] px-[12px] py-[8px] rounded-[8px] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
-                    <polyline points="17 21 17 13 7 13 7 21"/>
-                    <polyline points="7 3 7 8 15 8"/>
-                </svg>
-                <span class="font-medium text-[14px] text-white tracking-[-0.14px] whitespace-nowrap"
-                      x-text="savingEnrichment ? _aiI18n.saving : _aiI18n.save"></span>
-            </button>
         </div>
     </div>
 
@@ -695,41 +712,45 @@
             </div>
             <div class="flex flex-col gap-[14px] pl-[28px]">
                 <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.temperature}">Temperature</span>
-                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                        <input type="number" min="0" max="2" step="0.05" x-model.number="preferences.temperature"
+                    <label for="ai-temperature" class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.temperature}">Temperature</label>
+                    <div class="oswl-field flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="0" max="2" step="0.05" id="ai-temperature" x-model.number="preferences.temperature" @input="parameterEdited('temperature')" :aria-invalid="!!parameterErrors.temperature" aria-describedby="ai-temperature-error" th:placeholder="#{settings.ai.defaultTemperature}"
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.temperature}">Lower means more repeatable, factual output; higher means more varied wording. Triage notes read best at 0.1–0.3 (0–2).</p>
+                <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.temperature}">Lower means more repeatable, factual output; higher means more varied wording. Triage notes read best at 0.1–0.3 (0–2).</p>
+                <p id="ai-temperature-error" x-show="parameterErrors.temperature" x-cloak x-text="parameterErrors.temperature" class="text-[13px] text-[#b42318] pl-[126px]" role="alert"></p>
                 <!-- Anthropic's current models reject sampling parameters outright, so the client
                      never sends this value for them — say so rather than let it look applied. -->
                 <p x-show="mode === 'ANTHROPIC'" x-cloak
                    class="text-[12px] text-amber-700 tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]"
                    th:text="#{settings.ai.hint.temperature.anthropic}">Not used by Anthropic — current Claude models reject a temperature setting, so response style is steered by the prompt instead.</p>
                 <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.maxTokens}">Max tokens</span>
-                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                        <input type="number" min="256" max="8192" x-model.number="preferences.maxTokens"
+                    <label for="ai-maxTokens" class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.maxTokens}">Max tokens</label>
+                    <div class="oswl-field flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="256" max="8192" id="ai-maxTokens" x-model.number="preferences.maxTokens" @input="parameterEdited('maxTokens')" :aria-invalid="!!parameterErrors.maxTokens" aria-describedby="ai-maxTokens-error" step="1" th:placeholder="#{settings.ai.defaultMaxTokens}"
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.maxTokens}">Ceiling on the length of one AI response (256–8192). Too low truncates batch results mid-JSON and the whole batch is discarded; 1200 suits the default templates.</p>                <div class="flex items-center gap-[16px]">
-                    <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.dailyCallCap}">Daily API cap</span>
-                    <div class="flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
-                        <input type="number" min="0" x-model.number="preferences.dailyCallCap"
+                <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.maxTokens}">Ceiling on the length of one AI response (256–8192). Too low truncates batch results mid-JSON and the whole batch is discarded; 1200 suits the default templates.</p>
+                <p id="ai-maxTokens-error" x-show="parameterErrors.maxTokens" x-cloak x-text="parameterErrors.maxTokens" class="text-[13px] text-[#b42318] pl-[126px]" role="alert"></p>                <div class="flex items-center gap-[16px]">
+                    <label for="ai-dailyCallCap" class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.dailyCallCap}">Daily API cap</label>
+                    <div class="oswl-field flex-1 max-w-[400px] bg-white border border-[var(--grayscale-20)] rounded-[8px] px-[12px] py-[8px] focus-within:border-[var(--primary-120)] transition-colors">
+                        <input type="number" min="0" id="ai-dailyCallCap" x-model.number="preferences.dailyCallCap" @input="parameterEdited('dailyCallCap')" :aria-invalid="!!parameterErrors.dailyCallCap" aria-describedby="ai-dailyCallCap-error"
                                class="w-full bg-transparent outline-none border-none text-[13px] text-[var(--grayscale-100)]"/>
                     </div>
                 </div>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.dailyCallCap}">0 = unlimited. When exceeded, AI enrichment is skipped until the next day.</p>
+                <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.dailyCallCap}">0 = unlimited. When exceeded, AI enrichment is skipped until the next day.</p>
+                <p id="ai-dailyCallCap-error" x-show="parameterErrors.dailyCallCap" x-cloak x-text="parameterErrors.dailyCallCap" class="text-[13px] text-[#b42318] pl-[126px]" role="alert"></p>
             </div>
         </div>
 
         <!-- Each card saves the whole enrichment payload; the button is repeated per card
              so an edit is never stranded behind a save further down the page. -->
         <div class="flex gap-[12px] items-center justify-end">
+            <span class="oswl-save-feedback" :class="{'is-error': !!apiError}" role="status" aria-live="polite" x-text="savingEnrichment ? _aiI18n.saving : (apiError ? (Object.keys(parameterErrors).length ? _aiI18n.checkFields : _aiI18n.saveFailed) : saveFeedback)"></span>
             <button type="button" @click="saveEnrichment()" :disabled="savingEnrichment"
-                    class="bg-[#00A093] hover:bg-[#008f83] px-[12px] py-[8px] rounded-[8px] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
+                    class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] px-[12px] py-[8px] rounded-[8px] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
                     <polyline points="17 21 17 13 7 13 7 21"/>
@@ -741,7 +762,18 @@
         </div>
     </div>
 
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[28px] flex flex-col gap-[28px]">
+    </div>
+    </template>
+    </div><!-- /SCOPE-CONTEXT -->
+
+    <!-- ===================== PROMPTS / BACKFILL ===================== -->
+    <div x-show="subTab==='prompts'" x-cloak class="flex flex-col gap-[20px]">
+    <div x-show="mode==='off'" x-cloak class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] rounded-[10px] px-[20px] py-[16px] text-[13px] text-[var(--grayscale-60)]"
+         th:text="#{settings.ai.hint.backfillNeedsProvider}">Select and save an AI provider above first.</div>
+    <template x-if="mode!=='off'">
+    <div class="flex flex-col gap-[20px]">
+
+    <div data-dirty-scope="ai-prompts" class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[28px] flex flex-col gap-[28px]">
         <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.ai.enrichment.prompts.heading}">Prompt templates</h3>
         <!-- Prompt templates -->
         <div class="flex flex-col gap-[24px]">
@@ -767,7 +799,7 @@
                                 <button type="button"
                                         @click="promptEditKey=key; promptKeyDropdownOpen=false; loadPromptEditor()"
                                         class="w-full text-left px-[12px] py-[9px] text-[12px] font-mono transition-colors"
-                                        :class="promptEditKey===key ? 'bg-[var(--grayscale-5)] text-[var(--primary-120)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
+                                        :class="promptEditKey===key ? 'bg-[var(--grayscale-5)] text-[var(--text-accent)] font-medium' : 'text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)]'"
                                         x-text="key"></button>
                             </template>
                         </div>
@@ -783,8 +815,9 @@
         <!-- Each card saves the whole enrichment payload; the button is repeated per card
              so an edit is never stranded behind a save further down the page. -->
         <div class="flex gap-[12px] items-center justify-end">
+            <span class="oswl-save-feedback" :class="{'is-error': !!apiError}" role="status" aria-live="polite" x-text="savingEnrichment ? _aiI18n.saving : (apiError ? (Object.keys(parameterErrors).length ? _aiI18n.checkFields : _aiI18n.saveFailed) : saveFeedback)"></span>
             <button type="button" @click="saveEnrichment()" :disabled="savingEnrichment"
-                    class="bg-[#00A093] hover:bg-[#008f83] px-[12px] py-[8px] rounded-[8px] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
+                    class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] px-[12px] py-[8px] rounded-[8px] flex gap-[8px] items-center justify-center min-w-[102px] disabled:opacity-60 transition-colors cursor-pointer">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
                     <polyline points="17 21 17 13 7 13 7 21"/>
@@ -799,7 +832,7 @@
     <!-- Existing scans - opt-in regeneration, in its own card matching the others.
          Without the opt-in, connecting a provider or switching the prompt language kicked off a
          background pass over every recent scan, spending tokens the user never asked for. -->
-    <div class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[28px] flex flex-col gap-[28px]">
+    <div data-dirty-scope="ai-prompts" class="bg-white border border-[var(--grayscale-20)] rounded-[10px] pt-[28px] px-[28px] pb-[28px] flex flex-col gap-[28px]">
         <h3 class="font-bold text-[20px] text-black tracking-[-0.2px] leading-[1.3]" th:text="#{settings.ai.enrichment.backfill.title}">Existing scans</h3>
 
         <div class="flex flex-col gap-[24px]">
@@ -814,22 +847,9 @@
                      page rather than a raw browser checkbox. -->
                 <div class="flex items-center gap-[16px]">
                     <span class="font-medium text-[13px] text-[var(--grayscale-70)] w-[110px] shrink-0" th:text="#{settings.ai.label.autoBackfillShort}">Automatic</span>
-                    <div class="flex gap-[8px] flex-1 max-w-[400px]">
-                        <button type="button" @click="preferences.autoBackfillInsights = false"
-                                class="px-[12px] py-[6px] rounded-[8px] border text-[13px] font-medium tracking-[-0.13px] transition-colors cursor-pointer"
-                                :class="!preferences.autoBackfillInsights
-                                    ? 'border-[var(--primary-120)] bg-[rgba(0,160,147,0.08)] text-[var(--primary-120)]'
-                                    : 'border-[var(--grayscale-20)] bg-white text-[var(--grayscale-70)] hover:border-[var(--grayscale-40)]'"
-                                th:text="#{settings.ai.autoBackfill.off}">Off</button>
-                        <button type="button" @click="preferences.autoBackfillInsights = true"
-                                class="px-[12px] py-[6px] rounded-[8px] border text-[13px] font-medium tracking-[-0.13px] transition-colors cursor-pointer"
-                                :class="preferences.autoBackfillInsights
-                                    ? 'border-[var(--primary-120)] bg-[rgba(0,160,147,0.08)] text-[var(--primary-120)]'
-                                    : 'border-[var(--grayscale-20)] bg-white text-[var(--grayscale-70)] hover:border-[var(--grayscale-40)]'"
-                                th:text="#{settings.ai.autoBackfill.on}">On</button>
-                    </div>
+                    <button type="button" role="switch" th:aria-label="#{settings.ai.label.autoBackfill}" :aria-checked="preferences.autoBackfillInsights" data-dirty-mark @click="preferences.autoBackfillInsights = !preferences.autoBackfillInsights" class="oswl-switch" :class="preferences.autoBackfillInsights ? 'is-on' : ''"><span></span></button>
                 </div>
-                <p class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.autoBackfill}">Off by default. When on, saving a provider or a new prompt language re-runs the AI for recent scans in the background, which costs one API call per scan.</p>
+                <p class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] leading-[1.4] pl-[126px] max-w-[526px]" th:text="#{settings.ai.hint.autoBackfill}">Off by default. When on, saving a provider or a new prompt language re-runs the AI for recent scans in the background, which costs one API call per scan.</p>
             </div>
         </div>
 
@@ -843,16 +863,20 @@
             <div class="flex flex-col gap-[14px] pl-[28px]">
                 <div class="flex items-center gap-[10px] flex-wrap">
                     <button type="button" @click="runBackfill(false)" :disabled="backfilling || mode==='off'"
-                            class="bg-[#00A093] hover:bg-[#008f83] text-white text-[13px] font-semibold px-[14px] py-[8px] rounded-[8px] transition-colors cursor-pointer disabled:opacity-40"
+                            class="bg-[var(--text-accent)] hover:bg-[var(--primary-140)] text-white text-[13px] font-semibold px-[14px] py-[8px] rounded-[8px] transition-colors cursor-pointer disabled:opacity-40"
                             x-text="backfilling ? _aiI18n.backfillRunning : _aiI18n.backfillMissing"></button>
                     <button type="button" @click="runBackfill(true)" :disabled="backfilling || mode==='off'"
                             class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-20)] text-[var(--grayscale-80)] text-[13px] font-semibold px-[14px] py-[8px] rounded-[8px] transition-colors cursor-pointer disabled:opacity-40"
                             x-text="backfilling ? _aiI18n.backfillRunning : _aiI18n.backfillAll"></button>
                 </div>
-                <p x-show="mode==='off'" x-cloak class="text-[12px] text-[var(--grayscale-50)] tracking-[-0.12px] leading-[1.4] max-w-[526px]" th:text="#{settings.ai.hint.backfillNeedsProvider}">Select and save an AI provider above first.</p>
+                <p x-show="mode==='off'" x-cloak class="text-[12px] text-[var(--grayscale-60)] tracking-[-0.12px] leading-[1.4] max-w-[526px]" th:text="#{settings.ai.hint.backfillNeedsProvider}">Select and save an AI provider above first.</p>
             </div>
         </div>
     </div>
+
+    </div>
+    </template>
+    </div><!-- /PROMPTS-BACKFILL -->
 
     <!-- ── Toast ── -->
     <div x-show="toastVisible" x-cloak
@@ -878,6 +902,11 @@
 
     <script th:inline="javascript">
     const _aiI18n = {
+        temperatureInvalid: /*[[#{settings.ai.temperatureInvalid}]]*/ 'Enter a number from 0 to 2.',
+        maxTokensInvalid: /*[[#{settings.ai.maxTokensInvalid}]]*/ 'Enter an integer from 256 to 8192.',
+        dailyCallCapInvalid: /*[[#{settings.ai.dailyCallCapInvalid}]]*/ 'Enter an integer from 0 to 1000000.',
+        checkFields: /*[[#{settings.ai.checkFields}]]*/ 'Not saved. Check the highlighted fields.',
+        invalidParameters: /*[[#{settings.ai.invalidParameters}]]*/ 'Check parameter limits.',
         testConnection: /*[[#{settings.ai.btn.testConnection}]]*/ 'Test Connection',
         testing:        /*[[#{settings.ai.btn.testing}]]*/ 'Testing\u2026',
         save:           /*[[#{common.save}]]*/ 'Save',
@@ -911,6 +940,7 @@
         embeddedStopping: /*[[#{settings.ai.embedded.btn.stopping}]]*/ 'Stopping…',
         embeddedStarted: /*[[#{settings.ai.embedded.msg.started}]]*/ 'Embedded AI is running and set as the active LOCAL provider.',
         embeddedStopped: /*[[#{settings.ai.embedded.msg.stopped}]]*/ 'Embedded AI stopped.',
+        embeddedStopFailed: /*[[#{settings.ai.embedded.error.stopFailed}]]*/ 'Failed to stop Embedded AI.',
         embeddedFailed: /*[[#{settings.ai.embedded.error.failed}]]*/ 'Failed to start Embedded AI.',
         effortDefault:  /*[[#{settings.ai.effort.default}]]*/ 'Provider default',
         effortLow:      /*[[#{settings.ai.effort.low}]]*/ 'Low — fastest, cheapest',
@@ -930,604 +960,15 @@
         backfillConfirmAll:     /*[[#{settings.ai.backfill.confirm.all}]]*/ 'Regenerate insights for ALL recent scans, replacing the existing ones? This calls the AI provider once per scan.',
         embeddedConfigSave: /*[[#{settings.ai.embedded.config.save}]]*/ 'Save',
         embeddedConfigSaving: /*[[#{settings.ai.embedded.config.saving}]]*/ 'Saving…',
-        embeddedConfigSaved: /*[[#{settings.ai.embedded.config.saved}]]*/ 'Embedded AI settings saved.'
+        embeddedConfigSaved: /*[[#{settings.ai.embedded.config.saved}]]*/ 'Embedded AI settings saved.',
+        embeddedDefault: /*[[#{settings.ai.embedded.defaultLabel}]]*/ 'Default',
+        embeddedQwenHint: /*[[#{settings.ai.embedded.qwenHint}]]*/ 'CPU default',
+        embeddedGemmaHint: /*[[#{settings.ai.embedded.gemmaHint}]]*/ 'Optional CPU model',
+        embeddedCustomHint: /*[[#{settings.ai.embedded.customHint}]]*/ 'Check the requirements of this model.'
     };
     </script>
 
-    <script>
-    function aiTab() {
-        return {
-            // Which radio is selected. 'EMBEDDED' is a UI-only value: on the wire the embedded
-            // sidecar is the LOCAL provider, told apart by its base URL (see activeProviderKind).
-            mode: 'off', // 'off' | 'OPENAI' | 'ANTHROPIC' | 'GEMINI' | 'LOCAL' | 'EMBEDDED'
-            // Server's answer to "which one is actually serving calls right now" — the radio only
-            // reflects what the user is looking at, which is why an active provider and a running
-            // embedded model used to look identical.
-            activeProviderKind: 'OFF',
-            forms: {
-                OPENAI:    { apiKey: '', modelName: 'gpt-5.6-terra',   baseUrl: '' },
-                ANTHROPIC: { apiKey: '', modelName: 'claude-opus-5',   baseUrl: '' },
-                GEMINI:    { apiKey: '', modelName: 'gemini-3.1-pro',  baseUrl: '' },
-                LOCAL:     { apiKey: '', modelName: 'llama3.3',        baseUrl: 'http://localhost:11434/v1' }
-            },
-            // Suggestions only — any id can be typed in. Kept here rather than inline in each
-            // dropdown so a model refresh is a one-line change instead of eight duplicated
-            // array literals (each dropdown previously repeated its list twice).
-            models: {
-                OPENAI: ['gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna',
-                         'gpt-5.5-pro', 'gpt-5.5',
-                         'gpt-5.4-pro', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.4-nano'],
-                ANTHROPIC: ['claude-opus-5', 'claude-fable-5', 'claude-sonnet-5', 'claude-haiku-4-5',
-                            'claude-opus-4-8', 'claude-opus-4-7', 'claude-sonnet-4-6'],
-                GEMINI: ['gemini-3.1-pro', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite',
-                         'gemini-3-pro', 'gemini-3-flash',
-                         'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'],
-                // Popular Ollama tags. Small models first — an 8B-class model on CPU is what
-                // most self-hosted setups can actually run at a usable speed.
-                LOCAL: ['llama3.3', 'llama3.2', 'llama3.1',
-                        'qwen3', 'qwen3-coder', 'qwen2.5', 'qwen2.5-coder',
-                        'gemma3', 'gemma3n', 'phi4', 'phi4-mini',
-                        'deepseek-r1', 'deepseek-v3',
-                        'mistral', 'mistral-nemo', 'mixtral',
-                        'codellama', 'granite3.3', 'smollm2']
-            },
-
-            /** Case-insensitive substring filter over the suggestion list for one provider. */
-            filterModels(provider, query) {
-                const list = this.models[provider] || [];
-                if (!query) return list;
-                const q = query.toLowerCase();
-                return list.filter(o => o.toLowerCase().includes(q));
-            },
-            preferences: {
-                promptsLocale: 'en', cveLimit: 10, licenseLimit: 8, cveSeverities: ['CRITICAL', 'HIGH'],
-                temperature: null, maxTokens: null, dailyCallCap: 0,
-                defaultDeploymentProfile: 'COMMERCIAL_PRODUCT',
-                reasoningEffort: 'DEFAULT', autoBackfillInsights: false
-            },
-            promptKeys: [], promptOverrides: {}, promptEditKey: 'system.default', promptEditText: '',
-            localeDropdownOpen: false,
-            deploymentDropdownOpen: false,
-            effortDropdownOpen: false,
-            promptKeyDropdownOpen: false,
-            backfilling: false,
-            effortOptions: [
-                { value: 'DEFAULT', label: _aiI18n.effortDefault },
-                { value: 'LOW',     label: _aiI18n.effortLow },
-                { value: 'MEDIUM',  label: _aiI18n.effortMedium },
-                { value: 'HIGH',    label: _aiI18n.effortHigh },
-                { value: 'XHIGH',   label: _aiI18n.effortXhigh },
-                { value: 'MAX',     label: _aiI18n.effortMax }
-            ],
-            // Mirror of AiEffort (Java): what each provider actually receives. XHIGH/MAX exist only
-            // on Anthropic's output_config.effort — everywhere else reasoning_effort tops out at
-            // "high", so those two levels are sent as "high" rather than being rejected.
-            effortWire: {
-                DEFAULT: { openai: null,     anthropic: null },
-                LOW:     { openai: 'low',    anthropic: 'low' },
-                MEDIUM:  { openai: 'medium', anthropic: 'medium' },
-                HIGH:    { openai: 'high',   anthropic: 'high' },
-                XHIGH:   { openai: 'high',   anthropic: 'xhigh' },
-                MAX:     { openai: 'high',   anthropic: 'max' }
-            },
-            deploymentOptions: [
-                { value: 'COMMERCIAL_PRODUCT',      label: _aiI18n.deployCommercial },
-                { value: 'SAAS',                    label: _aiI18n.deploySaas },
-                { value: 'INTERNAL_TOOL',           label: _aiI18n.deployInternal },
-                { value: 'ON_PREMISE_DISTRIBUTION', label: _aiI18n.deployOnPrem }
-            ],
-            savingProvider: false, savingEnrichment: false, testing: false,
-            apiError: null, apiErrorHint: null, toastVisible: false, toastMsg: '', toastKind: 'success', _toastTimer: null,
-            usageStats: null,
-            usageEvents: [], usageEventPage: 0, usageEventTotalPages: 0,
-            embedded: { binaryFound: false, running: false, modelFile: null, activeModel: null, fallbackUsed: false, lastError: null, modelsDir: null, availableModels: [], downloading: false, downloadedBytes: 0, downloadTotalBytes: 0, airgapped: false },
-            embeddedBusy: false, embeddedError: null, _embeddedPollActive: false,
-            embeddedModel: '', embeddedDirInput: '', embeddedSaving: false,
-
-            /**
-             * Token counts run into the millions on a busy instance, where a raw 12847362 is
-             * unreadable. Below 1000 the exact number is still the most useful thing to show.
-             * One decimal is kept only when it carries information (1.2K, but 15K not 15.0K).
-             */
-            fmtTokens(value) {
-                const n = Number(value) || 0;
-                if (n < 1000) return String(n);
-                const [scaled, unit] = n < 1000000 ? [n / 1000, 'K'] : [n / 1000000, 'M'];
-                // 3 significant digits: 9.87K, 98.7K, 987K
-                const decimals = scaled < 10 ? 2 : (scaled < 100 ? 1 : 0);
-                return scaled.toFixed(decimals).replace(/\.?0+$/, '') + unit;
-            },
-
-            /** Full count with thousands separators — used as the title of an abbreviated value. */
-            exactTokens(value) {
-                return (Number(value) || 0).toLocaleString();
-            },
-
-            localeLabel() {
-                if (this.preferences.promptsLocale === 'ko') return _aiI18n.localeKo;
-                if (this.preferences.promptsLocale === 'ja') return _aiI18n.localeJa;
-                return _aiI18n.localeEn;
-            },
-            deploymentLabel() {
-                const opt = this.deploymentOptions.find(o => o.value === this.preferences.defaultDeploymentProfile);
-                return opt ? opt.label : this.preferences.defaultDeploymentProfile;
-            },
-
-            effortLabel() {
-                const opt = this.effortOptions.find(o => o.value === this.preferences.reasoningEffort);
-                return opt ? opt.label : _aiI18n.effortDefault;
-            },
-
-            /** One line naming the exact request field and value the selected provider will receive. */
-            effortWireHint() {
-                const wire = this.effortWire[this.preferences.reasoningEffort] || this.effortWire.DEFAULT;
-                const isAnthropic = this.mode === 'ANTHROPIC';
-                const value = isAnthropic ? wire.anthropic : wire.openai;
-                if (!value) return _aiI18n.effortWireNone;
-                return isAnthropic
-                    ? _aiI18n.effortWireAnthropic.replace('{0}', value)
-                    : _aiI18n.effortWireOpenai.replace('{0}', value);
-            },
-
-            /**
-             * Regenerates scan-level insights on demand. Confirmed first because each scan in
-             * scope is a paid provider call — this is the whole reason the automatic version is
-             * opt-in.
-             */
-            async runBackfill(force) {
-                const question = force ? _aiI18n.backfillConfirmAll : _aiI18n.backfillConfirmMissing;
-                if (!window.confirm(question)) return;
-                this.backfilling = true;
-                try {
-                    const r = await fetch('/api/settings/ai/backfill?force=' + (force ? 'true' : 'false'), {
-                        method: 'POST',
-                        headers: this.headers()
-                    });
-                    if (r.status === 401) { location.href = '/login'; return; }
-                    const data = await r.json().catch(() => ({}));
-                    if (!r.ok || !data.success) {
-                        this.showToast(data.message || _aiI18n.backfillFailed, 'error');
-                        return;
-                    }
-                    this.showToast(_aiI18n.backfillStarted);
-                } catch (e) {
-                    this.showToast(_aiI18n.backfillFailed, 'error');
-                } finally {
-                    this.backfilling = false;
-                }
-            },
-
-            csrf() {
-                return window.OswlCsrf ? window.OswlCsrf.token() : '';
-            },
-
-            async init() {
-                // A stale error from the previously selected provider would be misleading once
-                // the user switches — clear it as soon as the selection changes.
-                this.$watch('mode', () => { this.apiError = null; this.apiErrorHint = null; });
-                try {
-                    const r = await fetch('/api/settings/ai');
-                    if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.loadFailed); return; }
-                    const data = await r.json();
-                    if (data.activeProviderKind) this.activeProviderKind = data.activeProviderKind;
-                    if (data && data.active && data.provider) {
-                        // Land on the entry that is actually live — for a running embedded model
-                        // that is the Embedded option, not the Local/Ollama one it borrows.
-                        this.mode = this.activeProviderKind === 'EMBEDDED' ? 'EMBEDDED' : data.provider;
-                        const f = this.forms[data.provider];
-                        if (f) {
-                            if (data.baseUrl)   f.baseUrl   = data.baseUrl;
-                            if (data.modelName) f.modelName = data.modelName;
-                        }
-                    }
-                    if (data.promptsLocale) this.preferences.promptsLocale = data.promptsLocale;
-                    if (data.cveLimit)      this.preferences.cveLimit = data.cveLimit;
-                    if (data.licenseLimit)  this.preferences.licenseLimit = data.licenseLimit;
-                    if (data.cveSeverities) {
-                        this.preferences.cveSeverities = data.cveSeverities.split(',').map(s => s.trim()).filter(Boolean);
-                    }
-                    if (data.temperature != null) this.preferences.temperature = data.temperature;
-                    if (data.maxTokens != null) this.preferences.maxTokens = data.maxTokens;
-                    if (data.dailyCallCap != null) this.preferences.dailyCallCap = data.dailyCallCap;
-                    if (data.defaultDeploymentProfile) {
-                        this.preferences.defaultDeploymentProfile = data.defaultDeploymentProfile;
-                    }
-                    if (data.reasoningEffort) this.preferences.reasoningEffort = data.reasoningEffort;
-                    this.preferences.autoBackfillInsights = !!data.autoBackfillInsights;
-                    await this.loadPrompts();
-                    await this.loadUsageStats();
-                    await this.loadUsageEvents(0);
-                    await this.loadEmbeddedStatus();
-                } catch (e) { this.apiError = _aiI18n.loadFailed; }
-            },
-
-            async loadEmbeddedStatus() {
-                try {
-                    const r = await fetch('/api/settings/ai/embedded');
-                    if (r.ok) {
-                        this.embedded = await r.json();
-                        this.syncEmbeddedInputs();
-                        if (this.embedded.downloading && !this._embeddedPollActive) {
-                            // A page reload landed mid-download (it runs server-side, independent
-                            // of any browser session) — resume polling instead of leaving a stale
-                            // progress snapshot on screen forever.
-                            this.embeddedBusy = true;
-                            this._pollEmbeddedUntilSettled().finally(() => { this.embeddedBusy = false; });
-                        }
-                    }
-                } catch (e) { /* non-fatal */ }
-            },
-
-            syncEmbeddedInputs() {
-                this.embeddedModel = this.embedded.modelFile || '';
-                this.embeddedDirInput = this.embedded.modelsDir || '';
-            },
-
-            async startEmbedded() {
-                this.embeddedBusy = true;
-                this.embeddedError = null;
-                try {
-                    const url = '/api/settings/ai/embedded/start'
-                        + (this.embeddedModel ? '?model=' + encodeURIComponent(this.embeddedModel) : '');
-                    const r = await fetch(url, {
-                        method: 'POST',
-                        headers: this.headers()
-                    });
-                    const data = await r.json();
-                    this.embedded = data;
-                    if (!r.ok) {
-                        this.embeddedError = data.message || _aiI18n.embeddedFailed;
-                        return;
-                    }
-                    if (data.downloading) {
-                        // No .gguf present yet — the server started downloading Qwen3 in the
-                        // background and returned immediately. Poll until it settles.
-                        await this._pollEmbeddedUntilSettled();
-                    } else {
-                        this._applyEmbeddedStartResult(data);
-                    }
-                } catch (e) {
-                    this.embeddedError = _aiI18n.embeddedFailed;
-                } finally {
-                    this.embeddedBusy = false;
-                }
-            },
-
-            _applyEmbeddedStartResult(data) {
-                if (data.success && data.running) {
-                    // Stay on (and light up) the Embedded entry. It previously jumped the radio to
-                    // Local/Ollama, which is where the "which one is on?" confusion came from.
-                    this.mode = 'EMBEDDED';
-                    this.activeProviderKind = 'EMBEDDED';
-                    if (data.baseUrl) this.forms.LOCAL.baseUrl = data.baseUrl;
-                    if (data.activeModel) this.forms.LOCAL.modelName = data.activeModel.replace(/\.gguf$/i, '');
-                    this.showToast(_aiI18n.embeddedStarted);
-                } else {
-                    this.embeddedError = data.message || data.lastError || _aiI18n.embeddedFailed;
-                }
-            },
-
-            /**
-             * Polls GET /embedded every 1.5s while a background download and/or llama-server
-             * launch is in flight (download progress, then the same ~90s health wait a normal
-             * start already blocks on). Stops as soon as the outcome is decided: running, or
-             * lastError set. A generous 20-minute cap guards against polling forever if the
-             * server-side state machine ever gets stuck without reporting either.
-             */
-            async _pollEmbeddedUntilSettled() {
-                if (this._embeddedPollActive) return;
-                this._embeddedPollActive = true;
-                const deadline = Date.now() + 20 * 60 * 1000;
-                try {
-                    while (Date.now() < deadline) {
-                        await new Promise(resolve => setTimeout(resolve, 1500));
-                        let data;
-                        try {
-                            const r = await fetch('/api/settings/ai/embedded');
-                            if (!r.ok) continue;
-                            data = await r.json();
-                        } catch (e) { continue; }
-                        this.embedded = data;
-                        if (data.running) {
-                            this._applyEmbeddedStartResult({ ...data, success: true });
-                            return;
-                        }
-                        if (data.lastError) {
-                            this.embeddedError = data.lastError;
-                            return;
-                        }
-                        // Still downloading, or still waiting for llama-server to become healthy.
-                    }
-                    this.embeddedError = _aiI18n.embeddedFailed;
-                } finally {
-                    this._embeddedPollActive = false;
-                }
-            },
-
-            embeddedButtonLabel() {
-                if (this.embedded.downloading) {
-                    return _aiI18n.embeddedDownloading.replace('{0}', this.embeddedDownloadPercent());
-                }
-                return this.embeddedBusy ? _aiI18n.embeddedStarting : _aiI18n.embeddedStart;
-            },
-
-            embeddedDownloadPercent() {
-                const total = this.embedded.downloadTotalBytes || 0;
-                if (!total) return 0;
-                return Math.min(100, Math.round((this.embedded.downloadedBytes || 0) / total * 100));
-            },
-
-            embeddedDownloadMB() {
-                return {
-                    done: Math.round((this.embedded.downloadedBytes || 0) / 1024 / 1024),
-                    total: Math.round((this.embedded.downloadTotalBytes || 0) / 1024 / 1024)
-                };
-            },
-
-            async saveEmbeddedConfig() {
-                this.embeddedSaving = true;
-                this.embeddedError = null;
-                try {
-                    const r = await fetch('/api/settings/ai/embedded/config', {
-                        method: 'PUT',
-                        headers: this.headers(),
-                        body: JSON.stringify({ dir: this.embeddedDirInput, model: this.embeddedModel })
-                    });
-                    const data = await r.json();
-                    this.embedded = data;
-                    if (r.ok && data.success) {
-                        this.syncEmbeddedInputs();
-                        this.showToast(_aiI18n.embeddedConfigSaved);
-                    } else {
-                        this.embeddedError = data.message || _aiI18n.embeddedFailed;
-                    }
-                } catch (e) {
-                    this.embeddedError = _aiI18n.embeddedFailed;
-                } finally {
-                    this.embeddedSaving = false;
-                }
-            },
-
-            async stopEmbedded() {
-                this.embeddedBusy = true;
-                this.embeddedError = null;
-                try {
-                    const r = await fetch('/api/settings/ai/embedded/stop', {
-                        method: 'POST',
-                        headers: this.headers()
-                    });
-                    if (r.ok) {
-                        this.embedded = await r.json();
-                        // Stopping the sidecar deactivates the LOCAL provider server-side, so
-                        // nothing is serving calls until another entry is saved.
-                        this.activeProviderKind = 'OFF';
-                        this.showToast(_aiI18n.embeddedStopped);
-                    }
-                } catch (e) { /* keep state */ } finally {
-                    this.embeddedBusy = false;
-                }
-            },
-
-            async loadUsageStats() {
-                try {
-                    const r = await fetch('/api/settings/ai/usage');
-                    if (r.ok) this.usageStats = await r.json();
-                } catch (e) { /* non-fatal */ }
-            },
-
-            async loadUsageEvents(page) {
-                try {
-                    const r = await fetch('/api/settings/ai/usage/events?page=' + page + '&size=10');
-                    if (!r.ok) return;
-                    const data = await r.json();
-                    this.usageEvents = data.content || [];
-                    this.usageEventPage = data.number || 0;
-                    this.usageEventTotalPages = Math.min(data.totalPages || 0, 10);
-                } catch (e) { /* non-fatal */ }
-            },
-
-            usageEventsPrevPage() { if (this.usageEventPage > 0) this.loadUsageEvents(this.usageEventPage - 1); },
-            usageEventsNextPage() { if (this.usageEventPage + 1 < this.usageEventTotalPages) this.loadUsageEvents(this.usageEventPage + 1); },
-
-            async loadPrompts() {
-                try {
-                    const r = await fetch('/api/settings/ai/prompts');
-                    if (!r.ok) return;
-                    const data = await r.json();
-                    this.promptKeys = data.editableKeys || [];
-                    this.promptOverrides = data.overrides || {};
-                    if (this.promptKeys.length && !this.promptKeys.includes(this.promptEditKey)) {
-                        this.promptEditKey = this.promptKeys[0];
-                    }
-                    await this.loadPromptEditor(data);
-                } catch (_) { /* optional */ }
-            },
-
-            async loadPromptEditor(cachedPrompts) {
-                const key = this.promptEditKey;
-                if (this.promptOverrides[key]) {
-                    this.promptEditText = this.promptOverrides[key];
-                    return;
-                }
-                const data = cachedPrompts || await fetch('/api/settings/ai/prompts').then(r => r.json());
-                this.promptEditText = (data.resolvedTemplates && data.resolvedTemplates[key]) || '';
-            },
-
-            toggleCveSeverity(level, checked) {
-                if (checked && !this.preferences.cveSeverities.includes(level)) {
-                    this.preferences.cveSeverities.push(level);
-                } else if (!checked) {
-                    this.preferences.cveSeverities = this.preferences.cveSeverities.filter(s => s !== level);
-                }
-            },
-
-            headers() { return oswlJsonHeaders(); },
-
-            providerLabel(mode) {
-                const map = {
-                    OPENAI: _aiI18n.providerOpenai,
-                    ANTHROPIC: _aiI18n.providerAnthropic,
-                    GEMINI: _aiI18n.providerGemini,
-                    LOCAL: _aiI18n.providerLocal,
-                };
-                return map[mode] || mode;
-            },
-
-            showToast(msg, kind = 'success') {
-                this._toastTimer && clearTimeout(this._toastTimer);
-                this.toastMsg = msg;
-                this.toastKind = kind;
-                this.toastVisible = true;
-                this._toastTimer = setTimeout(() => { this.toastVisible = false; }, kind === 'error' ? 5000 : 3000);
-            },
-
-            preferencePayload() {
-                const severities = this.preferences.cveSeverities.length
-                    ? this.preferences.cveSeverities
-                    : ['CRITICAL', 'HIGH'];
-                const overrides = { ...this.promptOverrides };
-                if (this.promptEditKey && this.promptEditText) {
-                    overrides[this.promptEditKey] = this.promptEditText;
-                }
-                return {
-                    promptsLocale: this.preferences.promptsLocale || 'en',
-                    cveLimit:      Number(this.preferences.cveLimit) || 10,
-                    licenseLimit:  Number(this.preferences.licenseLimit) || 8,
-                    cveSeverities: severities.join(','),
-                    temperature:   this.preferences.temperature,
-                    maxTokens:     this.preferences.maxTokens,
-                    dailyCallCap:  Number(this.preferences.dailyCallCap) || 0,
-                    defaultDeploymentProfile: this.preferences.defaultDeploymentProfile || 'COMMERCIAL_PRODUCT',
-                    reasoningEffort: this.preferences.reasoningEffort || 'DEFAULT',
-                    autoBackfillInsights: !!this.preferences.autoBackfillInsights,
-                    promptOverrides: Object.keys(overrides).length ? JSON.stringify(overrides) : null
-                };
-            },
-
-            async saveProvider() {
-                // Embedded AI has no Save: its Start button both activates it and health-checks
-                // the sidecar. The button is hidden for that mode; this is the belt-and-braces.
-                if (this.mode === 'EMBEDDED') return;
-                this.savingProvider = true; this.apiError = null; this.apiErrorHint = null;
-                try {
-                    if (this.mode === 'off') {
-                        const r = await fetch('/api/settings/ai/deactivate', {
-                            method: 'PUT',
-                            headers: this.headers()
-                        });
-                        if (r.status === 401) { location.href = '/login'; return; }
-                        if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.disableFailed); return; }
-                        this.activeProviderKind = 'OFF';
-                        this.showToast(this.embedded.running
-                            ? _aiI18n.disabled + ' ' + _aiI18n.activatedEmbeddedStillRunning
-                            : _aiI18n.disabled);
-                        return;
-                    }
-                    const f = this.forms[this.mode];
-                    const body = {
-                        provider:  this.mode,
-                        apiKey:    f.apiKey    || null,
-                        modelName: f.modelName || null,
-                        baseUrl:   f.baseUrl   || null,
-                        activate:  true
-                    };
-                    const r = await fetch('/api/settings/ai', {
-                        method: 'PUT',
-                        headers: this.headers(),
-                        body: JSON.stringify(body)
-                    });
-                    if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.saveFailed); return; }
-                    this.activeProviderKind = this.mode;
-                    let msg = _aiI18n.activated.replace('{0}', this.providerLabel(this.mode));
-                    // The sidecar process is a separate on/off control — saving a different
-                    // provider does not stop it. Say so, otherwise it keeps consuming memory
-                    // while nothing routes to it.
-                    if (this.embedded.running) {
-                        msg += ' ' + _aiI18n.activatedEmbeddedStillRunning;
-                    }
-                    this.showToast(msg);
-                } catch (e) { this.apiError = String(e); }
-                finally { this.savingProvider = false; }
-            },
-
-            async saveEnrichment() {
-                this.savingEnrichment = true; this.apiError = null; this.apiErrorHint = null;
-                try {
-                    const prefs = this.preferencePayload();
-                    if (this.mode === 'off') {
-                        const r = await fetch('/api/settings/ai/deactivate', {
-                            method: 'PUT',
-                            headers: this.headers(),
-                            body: JSON.stringify(prefs)
-                        });
-                        if (r.status === 401) { location.href = '/login'; return; }
-                        if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.saveFailed); return; }
-                        this.showToast(_aiI18n.enrichmentSaved);
-                        return;
-                    }
-                    const body = { provider: this.mode, activate: true, ...prefs };
-                    const r = await fetch('/api/settings/ai', {
-                        method: 'PUT',
-                        headers: this.headers(),
-                        body: JSON.stringify(body)
-                    });
-                    if (r.status === 401) { location.href = '/login'; return; }
-                    if (!r.ok) { this.apiError = _fetchErr(r, _aiI18n.saveFailed); return; }
-                    this.showToast(_aiI18n.enrichmentSaved);
-                } catch (e) { this.apiError = String(e); }
-                finally { this.savingEnrichment = false; }
-            },
-
-            async testConnection() {
-                // Embedded AI is health-checked by Start itself, and has no API key or
-                // endpoint form to probe.
-                if (this.mode === 'off' || this.mode === 'EMBEDDED') return;
-                this.testing = true;
-                this.apiError = null;
-                this.apiErrorHint = null;
-                try {
-                    const f = this.forms[this.mode];
-                    const body = {
-                        provider:  this.mode,
-                        apiKey:    f.apiKey    || null,
-                        modelName: f.modelName || null,
-                        baseUrl:   f.baseUrl   || null
-                    };
-                    const r = await fetch('/api/settings/ai/test-connection', {
-                        method: 'POST',
-                        headers: this.headers(),
-                        body: JSON.stringify(body)
-                    });
-                    if (r.status === 401) { location.href = '/login'; return; }
-                    const data = await r.json();
-                    // The toast is the only notice. A success may still carry a hint (e.g. the
-                    // model id was not in the provider's catalogue) — that is a warning, not an
-                    // error, so it is toasted rather than left on the page. Hard failures keep the
-                    // top banner too, because it is the only place long provider diagnostics fit.
-                    const success = !!(r.ok && data.success);
-                    const message = data.message
-                        || (success ? _aiI18n.testOk : _aiI18n.testFailed);
-                    if (success) {
-                        this.showToast(data.hint ? message + ' — ' + data.hint : message,
-                                       data.hint ? 'error' : 'success');
-                    } else {
-                        this.apiError = message;
-                        this.apiErrorHint = data.hint || null;
-                        this.showToast(message, 'error');
-                    }
-                } catch (e) {
-                    this.apiError = _aiI18n.testFailed;
-                    this.apiErrorHint = e.message;
-                    this.showToast(this.apiError, 'error');
-                } finally {
-                    this.testing = false;
-                }
-            }
-        };
-    }
-    </script>
+    <script th:src="@{/js/settings/ai.min.js(v='1.0.5.1')}"></script>
 </div>
 </body>
 </html>

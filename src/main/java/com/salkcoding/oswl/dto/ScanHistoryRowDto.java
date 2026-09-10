@@ -14,4 +14,12 @@ public class ScanHistoryRowDto {
     private final long   componentCount;
     private final String errorMessage; // null unless FAILED
     private final String importSource; // GIT, CLI, or null
+
+    /** True once the scan's component/CVE detail has been deleted by the retention policy. */
+    private final boolean archived;
+    // Populated only when archived — the aggregate the retention policy stamped before deleting detail.
+    private final Integer archivedSecurityCritical;
+    private final Integer archivedSecurityHigh;
+    private final Integer archivedLicenseCritical;
+    private final Integer archivedLicenseHigh;
 }

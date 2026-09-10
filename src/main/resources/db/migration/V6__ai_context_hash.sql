@@ -1,4 +1,4 @@
--- OsWL performance plan F1 — AI response caching (context-hash based re-call skip).
+-- OsWL — AI response caching (context-hash based re-call skip).
 --
 -- Before this, every scan unconditionally cleared and re-requested AI CVE/license summaries
 -- for every candidate, even when nothing relevant had changed since the last scan (CI repeat

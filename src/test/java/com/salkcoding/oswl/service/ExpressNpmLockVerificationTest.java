@@ -1,4 +1,12 @@
 package com.salkcoding.oswl.service;
+import com.salkcoding.oswl.service.ingest.DependencyManifestParserService;
+import com.salkcoding.oswl.service.ingest.MavenBomVersionResolver;
+import com.salkcoding.oswl.service.ingest.EnrichmentProgressHolder;
+import com.salkcoding.oswl.service.apikey.ProjectCliKeyPolicyService;
+import com.salkcoding.oswl.service.project.ProjectService;
+import com.salkcoding.oswl.service.ingest.ScanIngestService;
+import com.salkcoding.oswl.service.vcs.GitHubService;
+import com.salkcoding.oswl.service.apikey.ApiKeyService;
 
 import com.salkcoding.oswl.auth.repository.UserRepository;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
@@ -6,9 +14,10 @@ import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.auth.service.AuditLogService;
 import com.salkcoding.oswl.client.BitbucketCloudClient;
 import com.salkcoding.oswl.dto.scan.ScanPayload;
-import com.salkcoding.oswl.repository.ScanResultRepository;
+import com.salkcoding.oswl.repository.scan.ScanResultRepository;
 import com.salkcoding.oswl.service.git.GitCloneExecutor;
 import org.junit.jupiter.api.Assumptions;
+import com.salkcoding.oswl.support.ExternalVerificationFixture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,8 +60,7 @@ class ExpressNpmLockVerificationTest {
   @Test
   @DisplayName("npm --package-lock-only yields transitive deps beyond package.json direct refs")
   void npmLockGeneration_includesTransitivePackages() throws Exception {
-    Assumptions.assumeTrue(Files.isDirectory(EXPRESS_CLONE),
-        "Skip: clone expressjs/express to " + EXPRESS_CLONE);
+    ExternalVerificationFixture.require(EXPRESS_CLONE, "package.json", "package.json"::equals);
     Assumptions.assumeTrue(Files.exists(EXPRESS_CLONE.resolve("package.json")));
     Assumptions.assumeFalse(Files.exists(EXPRESS_CLONE.resolve("package-lock.json")),
         "Skip: remove package-lock.json to test generation");

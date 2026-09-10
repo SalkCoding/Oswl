@@ -1,6 +1,6 @@
 # データベーススキーマとマイグレーション
 
-OsWL はすべてのアプリケーションデータを PostgreSQL（`prod`）または H2 ファイルモード（`local`）に保存します。`domain/entity/` 配下の JPA エンティティが、実際のスキーマの**信頼できる情報源**です。
+OsWL はすべてのアプリケーションデータを PostgreSQL（`prod`）または H2 ファイルモード（`local`）に保存します。`domain/entity/`, `auth/entity/` 配下の JPA エンティティが、実際のスキーマの**信頼できる情報源**です。
 
 ---
 
@@ -16,7 +16,9 @@ OsWL はすべてのアプリケーションデータを PostgreSQL（`prod`）�
 
 ### Flyway（v1.0.4、オプトイン）
 
-`OSWL_FLYWAY_ENABLED=true` にすると、スキーマ管理が Flyway に委ねられます（`baseline-on-migrate` が有効なため、既存のデータベースは拒否されずベースライン処理されます）。有効化する前に、現在のスキーマに一致するベースラインを生成してください。既定値は `false` で、上記の `ddl-auto` の挙動が維持されます。
+`OSWL_FLYWAY_ENABLED=true` で `src/main/resources/db/migration/` のバージョン別マイグレーションを有効にします。既定値は `false` です。リポジトリには `V1__baseline.sql` と後続のマイグレーションが含まれています。空の PostgreSQL DB では V1 から順に実行し、その後 Hibernate がスキーマを検証します。Flyway 履歴のない既存 DB では、`baseline-on-migrate` が V1 を実行せずにバージョン 1 を記録し、V2 以降を実行します。有効化前にバックアップを取得し、既存スキーマとマイグレーションを比較してください。手動適用済みの変更と後続マイグレーションが競合する場合があります。共有 DB に適用済みのファイルを再生成・変更しないでください。SQL を手動管理する場合は、対象バージョンに必要な変更をすべて順番に適用します。以下の一部の旧スクリプトだけでは新規インストール用のスキーマを構成できません。
+
+現在のスキーマには v1.0.4 以降の変更も含まれます。組織・チーム（V11）、SAML/SCIM（V13）、Webhook（V14）、CVE の出所と C/C++ メタデータ（V15–V16）、ポリシー継承・例外（V17、V28）、到達可能性と根拠（V18、V29–V30）、監査ログの整合性（V19）、UI 設定・オンボーディング（V20、V23–V24）、シークレット・IaC 検出（V21）、スキャンのアーカイブ（V22）、レポートのブランド設定（V25）、キャッシュ集計・無効化（V26–V27）、永続化されたインポートジョブ（V31）です。完全な適用順序は実際のマイグレーションファイルで確認してください。一部のマイグレーションは再実行できないため、無条件に繰り返さないでください。
 
 ### v1.0.4 で追加されたカラム
 
@@ -73,7 +75,7 @@ OsWL はすべてのアプリケーションデータを PostgreSQL（`prod`）�
 | `project_versions.imported_at`、`last_updated_at` | 未使用のタイムスタンプ |
 | `projects.updated_at`、`version`、`last_scanned_at` | 非正規化されたフィールド。UI は代わりに最新の `scan_results` を読む |
 
-[運用デプロイチェックリスト](Production-Deployment-Checklist.md) §8 を参照してください。
+[運用デプロイチェックリスト](Production-Deployment-Checklist.md) §9 を参照してください。
 
 ---
 
@@ -94,7 +96,7 @@ libraries (shared)
 
 airgapped_snapshot_entries ── airgapped_snapshot_meta  (オフラインスナップショットストア)
 
-users, role_templates, audit_logs, cache_settings, vcs_connections, …
+users, role_templates, audit_logs, cache_settings, user_vcs_connections, …
 ```
 
 - **プロジェクトカードのバージョン／最終スキャン** — `projects.version` ではなく、最新の `scan_results` 行から導出されます。

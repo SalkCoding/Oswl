@@ -1,10 +1,14 @@
 package com.salkcoding.oswl.config;
 
+import com.salkcoding.oswl.client.CocoaPodsSpecsClient;
 import com.salkcoding.oswl.client.DepsDevClient;
 import com.salkcoding.oswl.client.EpssClient;
+import com.salkcoding.oswl.client.GitHubAdvisoryClient;
 import com.salkcoding.oswl.client.KevCatalogService;
+import com.salkcoding.oswl.client.NvdClient;
 import com.salkcoding.oswl.client.OsvClient;
-import com.salkcoding.oswl.service.AirgappedSnapshotService;
+import com.salkcoding.oswl.service.metrics.OswlMetrics;
+import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -22,6 +26,7 @@ import java.time.Duration;
 public class AirgappedClientConfig {
 
     private final AirgappedSnapshotService snapshotService;
+    private final OswlMetrics oswlMetrics;
 
     @Value("${oswl.airgapped.enabled:false}")
     private boolean airgapped;
@@ -41,26 +46,86 @@ public class AirgappedClientConfig {
     @Value("${oswl.client.osv.read-timeout-ms:30000}")
     private long osvReadTimeoutMs;
 
+    @Value("${oswl.client.github-advisory.token:}")
+    private String githubAdvisoryToken;
+
+    @Value("${oswl.client.github-advisory.api-base:}")
+    private String githubAdvisoryApiBase;
+
+    @Value("${oswl.client.github-advisory.connect-timeout-ms:5000}")
+    private long githubAdvisoryConnectTimeoutMs;
+
+    @Value("${oswl.client.github-advisory.read-timeout-ms:20000}")
+    private long githubAdvisoryReadTimeoutMs;
+
+    @Value("${oswl.client.nvd.api-key:}")
+    private String nvdApiKey;
+
+    @Value("${oswl.client.nvd.connect-timeout-ms:5000}")
+    private long nvdConnectTimeoutMs;
+
+    @Value("${oswl.client.nvd.read-timeout-ms:20000}")
+    private long nvdReadTimeoutMs;
+
     @Bean
     public OsvClient osvClient() {
-        return new OsvClient(snapshotService, airgapped,
+        OsvClient client = new OsvClient(snapshotService, airgapped,
                 Duration.ofMillis(osvConnectTimeoutMs), Duration.ofMillis(osvReadTimeoutMs));
+        client.setOswlMetrics(oswlMetrics);
+        return client;
     }
 
     @Bean
     public DepsDevClient depsDevClient() {
-        return new DepsDevClient(snapshotService, airgapped,
+        DepsDevClient client = new DepsDevClient(snapshotService, airgapped,
                 Duration.ofMillis(depsDevConnectTimeoutMs), Duration.ofMillis(depsDevReadTimeoutMs),
                 depsDevMaxConcurrent);
+        client.setOswlMetrics(oswlMetrics);
+        return client;
     }
 
     @Bean
     public EpssClient epssClient() {
-        return new EpssClient(snapshotService, airgapped);
+        EpssClient client = new EpssClient(snapshotService, airgapped);
+        client.setOswlMetrics(oswlMetrics);
+        return client;
     }
 
     @Bean
     public KevCatalogService kevCatalogService() {
-        return new KevCatalogService(snapshotService, airgapped);
+        KevCatalogService client = new KevCatalogService(snapshotService, airgapped);
+        client.setOswlMetrics(oswlMetrics);
+        return client;
+    }
+
+    @Bean
+    public GitHubAdvisoryClient gitHubAdvisoryClient() {
+        GitHubAdvisoryClient client = new GitHubAdvisoryClient(snapshotService, airgapped, githubAdvisoryToken,
+                githubAdvisoryApiBase,
+                Duration.ofMillis(githubAdvisoryConnectTimeoutMs), Duration.ofMillis(githubAdvisoryReadTimeoutMs));
+        client.setOswlMetrics(oswlMetrics);
+        return client;
+    }
+
+    @Bean
+    public NvdClient nvdClient() {
+        NvdClient client = new NvdClient(snapshotService, airgapped, nvdApiKey,
+                Duration.ofMillis(nvdConnectTimeoutMs), Duration.ofMillis(nvdReadTimeoutMs));
+        client.setOswlMetrics(oswlMetrics);
+        return client;
+    }
+
+    @Value("${oswl.client.cocoapods-specs.connect-timeout-ms:5000}")
+    private long cocoaPodsConnectTimeoutMs;
+
+    @Value("${oswl.client.cocoapods-specs.read-timeout-ms:10000}")
+    private long cocoaPodsReadTimeoutMs;
+
+    @Bean
+    public CocoaPodsSpecsClient cocoaPodsSpecsClient() {
+        CocoaPodsSpecsClient client = new CocoaPodsSpecsClient(airgapped,
+                Duration.ofMillis(cocoaPodsConnectTimeoutMs), Duration.ofMillis(cocoaPodsReadTimeoutMs), snapshotService);
+        client.setOswlMetrics(oswlMetrics);
+        return client;
     }
 }

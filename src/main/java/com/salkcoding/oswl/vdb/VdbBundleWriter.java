@@ -3,7 +3,7 @@ package com.salkcoding.oswl.vdb;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.salkcoding.oswl.service.AirgappedSnapshotService.SnapshotVuln;
+import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -23,14 +23,14 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 /**
- * Writes an {@code oswl-vdb} v2 bundle (E1 format) byte-for-byte compatible with what
+ * Writes an {@code oswl-vdb} v2 bundle byte-for-byte compatible with what
  * {@code AirgappedSnapshotService.importBundle()} expects — see that class's Javadoc for the
  * exact JSONL line schemas this mirrors.
  *
- * <p>E5 delta mode: when {@code previous} is given, each file's content is diffed key-by-key
+ * <p>Delta mode: when {@code previous} is given, each file's content is diffed key-by-key
  * against the previous bundle (see {@link PreviousBundleReader}) — only added/changed lines are
  * kept, and keys present in the previous bundle but absent from this build get a
- * {@code "_deleted":true} marker (E2's existing delete-marker convention), instead of writing
+ * {@code "_deleted":true} marker (the existing delete-marker convention), instead of writing
  * every source in full every time.
  */
 final class VdbBundleWriter {
@@ -45,7 +45,7 @@ final class VdbBundleWriter {
         this.mapper = mapper;
     }
 
-    /** E6: recorded in {@code meta.json} only when the build was scoped by {@code --wanted} — a
+    /** Recorded in {@code meta.json} only when the build was scoped by {@code --wanted} — a
      * v1-ignorant reader (or the app's own lenient JsonNode-based meta.json parser) simply never
      * sees these fields when absent, so this is not a schema break. */
     record WantedListInfo(String wantedListId, int wantedCount, int resolvedCount) {}
@@ -53,6 +53,7 @@ final class VdbBundleWriter {
     void write(Path out,
                Map<String, List<SnapshotVuln>> osvByComponentKey, LocalDate osvAsOf,
                List<DepsDevSource.VersionRecord> depsdevVersions, List<DepsDevSource.AdvisoryRecord> depsdevAdvisories,
+               Map<String, Integer> depsdevSkippedUnsupportedSystems,
                Map<String, Double> epssScores, LocalDate epssAsOf,
                java.util.Set<String> kevCveIds, LocalDate kevAsOf,
                int unresolvedComponentCount, WantedListInfo wantedListInfo,
@@ -65,7 +66,7 @@ final class VdbBundleWriter {
             node.put("ecosystem", w.ecosystem());
             node.put("name", w.name());
             node.put("version", w.version());
-            String key = com.salkcoding.oswl.service.AirgappedSnapshotService.componentKey(w.ecosystem(), w.name(), w.version());
+            String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(w.ecosystem(), w.name(), w.version());
             if (key != null) unresolvedByKey.put(key, writeJson(node));
         }
 
@@ -92,7 +93,7 @@ final class VdbBundleWriter {
             node.putArray("advisoryKeys").addAll(v.advisoryKeys().stream().map(s -> (JsonNode) mapper.valueToTree(s)).toList());
             node.put("isDefault", v.isDefault());
             if (v.deprecated() != null) node.put("deprecated", v.deprecated());
-            String key = com.salkcoding.oswl.service.AirgappedSnapshotService.componentKey(v.ecosystem(), v.name(), v.version());
+            String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(v.ecosystem(), v.name(), v.version());
             if (key != null) depsdevByKey.put(key, writeJson(node));
         }
         for (DepsDevSource.AdvisoryRecord a : depsdevAdvisories) {
@@ -147,12 +148,21 @@ final class VdbBundleWriter {
         ObjectNode sources = meta.putObject("sources");
         putSourceMeta(sources, "osv", osvByKey.size(), osvAsOf, "osv.dev bulk dump");
         putSourceMeta(sources, "depsdev-version", depsdevVersions.size(), LocalDate.now(), "deps.dev api (wanted-list)");
+        if (!depsdevSkippedUnsupportedSystems.isEmpty()) {
+            // deps.dev covers only 7 systems (GO RUBYGEMS NPM CARGO MAVEN PYPI NUGET) — wanted
+            // components on any other system (e.g. COMPOSER, CONAN) were never queried, so their
+            // absence from depsdev.jsonl means "no data", not "no license/advisories".
+            ObjectNode skipped = ((ObjectNode) sources.get("depsdev-version"))
+                    .putObject("skippedUnsupportedSystems");
+            depsdevSkippedUnsupportedSystems.forEach(skipped::put);
+            skipped.put("_reason", "deps.dev does not support this system — component not queried");
+        }
         putSourceMeta(sources, "depsdev-advisory", depsdevAdvisories.size(), LocalDate.now(), "deps.dev api");
         putSourceMeta(sources, "epss", epssByKey.size(), epssAsOf, "epss current");
         putSourceMeta(sources, "kev", kevByKey.size(), kevAsOf, "cisa kev");
         if (!unresolvedByKey.isEmpty()) {
-            // E6: a distinct source (not folded into osv.jsonl) so the app's existing per-source
-            // status/import-result plumbing (E1/E2/E3) surfaces it automatically — no bespoke
+            // A distinct source (not folded into osv.jsonl) so the app's existing per-source
+            // status/import-result plumbing surfaces it automatically — no bespoke
             // "no data" wiring needed on the import side, just a label on the admin UI (see
             // AirgappedSnapshotService.SOURCE_UNRESOLVED / SnapshotAdminController).
             putSourceMeta(sources, "unresolved", unresolvedByKey.size(), LocalDate.now(),
@@ -164,7 +174,7 @@ final class VdbBundleWriter {
             coverage.put("note", "These wanted components had at least one OSV range-typed "
                     + "affected[] entry this builder could not confidently evaluate (non-SEMVER "
                     + "range type, or an unparseable version string) — they are NOT necessarily "
-                    + "vulnerability-free, just unresolved. See E5.3 in PERFORMANCE-AND-OFFLINE-PLAN.md.");
+                    + "vulnerability-free, just unresolved.");
         }
         ObjectNode files = meta.putObject("files");
         putFileMeta(files, "osv.jsonl", osvContent, countLines(osvContent));

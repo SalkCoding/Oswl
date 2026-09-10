@@ -1,3 +1,145 @@
+## Vulnerability Data and Bundled Reference Resources
+
+Reviewed 2026-09-07. These notices identify sources; they are not a blanket
+redistribution grant. Source-specific attribution, supplied copyright notices,
+license links and modification history must accompany redistributed records.
+See the distribution's THIRD_PARTY_LICENSES.md for additional context. Existing
+offline bundles/exports are not certified as attribution-complete by this notice.
+
+OSV: https://osv.dev/ and https://google.github.io/osv.dev/data/
+Data rights vary by original advisory source. GitHub Advisory Database, PyPA
+advisory data and Go /data/ use CC-BY 4.0. RustSec defaults to CC0 with CC-BY 4.0
+exceptions for GHSA imports. Ubuntu Security Notices use CC-BY-SA 4.0.
+Preserve source attribution, license URLs and transformation information.
+Debian/Alpine-derived data redistribution terms remain unverified in this review.
+
+GitHub Advisory Database: https://github.com/github/advisory-database
+CC-BY 4.0: https://github.com/github/advisory-database/blob/main/LICENSE.md
+Used directly and through OSV. Credit the database and source contributors.
+PyPA: https://github.com/pypa/advisory-database/blob/main/LICENSE
+Go: https://github.com/golang/vulndb/blob/master/LICENSE
+RustSec: https://github.com/rustsec/advisory-db/blob/main/LICENSE.txt
+Ubuntu: https://github.com/canonical/ubuntu-security-notices/blob/main/LICENSE
+CC-BY: https://creativecommons.org/licenses/by/4.0/
+CC-BY-SA: https://creativecommons.org/licenses/by-sa/4.0/
+ShareAlike applies where required to shared adaptations; these notices do not
+relicense source data under the license of the OsWL application.
+
+NIST National Vulnerability Database: https://nvd.nist.gov/
+This product uses data from the NVD API but is not endorsed or certified by the NVD.
+Consult NIST/NVD and CVE source terms; no blanket CC0 license for all incorporated
+third-party content was established. NVD-specific redistribution terms require
+further verification; referenced publications retain their own rights.
+
+FIRST.org EPSS: https://www.first.org/epss/faq and https://www.first.org/epss/data
+Public score access, attribution requested. Credit FIRST.org EPSS and retain the
+score date/model version when supplied. An explicit blanket license to redistribute
+a commercial score database was not verified; public access is not such a grant.
+
+CISA KEV: https://github.com/cisagov/kev-data/blob/develop/LICENSE
+CC0 1.0. Credit CISA as source for provenance. Linked third-party material and
+CISA/DHS marks are not covered by that dedication; no endorsement is implied.
+
+deps.dev / Google: https://github.com/google/deps.dev#readme
+Generated data: CC-BY 4.0; aggregated data retains original source terms.
+API caching is permitted by the README; Google API terms also apply:
+https://developers.google.com/terms
+Do not treat every registry/advisory field as newly licensed CC-BY data.
+Credit deps.dev and original publishers; retain source/license URLs and changes.
+
+CocoaPods specifications: https://github.com/CocoaPods/Specs#readme
+MIT: https://github.com/CocoaPods/CocoaPods/blob/master/LICENSE
+Retain applicable copyright and permission notices when redistributing substantial
+specification content. Each actual pod's code/binary has its own license.
+
+Bundled Conda-to-PyPI mapping: conda/grayskull-pypi-mapping.json
+Origin: regro/cf-graph-countyfair, now conda-forge/conda-forge-bot-data,
+mappings/pypi/grayskull_pypi_mapping.json. This is distinct from the Grayskull program.
+Copyright (c) 2018, Board of Trustees of Columbia University in the city of New York.
+Copyright (c) 2017, Peter M. Landwehr (Tick-my-feedstocks).
+Copyright (c) 2017, Anthony Scopatz (Rever).
+Copyright (c) 2016 Aaron Meurer, Gil Forsyth (Doctr).
+The full combined upstream License (BSD-style, BSD 3-Clause and MIT notices)
+is included unchanged at META-INF/licenses/conda-forge-bot-data-LICENSE.txt.
+License revision: fd0dfed0d43fbb084f683d2c00473a887b645d69, retrieved 2026-09-07.
+This is not a verified source revision of the bundled JSON. Its original revision
+and any additional upstream-data terms remain to be established.
+
+## Embedded AI Runtime and Models
+
+Runtime binaries and model weights are optional downloads, excluded from the source repository,
+Docker build context and released JAR. The JAR includes this notice and the Apache 2.0 text.
+Inference runs locally. Installation from upstream is a separate network operation.
+
+### Qwen3.5-2B (GGUF)
+
+- **Role:** Default CPU model; replaces the previous Qwen3-1.7B automatic download.
+- **Publisher:** Alibaba Cloud / Qwen team.
+- **Upstream:** https://huggingface.co/Qwen/Qwen3.5-2B
+- **License:** Apache License, Version 2.0; full text below.
+- **Quantization:** Unsloth AI GGUF Q4_K_M. OsWL does not fine-tune or modify the downloaded bytes.
+- **Source revision:** `unsloth/Qwen3.5-2B-GGUF@f6d5376be1edb4d416d56da11e5397a961aca8ae`
+- **File:** `model/Qwen/Qwen3.5-2B-Q4_K_M.gguf`, 1280835840 bytes.
+- **SHA256:** `aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223`
+- **Pinned download:** https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf
+
+### Gemma 4 E2B (GGUF)
+
+- **Role:** Optional CPU model, installed manually; replaces Gemma 3 1B in the refreshed local installation.
+- **Publisher:** Google DeepMind.
+- **Upstream:** https://huggingface.co/google/gemma-4-E2B-it
+- **License:** Apache License, Version 2.0, as stated in the Gemma 4 model card and https://ai.google.dev/gemma/apache_2 .
+  This entry is specifically for Gemma 4, not the distinct terms of earlier Gemma releases.
+- **Quantization:** Unsloth AI GGUF Q4_K_M. OsWL does not fine-tune or modify the downloaded bytes.
+- **Source revision:** `unsloth/gemma-4-E2B-it-GGUF@0314792d7f1f7e229411f620751375812bb9faf2`
+- **File:** `model/Gemma/gemma-4-E2B-it-Q4_K_M.gguf`, 3106738272 bytes.
+- **SHA256:** `740185b21d22ceb83a11c3aa62ad5842ef32c70f6096d756bbee85a1e4ec34b8`
+- **Pinned download:** https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/0314792d7f1f7e229411f620751375812bb9faf2/gemma-4-E2B-it-Q4_K_M.gguf
+
+Apache 2.0 permits redistribution subject to its conditions, including supplying the license,
+retaining applicable copyright/attribution notices and carrying forward any upstream NOTICE
+content when provided. Preserve the quantization provenance above. Do not represent these weights
+as OsWL-authored or imply endorsement by Qwen, Google or Unsloth.
+
+The old GitHub `models-v1` asset is Qwen3-1.7B and is not the new default.
+A new mirror must be a verified byte-identical copy of the relevant pinned file and accompany
+the license and attribution notices. This change does not publish new model assets.
+Custom/older weights retain their own licenses; these entries do not relicense them.
+
+### llama.cpp
+
+- **Publisher:** The ggml authors.
+- **Source:** https://github.com/ggml-org/llama.cpp
+- **License:** MIT.
+- **Validated local runtime:** b10068, commit `571d0d540`; operators supply an OS/architecture-compatible build in `embedded-ai/llama/`.
+- **Distribution:** Not bundled in the repository or JAR. If packaging runtime binaries separately,
+  preserve this full license and the licenses/notices of all included libraries (for example,
+  an OpenMP runtime); this MIT notice alone does not cover every binary in a vendor archive.
+
+```
+MIT License
+
+Copyright (c) 2023-2026 The ggml authors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
 OsWL — Third-Party Software Licenses
 ================================================================================
 This file is bundled inside the OsWL JAR artifact and is also available at

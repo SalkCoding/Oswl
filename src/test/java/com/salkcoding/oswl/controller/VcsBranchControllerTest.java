@@ -1,17 +1,18 @@
 package com.salkcoding.oswl.controller;
+import com.salkcoding.oswl.controller.vcs.VcsBranchController;
 
 import com.salkcoding.oswl.auth.entity.UserVcsConnection;
 import com.salkcoding.oswl.auth.enums.VcsProvider;
 import com.salkcoding.oswl.auth.repository.UserVcsConnectionRepository;
 import com.salkcoding.oswl.auth.security.EncryptionService;
 import com.salkcoding.oswl.auth.security.OswlUserPrincipal;
-import com.salkcoding.oswl.domain.entity.Project;
-import com.salkcoding.oswl.repository.ProjectRepository;
-import com.salkcoding.oswl.service.BitbucketService;
-import com.salkcoding.oswl.service.GitHubService;
-import com.salkcoding.oswl.service.GitLabService;
-import com.salkcoding.oswl.service.ProjectAccessService;
-import com.salkcoding.oswl.service.VcsAuthTokenService;
+import com.salkcoding.oswl.domain.entity.project.Project;
+import com.salkcoding.oswl.repository.project.ProjectRepository;
+import com.salkcoding.oswl.service.vcs.BitbucketService;
+import com.salkcoding.oswl.service.vcs.GitHubService;
+import com.salkcoding.oswl.service.vcs.GitLabService;
+import com.salkcoding.oswl.service.project.ProjectAccessService;
+import com.salkcoding.oswl.service.vcs.VcsAuthTokenService;
 import jakarta.servlet.http.HttpSession;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

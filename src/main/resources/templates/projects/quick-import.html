@@ -23,7 +23,8 @@
                 <div class="flex-1 flex gap-[14px] items-center h-[31px]">
                     <h2 class="font-bold text-[24px] text-[var(--grayscale-100)] tracking-[-0.24px] leading-none mb-0" th:text="#{quickImport.title}">Quick Import</h2>
                 </div>
-                <button type="button" @click="window.dispatchEvent(new CustomEvent('qi-panel-close')); openPanel = null"
+                <button type="button" @click="window.dispatchEvent(new CustomEvent('qi-panel-close')); openPanel = null; oswlReleaseFocus()"
+                        th:aria-label="#{common.close}"
                         class="bg-[var(--grayscale-5)] border border-[var(--grayscale-20)] p-[6px] rounded-[8px] shrink-0 text-[var(--grayscale-80)] hover:bg-[var(--grayscale-10)] transition-colors focus:outline-none">
                     <img th:src="@{/icon/icon-close.svg}" class="w-[18px] h-[18px]" alt="" aria-hidden="true">
                 </button>
@@ -316,13 +317,19 @@
                         <span><span th:text="#{quickImport.progress.elapsed}">Elapsed</span> <span x-text="elapsedText(job)"></span></span>
                         <span x-show="etaText(job)" x-cloak x-text="etaText(job)"></span>
                     </div>
-                    <!-- D4: cache-hit badge (hidden on first scans with 0 hits) -->
+                    <p x-show="job.watchError" x-cloak role="status"
+                       class="m-0 rounded-[8px] border px-[10px] py-[8px] text-[12px] leading-[1.5]"
+                       :class="job.watchErrorKind === 'unavailable'
+                           ? 'border-amber-200 bg-amber-50 text-amber-800'
+                           : 'border-red-200 bg-red-50 text-red-700'"
+                       x-text="job.watchError"></p>
+                    <!-- cache-hit badge (hidden on first scans with 0 hits) -->
                     <div x-show="cacheBadgeText(job)" x-cloak class="flex">
                         <span class="inline-flex items-center gap-[4px] text-[11px] font-medium text-[#00a093] rounded-full px-[8px] py-[2px]"
                               style="background:rgba(0,160,147,0.08);"
                               x-text="cacheBadgeText(job)"></span>
                     </div>
-                    <!-- D2: enrichment detail lines (findings / batch progress) -->
+                    <!-- enrichment detail lines (findings / batch progress) -->
                     <template x-if="job.detailLines && job.detailLines.length > 0">
                         <div class="flex flex-col gap-[2px] border-l-2 border-[var(--grayscale-15)] pl-[10px] max-h-[120px] overflow-y-auto">
                             <template x-for="(line, idx) in job.detailLines" :key="job.jobId + '-detail-' + idx">
@@ -331,7 +338,7 @@
                             </template>
                         </div>
                     </template>
-                    <!-- D2: live AI preview — x-text inserts as textContent only (model output is untrusted; innerHTML would be an XSS hole) -->
+                    <!-- live AI preview — x-text inserts as textContent only (model output is untrusted; innerHTML would be an XSS hole) -->
                     <template x-if="job.aiPreview">
                         <pre class="m-0 p-[10px] rounded-[8px] bg-[var(--grayscale-5)] text-[11px] font-mono leading-[1.5] whitespace-pre-wrap break-words [overflow-wrap:anywhere] max-h-[160px] overflow-y-auto text-[var(--grayscale-80)]"
                              x-text="job.aiPreview"></pre>
@@ -574,7 +581,7 @@
                                                     class="shrink-0 inline-flex items-center gap-[5px] px-[20px] py-[7px] bg-[var(--primary-120)] text-white text-[12px] font-semibold rounded-[7px] hover:bg-[var(--primary-100)] transition-colors">
                                                 <span th:text="#{quickImport.repoBrowser.import}">Import</span>
                                             </button>
-                                            <button @click="pendingBranch = null"
+                                            <button @click="pendingBranch = null" th:aria-label="#{common.clear}"
                                                     class="w-[24px] h-[24px] flex items-center justify-center text-[var(--grayscale-40)] hover:text-[var(--grayscale-80)] transition-colors rounded">
                                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                             </button>
@@ -594,12 +601,12 @@
                             </span>
                             <div class="flex items-center gap-[6px]">
                                 <button @click="browserPrevPage(provider)"
-                                        :disabled="repoBrowsers[provider].page <= 1"
+                                        :disabled="repoBrowsers[provider].page <= 1" th:aria-label="#{common.pagination.previous}"
                                         class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                                 </button>
                                 <button @click="browserNextPage(provider)"
-                                        :disabled="repoBrowsers[provider].page >= getBrowserTotalPages(provider)"
+                                        :disabled="repoBrowsers[provider].page >= getBrowserTotalPages(provider)" th:aria-label="#{common.pagination.next}"
                                         class="w-[28px] h-[28px] flex items-center justify-center bg-[var(--grayscale-5)] border border-[var(--grayscale-10)] rounded-[4px] disabled:opacity-30 hover:bg-[var(--grayscale-10)] transition-colors text-[var(--grayscale-70)]">
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                                 </button>
@@ -627,6 +634,7 @@
         errors: {
             queueFull:        /*[[#{quickImport.error.queueFull}]]*/ 'You can queue up to {0} imports. Wait for queued jobs to start.',
             duplicateImport:  /*[[#{quickImport.error.duplicateImport}]]*/ '{0} is already queued or importing. Wait for the current import to finish before starting it again.',
+            interrupted: /*[[#{quickImport.error.interrupted}]]*/ "Import interrupted. Start a new import to retry.",
             canceled:         /*[[#{quickImport.error.canceled}]]*/ 'Import canceled.',
             loadRepos:        /*[[#{quickImport.error.loadRepos}]]*/ 'Could not load repositories from the VCS provider. Check your VCS connection in Settings and try again.',
             tokenDecrypt:     /*[[#{quickImport.error.tokenDecrypt}]]*/ 'Stored VCS token could not be decrypted. Disconnect and reconnect the account in Settings \u2192 VCS.',
@@ -647,6 +655,9 @@
         invalidUrl:          /*[[#{quickImport.error.invalidUrl}]]*/ 'Please enter a valid URL.',
         urlProtocol:         /*[[#{quickImport.error.urlProtocol}]]*/ 'URL must use http:// or https://.',
         sessionExpired:      /*[[#{quickImport.error.sessionExpired}]]*/ 'Import session expired. The server may have been restarted — please try again.',
+        trackingUnauthorized: /*[[#{quickImport.status.trackingUnauthorized}]]*/ 'Import tracking stopped because your session expired or access changed. Sign in again to continue.',
+        jobMissing:          /*[[#{quickImport.status.jobMissing}]]*/ 'This import job is no longer available. Refresh the page or start a new import.',
+        statusUnavailable:   /*[[#{quickImport.status.unavailable}]]*/ 'Import status is temporarily unavailable. Retrying with a slower interval…',
         phaseQueued:         /*[[#{quickImport.phase.QUEUED}]]*/ 'Queued',
         queueNext:           /*[[#{quickImport.queue.next}]]*/ 'Starting soon (slot {0})\u2026',
         queueWaiting:        /*[[#{quickImport.queue.waiting}]]*/ 'Waiting in queue (#{0})\u2026',
@@ -686,6 +697,6 @@
     };
     </script>
 
-    <script th:src="@{/js/oswl-i18n.js}"></script>
-    <script th:src="@{/js/projects/quick-import.js}"></script>
+    <script th:src="@{/js/oswl-i18n.min.js(v='1.0.5.1')}"></script>
+    <script th:src="@{/js/projects/quick-import.min.js(v='1.0.5.1')}"></script>
 </div>

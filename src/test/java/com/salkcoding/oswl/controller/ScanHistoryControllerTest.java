@@ -1,10 +1,11 @@
 package com.salkcoding.oswl.controller;
+import com.salkcoding.oswl.controller.scan.ScanHistoryController;
 
 import com.salkcoding.oswl.auth.service.AuditLogService;
-import com.salkcoding.oswl.domain.entity.ScanResult;
-import com.salkcoding.oswl.repository.ScanResultRepository;
-import com.salkcoding.oswl.service.ProjectAccessService;
-import com.salkcoding.oswl.service.ScanHistoryService;
+import com.salkcoding.oswl.domain.entity.scan.ScanResult;
+import com.salkcoding.oswl.repository.scan.ScanResultRepository;
+import com.salkcoding.oswl.service.project.ProjectAccessService;
+import com.salkcoding.oswl.service.scan.ScanHistoryService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

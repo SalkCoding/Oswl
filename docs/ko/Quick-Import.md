@@ -121,7 +121,7 @@ GitLab·Bitbucket 자체 호스팅은 VCS 연결의 API 기본 URL로 지원합�
 
 ## REST API 요약
 
-[API 레퍼런스 — Quick Import](API-Reference.md#quick-import) 참고. 인터랙티브 스키마는 Swagger UI(`local` 프로파일).
+[API 레퍼런스 — Quick Import](API-Reference.md#quick-import) 참고. 인터랙티브 스키마는 Swagger UI(`local` 프로필).
 
 ---
 

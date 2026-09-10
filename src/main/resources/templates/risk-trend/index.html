@@ -9,7 +9,7 @@
         <div th:replace="~{risk-trend/components/risk-trend :: risk-trend(${securityIssues}, ${securityDelta}, ${licenseIssues}, ${licenseDelta})}"></div>
     </main>
 
-    <script th:src="@{/js/vendor/chart.umd.min.js}"></script>
+    <script defer th:src="@{/js/vendor/chart.umd.min.js}"></script>
     <script th:inline="javascript">
     /*<![CDATA[*/
     window.riskTrendData = {
@@ -42,11 +42,15 @@
         high:       /*[[#{riskTrend.legend.high}]]*/ 'High',
         medium:     /*[[#{riskTrend.legend.medium}]]*/ 'Medium',
         low:        /*[[#{riskTrend.legend.low}]]*/ 'Low',
-        unscored:   /*[[#{riskTrend.legend.unscored}]]*/ 'Unscored'
+        unscored:   /*[[#{riskTrend.legend.unscored}]]*/ 'Unscored',
+        viewAsTable: /*[[#{riskTrend.chart.viewAsTable}]]*/ 'View as table',
+        viewAsChart: /*[[#{riskTrend.chart.viewAsChart}]]*/ 'View as chart',
+        chartSecurity: /*[[#{riskTrend.chart.security}]]*/ 'Security Risk',
+        chartLicense:  /*[[#{riskTrend.chart.license}]]*/ 'License Risk'
     };
     /*]]>*/
     </script>
-    <script th:src="@{/js/risk-trend/risk-trend.js}"></script>
+    <script defer th:src="@{/js/risk-trend/risk-trend.min.js(v='1.0.5.1')}"></script>
 
     <footer th:replace="~{fragments/footer :: site-footer}"></footer>
 

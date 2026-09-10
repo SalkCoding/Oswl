@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.auth.entity;
 
+import com.salkcoding.oswl.auth.enums.UserThemeMode;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -57,6 +58,11 @@ public class User {
     @Column(name = "must_change_password", nullable = false)
     @Builder.Default
     private boolean mustChangePassword = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "theme", nullable = false, length = 20)
+    @Builder.Default
+    private UserThemeMode theme = UserThemeMode.LIGHT;
 
     @Builder.Default
     @ManyToMany(fetch = FetchType.LAZY)

@@ -1,7 +1,8 @@
 package com.salkcoding.oswl.controller;
+import com.salkcoding.oswl.controller.reporting.RiskTrendController;
 
-import com.salkcoding.oswl.service.ProjectAccessService;
-import com.salkcoding.oswl.service.RiskTrendService;
+import com.salkcoding.oswl.service.project.ProjectAccessService;
+import com.salkcoding.oswl.service.reporting.RiskTrendService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

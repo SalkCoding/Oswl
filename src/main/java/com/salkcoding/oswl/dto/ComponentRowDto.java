@@ -53,6 +53,15 @@ public class ComponentRowDto {
     @Schema(description = "Number of Unscored CVEs (no CVSS score, severity = NONE)", example = "4")
     private final int securityUnscored;
 
+    @Schema(description = "False when the vulnerability pipeline never answered for this component "
+            + "(e.g. its ecosystem has no OSV mapping) — zero CVEs then means 'not analyzed', not 'clean'", example = "true")
+    private final boolean vulnerabilitiesAnalyzed;
+
+    @Schema(description = "Latest attempted lookup result per source: RESOLVED, UNAVAILABLE, UNSUPPORTED or NOT_CONFIGURED; null for legacy cache")
+    private final java.util.Map<String, String> vulnerabilityLookupOutcomes;
+
+    private final java.time.LocalDateTime vulnerabilityLookupAt;
+
     @Schema(description = "Patchability status", example = "patchable", allowableValues = {"patchable", "non-patchable", "unknown"})
     private final String patchability;
 
@@ -79,6 +88,10 @@ public class ComponentRowDto {
 
     @Schema(description = "True for production dependencies (scope runtime/compile); false for test/dev/provided", example = "true")
     private final boolean runtimeScope;
+
+    @Schema(description = "Bytecode call-graph reachability result", example = "REACHABLE",
+            allowableValues = {"REACHABLE", "NOT_REACHABLE", "UNKNOWN"})
+    private final String reachability;
 
     @Schema(description = "OpenSSF Scorecard overall score (0.0–10.0) from deps.dev; null when unavailable", example = "7.4")
     private final Double scorecardScore;

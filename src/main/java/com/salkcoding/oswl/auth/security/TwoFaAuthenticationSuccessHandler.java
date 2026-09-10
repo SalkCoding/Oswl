@@ -52,7 +52,7 @@ public class TwoFaAuthenticationSuccessHandler implements AuthenticationSuccessH
             // Skip OTP when the device is trusted
             if (trustedDeviceService.isTrusted(principal.getUserId(), request)) {
                 loginCompletionService.recordSuccessfulLogin(principal.getUsername());
-                String dest = principal.isMustChangePassword() ? "/change-password" : "/projects";
+                String dest = loginCompletionService.resolvePostLoginDestination(principal);
                 log.info("[Auth] Login succeeded for user='{}' via trusted-device bypass → {}", principal.getUsername(), dest);
                 response.sendRedirect(request.getContextPath() + dest);
                 return;
@@ -71,7 +71,7 @@ public class TwoFaAuthenticationSuccessHandler implements AuthenticationSuccessH
         } else {
             // 2FA not configured — check whether a password change is required
             OswlUserPrincipal principal = (OswlUserPrincipal) authentication.getPrincipal();
-            String dest = principal.isMustChangePassword() ? "/change-password" : "/projects";
+            String dest = loginCompletionService.resolvePostLoginDestination(principal);
             log.info("[Auth] Login succeeded for user='{}' (2FA disabled) → {}", principal.getUsername(), dest);
             response.sendRedirect(request.getContextPath() + dest);
         }

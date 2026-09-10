@@ -1,7 +1,9 @@
 package com.salkcoding.oswl.service;
+import com.salkcoding.oswl.service.ingest.MavenBomVersionResolver;
 
 import com.salkcoding.oswl.dto.scan.ScanPayload;
 import org.junit.jupiter.api.Assumptions;
+import com.salkcoding.oswl.support.ExternalVerificationFixture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -24,8 +26,7 @@ class DgsFrameworkGradleParseVerificationTest {
   @Test
   @DisplayName("static Gradle+BOM parse resolves versions for majority of declared deps")
   void staticParse_resolvesMostVersions() throws Exception {
-    Assumptions.assumeTrue(Files.isDirectory(DGS_CLONE),
-        "Skip: clone dgs-framework to " + DGS_CLONE);
+    ExternalVerificationFixture.require(DGS_CLONE, "build.gradle or build.gradle.kts", name -> name.equals("build.gradle") || name.equals("build.gradle.kts"));
 
     MavenBomVersionResolver resolver = new MavenBomVersionResolver();
     List<ScanPayload.ComponentPayload> comps = resolver.parseGradleDeclaredWithBom(DGS_CLONE);

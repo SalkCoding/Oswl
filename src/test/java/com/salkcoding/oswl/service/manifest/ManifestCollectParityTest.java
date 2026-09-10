@@ -1,9 +1,11 @@
 package com.salkcoding.oswl.service.manifest;
 
 import com.salkcoding.oswl.dto.scan.ScanPayload;
-import com.salkcoding.oswl.service.DependencyManifestParserService;
-import com.salkcoding.oswl.service.MavenBomVersionResolver;
+import com.salkcoding.oswl.service.ingest.CondaPypiMappingService;
+import com.salkcoding.oswl.service.ingest.DependencyManifestParserService;
+import com.salkcoding.oswl.service.ingest.MavenBomVersionResolver;
 import org.junit.jupiter.api.Assumptions;
+import com.salkcoding.oswl.support.ExternalVerificationFixture;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIf;
@@ -36,7 +38,7 @@ class ManifestCollectParityTest {
             return Stream.empty();
         }
         try (Stream<Path> dirs = Files.list(VERIFY_ROOT)) {
-            return dirs.filter(Files::isDirectory)
+            return dirs.filter(ExternalVerificationFixture::hasParseInput)
                     .sorted(Comparator.comparing(p -> p.getFileName().toString()))
                     .toList()
                     .stream();
@@ -46,7 +48,7 @@ class ManifestCollectParityTest {
     }
 
     private final DependencyManifestParserService parser =
-            new DependencyManifestParserService(new MavenBomVersionResolver());
+            new DependencyManifestParserService(new MavenBomVersionResolver(), new CondaPypiMappingService());
     private final ManifestCollectArchiveService archiveService = new ManifestCollectArchiveService();
 
     static boolean hasVerificationRepos() {
@@ -54,7 +56,7 @@ class ManifestCollectParityTest {
             return false;
         }
         try (Stream<Path> dirs = Files.list(VERIFY_ROOT)) {
-            return dirs.anyMatch(Files::isDirectory);
+            return dirs.anyMatch(ExternalVerificationFixture::hasParseInput);
         } catch (Exception e) {
             return false;
         }
@@ -65,8 +67,8 @@ class ManifestCollectParityTest {
     @MethodSource("verificationRepos")
     @DisplayName("manifest zip parse matches full-tree parse")
     void manifestZip_matchesFullParse(Path repoDir, @TempDir Path work) throws Exception {
-        Assumptions.assumeTrue(Files.isDirectory(repoDir),
-                "Skip: no clone at " + repoDir);
+        Assumptions.assumeTrue(ExternalVerificationFixture.hasParseInput(repoDir),
+                "Skip: no nonempty parse manifest at " + repoDir);
 
         String label = repoDir.getFileName().toString();
         var full = parser.parseDependencies(repoDir, label);
@@ -103,7 +105,7 @@ class ManifestCollectParityTest {
     void verificationReposExist() {
         List<Path> repos = verificationRepos().toList();
         Assumptions.assumeTrue(!repos.isEmpty(),
-                "Skip: clone repos under " + VERIFY_ROOT);
+                "Skip: prepare repos with nonempty parse manifests under " + VERIFY_ROOT);
         assertThat(repos).isNotEmpty();
     }
 

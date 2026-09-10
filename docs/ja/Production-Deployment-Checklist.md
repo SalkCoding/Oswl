@@ -19,31 +19,31 @@ OsWL をインターネットに公開する前に、この 1 ページのチェ
 | `DB_PASSWORD` | データベースパスワード |
 | `OSWL_ENCRYPTION_KEY` | インスタンス暗号化キー（`openssl rand -base64 32` で生成） |
 
-`.env.prod.example` を `.env.prod` にコピーし、すべての値を埋めてください。`application-prod.yaml` には DB や暗号化の**既定値はありません**。
+`deploy/docker/.env.prod.example` を `.env.prod` にコピーし、すべての値を埋めてください。`application-prod.yaml` には DB や暗号化の**既定値はありません**。
 
-起動時、不足している変数やその他の設定問題は、（アプリケーションの準備が完了した後）ログ内の**1 つの `OSWL STARTUP WARNINGS` ブロック**にまとめて出力されます。**`prod`** で `OSWL_ENCRYPTION_KEY` が不足している場合、アプリケーションは**起動に失敗**します — 本番公開前に固定値を設定してください（`local` プロファイルは開発専用として一時的なキーを使うことがあります）。
+起動後の設定警告は `OSWL STARTUP WARNINGS` ログブロックにまとめて出力されます。本番用暗号化キーの不足や DB 設定の不備などにより、このブロックが表示される前に起動が失敗する場合があります。本番環境では固定の `OSWL_ENCRYPTION_KEY` を維持してください。`local` YAML の固定の代替キーは開発専用であり、本番では使用できません。
 
 ## 3. ネットワークバインディング
 
-| チェック | 対応 |
-|-------|--------|
-| 既定のバインド | `SERVER_ADDRESS=127.0.0.1`（`application-prod.yaml` 参照） |
-| 公開アクセス | **nginx / Caddy / Traefik**（またはクラウド LB）を前段に置き、TLS はそこで終端させる |
-| 直接 `0.0.0.0` | JVM の HTTP スタックを公開するリスクを受け入れる場合のみ。リスクとファイアウォールを文書化すること |
+ホストで JVM を直接実行する場合、`application-prod.yaml` の既定値は `SERVER_ADDRESS=127.0.0.1` で、同じホストのリバースプロキシから接続できます。**Docker Compose ではコンテナ内を `SERVER_ADDRESS=0.0.0.0`** にして、Docker からアプリケーションへ転送できるようにします。ホスト側の公開範囲は別の設定です。`deploy/docker/compose.prod.yml` はホストの **`127.0.0.1:8080:8080`** にのみポートを割り当てます。本番用サンプルはこのコンテナ設定を使います。更新時は既存の `.env.prod` も確認してください。
 
-`docker-compose.prod.yml` は既定で **`127.0.0.1:8080:8080`** にマッピングされているため、コンテナはすべてのインターフェースには公開されません。
-
-プロキシが HSTS とセキュアクッキーのために `X-Forwarded-Proto` を送信する場合は `server.forward-headers-strategy=framework`（`application.yaml` の既定値）を設定してください。
+リバースプロキシで TLS を終端してください。付属のホストループバックへのポート割り当てを使う場合、プロキシは Docker ホストで実行します。プロキシもコンテナで動かす場合は、共有 Docker ネットワーク上のサービスアドレスに接続します。転送ヘッダーは信頼できるプロキシからのものだけを受け入れてください。
 
 ## 4. Docker Compose（本番）
 
+リポジトリのルートで実行します。既存の `.env.prod` の値は保持し、新規インストール時だけテンプレートをコピーします。両 Compose ファイルの既定プロジェクト名は `oswl` です。既存環境が別の名前を使用していた場合は `-p YOUR_EXISTING_PROJECT` または `COMPOSE_PROJECT_NAME` で同じ名前を維持し、既存ボリュームに接続してください。[デプロイファイルの案内](../../deploy/README.md)を参照してください。
+
 ```bash
-cp .env.prod.example .env.prod
+cp deploy/docker/.env.prod.example .env.prod
 # DB_*, OSWL_ENCRYPTION_KEY, SMTP_* を編集
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose --env-file .env.prod -f deploy/docker/compose.prod.yml up -d --build
 ```
 
+Compose は `--env-file` で `.env.prod` を読み込みます。`java -jar` や `bootRun` で直接実行する場合、このファイルは自動で読み込まれません。環境変数を設定するかサービス管理ツールに登録してください。本番環境の初回起動前に DB スキーマを準備します（§9 参照）。
+
 ログを確認: 変数不足の警告がない、PostgreSQL に接続済み、H2 や Swagger の URL がない。
+
+`deploy/docker/compose.prod.yml` は、コンテナ自体の stdout/stderr（docker の `json-file` ドライバ、100MB × 10 ファイル）と、アプリ自身のローテーションファイルログ（`oswl-logs-prod` ボリュームにマウント）の両方に上限を設けています — 後者は §5 を参照。
 
 ## 5. ロギングと可観測性
 
@@ -54,6 +54,17 @@ docker compose -f docker-compose.prod.yml up -d --build
 | Actuator | **`health`、`info`、`prometheus`** を公開（v1.0.4）。それ以外はすべて無効（`enabled-by-default: false`） |
 | メトリクス収集 | Prometheus を `/actuator/prometheus` に向ける — スクレイパーは管理者資格情報を提示する必要あり |
 | Actuator 認証 | **SYSTEM_ADMIN** セッションが必要（公開ではない） |
+
+### ログローテーションとリクエスト相関
+
+`local`／`test` はコンソール出力のみです。`prod` では `logback-spring.xml` がローテーションするファイルログを追加で書き出します:
+
+| 変数 | 既定値 | 用途 |
+|------|--------|------|
+| `OSWL_LOG_DIR` | `./logs`（docker では `/var/log/oswl`、§4 参照） | `oswl.log` の保存先。100MB または日次でローテーションし、最大 30 ファイル保持、合計 5GB を上限とします。 |
+| `OSWL_LOG_JSON` | `false` | `true` にすると、ファイル（コンソールではない）が 1 行 1 JSON オブジェクトの形式に切り替わります — ログシッパーをこれに向けて SIEM に取り込んでください。 |
+
+すべてのリクエストには `requestId` が付与され（レスポンスヘッダー `X-Request-Id` としても返されます）、認証済みであれば `userId` も付与されます — どちらも MDC 経由でそのリクエストのすべてのログ行に現れるため（プレーンテキストモードでは `[req=...] [user=...]`、JSON モードではトップレベルのフィールド）、あるリクエストを指すサポートチケットを、タイムスタンプで grep することなくログ全体から追跡できます。
 
 ## 6. 本番で有効なセキュリティ機能
 
@@ -75,7 +86,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 | 変数 | 既定値 | 有効化した場合の効果 |
 |---|---|---|
-| `OSWL_FLYWAY_ENABLED` | `false` | `baseline-on-migrate` によるバージョン管理されたマイグレーション。先に完全なベースラインを生成すること |
+| `OSWL_FLYWAY_ENABLED` | `false` | 付属の V1 と後続マイグレーションを実行。既存スキーマは事前確認 |
 | `OSWL_AIRGAPPED_ENABLED` | `false` | すべての脆弱性／脅威インテリジェンス参照がインポート済みのオフラインスナップショットから提供される。外向きの HTTP なし |
 | `OSWL_GATE_*` | [v1.0.4 の新機能](Whats-New-v1.0.4.md)を参照 | `POST /api/scan/gate` の既定閾値 |
 
@@ -98,6 +109,8 @@ docker compose -f docker-compose.prod.yml up -d --build
 
 ### 7.1 閉域網 / オフライン スナップショット (v1.0.4)
 
+このモードは対応する脆弱性・脅威情報フィードをスナップショットに切り替える機能であり、ネットワークファイアウォールではありません。閉域環境では VCS、SMTP、Webhook、外部 AI プロバイダーも別途設定してください。
+
 `OSWL_AIRGAPPED_ENABLED=true` に設定すると、脆弱性・脅威インテリジェンスの参照（OSV、deps.dev、EPSS、CISA KEV）がライブ外部 API ではなく、インポート済みのオフライン スナップショットから提供されます。エンリッチメント用の外向き HTTP は試行されません。
 
 | 手順 | 対応 |
@@ -105,7 +118,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 | 1. バンドルの作成 | インターネットに接続されたマシンで `oswl-vdb` ビルダーを実行します。ラッパー スクリプト: `scripts/oswl-vdb/oswl-vdb.sh`（Linux/macOS）または `scripts/oswl-vdb/oswl-vdb.ps1`（Windows）。いずれも `./gradlew vdbBuild --args="..."` を呼び出します。 |
 | 2. バンドルの対象選定 | 対象インスタンスが実際にスキャンしているコンポーネントを `GET /api/admin/snapshot/wanted-list`（SYSTEM_ADMIN）でエクスポートし、`build --wanted wanted-list.jsonl` に渡します。ビルダーは完全なアップストリーム ミラーではなく、実際に使用するコンポーネントのみを取得します。 |
 | 3. バンドルのインポート | `POST /api/admin/snapshot/import?mode=replace|merge`（multipart `.zip`）。大きなバンドルでは `OSWL_AIRGAPPED_IMPORT_DIR` ホワイトリスト ディレクトリを設定したうえで、`POST /api/admin/snapshot/import-from-path` に `{"path":"bundle.zip","mode":"merge"}` を送信します。 |
-| 4. モデルの配置（内蔵 AI を使用する場合） | 閉域網ホストは自動ダウンロードを無効にします。`.gguf` ファイルを `embedded-ai/` に直接配置するか、内部ミラーを運用してください（§8 参照）。 |
+| 4. モデルの配置（内蔵 AI を使う場合） | オフラインホストの起動前に `embedded-ai/llama/` に実行ファイル、`embedded-ai/model/<系列>/` に検証済みモデルを配置します。内部ミラーを設定してもエアギャップモードではダウンロードできません。§8 参照。 |
 
 `oswl-vdb build` オプション（`VdbBuilderCli` 参照）:
 - `--sources osv,epss,kev,depsdev`（既定値はすべて）。
@@ -118,41 +131,17 @@ docker compose -f docker-compose.prod.yml up -d --build
 - `merge` は `(source, entry_key)` 単位で upsert し、`"_deleted":true` 行は削除として扱います。
 - v2 バンドルは `meta.json` に記録されたファイル単位の SHA-256 チェックサムを検証し、不一致の場合はバンドル全体を拒否し、既存ストアは変更しません。
 
-定義の鮮度（E7）: `OSWL_AIRGAPPED_STALENESS_WARN_DAYS`（既定値 `7`）と `OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS`（既定値 `30`）は、インポートされたスナップショットのソース別 `sourceAsOf` 日付のうち最も古い値を基準に管理 UI バッジを決定します。
+定義の鮮度: `OSWL_AIRGAPPED_STALENESS_WARN_DAYS`（既定値 `7`）と `OSWL_AIRGAPPED_STALENESS_CRITICAL_DAYS`（既定値 `30`）は、インポートされたスナップショットのソース別 `sourceAsOf` 日付のうち最も古い値を基準に管理 UI バッジを決定します。
 
 バンドルが 50MB を超える場合は、`OSWL_MULTIPART_MAX_FILE_SIZE` / `OSWL_MULTIPART_MAX_REQUEST_SIZE`（既定値はそれぞれ `50MB`）を調整する必要があるかもしれません。
 
-## 8. 内蔵 AI モデル（任意、オンプレミス向け）
+## 8. 内蔵AI（任意、CPU専用）
 
-クラウドプロバイダーの代わりに、またはそれに加えて**内蔵 AI**（設定 → AI → ローカル）を使う予定がある場合のみ関係します。
+既定は **Qwen3.5-2B Q4_K_M**、選択肢は **Gemma 4 E2B Q4_K_M**です。OsWL・PostgreSQLの同居と断続的使用で、Qwen想定最小2 vCPU / RAM 8 GB、Gemma推奨4 vCPU / RAM 16 GBを目安にします。性能保証ではなく、CPUクレジットと同時スキャンの検証が必要です。
 
-| チェック | 対応 |
-|-------|--------|
-| サーバーバイナリ | [llama.cpp のリリース](https://github.com/ggml-org/llama.cpp/releases)からお使いのプラットフォーム用の `llama-server(.exe)` をダウンロードし、`embedded-ai/`（またはその配下の `bin/`、あるいは `PATH` 上の任意の場所）に配置してください — これが唯一の手動手順です |
-| モデル | 何もする必要はありません — 新規インストールで**開始**をクリックすると、Apache-2.0 ライセンスの Qwen3-1.7B モデルが自動でダウンロードされます（約 1.2 GB、SHA256 を検証、UI に進捗表示） |
-| 閉域網（エアギャップ）ホスト | 自動ダウンロードには一度だけ外向きのインターネットアクセスが必要です。それがない場合は、開始をクリックする前に自分で入手した `.gguf` ファイルを `embedded-ai/` に配置してください |
-| カスタムモデル | OsWL が同梱・自動取得するのは Qwen3-1.7B のみです。それ以外の `.gguf`（サイズやライセンスが異なるもの）を使いたい場合は、そのモデル自体のライセンスを確認したうえで自分で `embedded-ai/` に配置してください。[内蔵 AI](Embedded-AI.md)を参照 |
-| ディレクトリ | 既定では JVM が起動する作業ディレクトリからの相対パス `./embedded-ai` — 別のパスにするには `OSWL_EMBEDDED_AI_DIR` を設定 |
+実行ファイルは `embedded-ai/llama/`、重みは `model/Qwen/` と `model/Gemma/` に配置します。自動取得はQwenのみです。GPUレイヤー0、スレッド1、生成スロット1、コンテキスト8192が既定です。固定URL・ハッシュ・サイズを組として維持します。旧 `models-v1` は新モデルではありません。DockerはルートのマウントとLinuxランタイムが必要です。
 
-Gradle タスクや別のスクリプトは関与しません — ダウンロードは開始が初めてクリックされたときにアプリケーション自体の中で実行されるため、単純な `java -jar app.jar` によるデプロイでも動作します。
-
-### 内蔵 AI チューニング (B1 / v1.0.4)
-
-既定値は本番環境で安全です。測定された理由がある場合のみ上書きしてください。
-
-| 変数 | 既定値 | 用途 |
-|---|---|---|
-| `OSWL_EMBEDDED_AI_CONTEXT` | `8192` | 総コンテキスト サイズ（`-c`）。`--parallel` 使用時はスロット間で分割され、スロット コンテキストが 2048 を下回ると警告ログが出力されます。 |
-| `OSWL_EMBEDDED_AI_GPU_LAYERS` | `-1` | `-ngl`: `-1` はビルドがサポートする限りオフロード（`999` を渡す）、`0` は CPU のみ、正の値は明示的なレイヤー数 |
-| `OSWL_EMBEDDED_AI_THREADS` | `0` | `-t`: `0` は llama.cpp の自動検出、正の値はスレッド数を固定 |
-| `OSWL_EMBEDDED_AI_PARALLEL` | `4` | `--parallel N --cont-batching` を有効化；1 より大きいと同時 AI 呼び出しが直列化されません |
-| `OSWL_EMBEDDED_AI_FLASH_ATTN` | `true` | `-fa`（flash attention）を追加 |
-| `OSWL_EMBEDDED_AI_CACHE_REUSE` | `256` | `--cache-reuse` トークン数；`0` 以下は無効化 |
-| `OSWL_EMBEDDED_AI_EXTRA_ARGS` | （空） | `llama-server` CLI 引数を空白区切りでそのまま追加（管理者専用設定、リクエスト入力ではない） |
-| `OSWL_EMBEDDED_AI_STARTUP_TIMEOUT_SEC` | `120` | `/health` 応答を待つ秒数。時間内に失敗すると CPU のみでの再試行、または次のモデル候補に進みます。 |
-| `OSWL_EMBEDDED_DEFAULT_MODEL_URL` / `SHA256` / `SIZE_BYTES` | 上流の Hugging Face `ggml-org/Qwen3-1.7B-GGUF` | 既定 Qwen3-1.7B ダウンロード用のマッチング セット；自己ホスティング ミラーを使用する場合は 3 つすべてを上書き（バイト単位で同一の再ホストなら URL のみ変更） |
-| `OSWL_EMBEDDED_FALLBACK_MODEL_URL` | Hugging Face | 既定 URL が失敗した場合に 1 回再試行；primary と同じか空にすると再試行を無効化 |
-| `OSWL_EMBEDDED_AUTO_DOWNLOAD` | `true` | 起動時に既定モデルをバックグラウンドでプリフェッチ（ダウンロードのみで、サイドカーは起動しません）。**`OSWL_AIRGAPPED_ENABLED=true` の場合は無視されます**。 |
+詳細要件・構成・チェックサム・ミラー/閉域導入・CPU調整・モデルと言語選択・再配布告知は [内蔵AI](Embedded-AI.md) を参照してください。
 
 ## 9. データベーススキーマ（アップグレード）
 
@@ -176,7 +165,7 @@ OsWL は `prod` で **Hibernate `ddl-auto=validate`** を使用します — ア
 
 ### Flyway（v1.0.4、オプトイン）
 
-`OSWL_FLYWAY_ENABLED=true` を設定すると、手動実行スクリプトの代わりに Flyway がスキーマを管理します。`baseline-on-migrate` が有効なため、データが入った既存の DB も拒否されずベースライン処理されます — ただし、有効化する**前に**、現在のスキーマと一致する完全なベースラインマイグレーションを生成してください。既定の `false` のままなら何も変わりません。
+`OSWL_FLYWAY_ENABLED=true` で `src/main/resources/db/migration/` のバージョン別マイグレーションを有効にします。既定値は `false` です。リポジトリには `V1__baseline.sql` と後続のマイグレーションが含まれています。空の PostgreSQL DB では V1 から順に実行し、その後 Hibernate がスキーマを検証します。Flyway 履歴のない既存 DB では、`baseline-on-migrate` が V1 を実行せずにバージョン 1 を記録し、V2 以降を実行します。有効化前にバックアップを取得し、既存スキーマとマイグレーションを比較してください。手動適用済みの変更と後続マイグレーションが競合する場合があります。共有 DB に適用済みのファイルを再生成・変更しないでください。SQL を手動管理する場合は、対象バージョンに必要な変更をすべて順番に適用します。以下の一部の旧スクリプトだけでは新規インストール用のスキーマを構成できません。
 
 ### v1.0.4 のカラム
 
@@ -193,6 +182,10 @@ ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS ai_locale varchar(16);
 
 （Flyway ユーザー: 新しい 3 つの `libraries` カラムは `V3__component_metadata.sql` でカバーされています。[データベーススキーマ](Database-Schema.md)を参照。）
 
+### v1.0.5: Spring Session / ShedLock テーブル（オプトイン）
+
+**マルチインスタンス**構成に移行する場合にのみ必要です（§12 参照）。`spring_session`、`spring_session_attributes`、`shedlock` を追加します。Flyway ユーザーは `db/migration/V10__spring_session_and_shedlock.sql` から、手動スクリプトのユーザーは `db/spring_session_and_shedlock.sql` を実行してください。シングルインスタンス構成であれば完全にスキップできます — `OSWL_SESSION_STORE_TYPE=jdbc` や `OSWL_SCHEDULER_LOCK_ENABLED=true` を設定するまで、これらのテーブルは誰にも参照されません。
+
 ## 10. デプロイ後のスモークテスト
 
 1. HTTPS リバースプロキシ経由でのみ UI を開く。
@@ -204,10 +197,39 @@ ALTER TABLE scan_results ADD COLUMN IF NOT EXISTS ai_locale varchar(16);
 
 ## 11. 運用
 
-- PostgreSQL をバックアップし、`OSWL_ENCRYPTION_KEY` をシークレットマネージャーに保管する（紛失すると VCS トークンが読めなくなります）。
+- PostgreSQL をバックアップし、`OSWL_ENCRYPTION_KEY` をシークレットマネージャーに保管する（紛失すると VCS トークンが読めなくなります） — 手順全体と復旧リハーサル用スクリプトは [バックアップと復旧](Backup-And-Restore.md) を参照。
 - 侵害があった場合は API キーと SMTP 認証情報をローテーションする。
 - `local` として実行されるべきでないイメージから `SPRING_PROFILES_ACTIVE` を除外しておく。
 
+## 12. マルチインスタンス配備（水平スケーリング / HA）
+
+OsWL は既定では**シングルインスタンス**として動作します — インメモリの HTTP セッションと、インスタンスごとの `@Scheduled` ジョブです。コンテナ／プロセスが 1 つならこれで問題ありませんが、ロードバランサーの背後に 2 つ目のインスタンスを置くと崩れます。ユーザーのセッションはログインしたインスタンスに固定され、夜間モニタリング／猶予期限切れ／ごみ箱クリーンアップの各ジョブは、クラスタ全体で 1 回ではなく**インスタンスごと**に実行されてしまいます。この節は、同じ PostgreSQL データベースに対して **2 台以上のインスタンス**を配備する場合にのみ関係します。
+
+**1. まずスキーマを適用してください。** 以下の機能を有効にしたインスタンスを起動する前に、`spring_session`、`spring_session_attributes`、`shedlock` が存在することを確認してください（§9「v1.0.5: Spring Session / ShedLock テーブル」）。テーブルが存在しない状態で以下の環境変数を先に展開すると、最初のリクエスト／ジョブ実行時に全インスタンスがクラッシュします。
+
+**2. 環境変数:**
+
+| 変数 | 目的 |
+|------|------|
+| `OSWL_SESSION_STORE_TYPE=jdbc` | HTTP セッションを Tomcat のインメモリ保存から PostgreSQL（`spring_session`）へ移します。ログイン状態とシングルセッション強制（`maximumSessions(1)`）が、インスタンス単位ではなくクラスタ全体で機能するようになります。 |
+| `OSWL_SCHEDULER_LOCK_ENABLED=true` | 3 つのスケジュールジョブ（`ContinuousMonitoringScheduler`、`DeferExpiryScheduler`、`TrashCleanupScheduler`）を、`shedlock` テーブルを利用したクラスタ全体のロック（ShedLock）で包み、サイクルごとに 1 インスタンスだけが実行するようにします。 |
+
+実際にマルチインスタンス配備する場合は両方を同時に設定してください — 片方だけ有効にすると、もう片方の穴がそのまま残ります。
+
+**3. ロードバランサー:** nginx や ALB など一般的な L7 LB で構いません — `OSWL_SESSION_STORE_TYPE=jdbc` を設定すればセッション状態はインスタンスのメモリではなく PostgreSQL に一元化されるため、**スティッキーセッションは不要です。**
+
+**4. ただしスキャン進捗のポーリングだけは例外です。** Quick Import／スキャンのエンリッチメント中に表示されるライブ進捗（`EnrichmentProgressHolder`、`ScanStatusEmitterRegistry`）は、依然としてインスタンスごとのインメモリ状態であり、DB には保存されません。推奨策: ロードバランサーのルーティングを**アクティブなスキャンが実行されている間だけ**スティッキーにする（例: セッション基準のクッキーアフィニティ）ことで、進捗ポーリングのリクエストが実際にそのスキャンを実行しているインスタンスに戻るようにしてください。スキャン進捗を DB に移し UI を純粋なポーリング方式に切り替える代替案はより大きな変更になるため別途追跡しており、現時点ではスティッキールーティングが実用的な既定策です。
+
+**5. ローリングデプロイの手順:**
+   1. まず未適用の DB マイグレーションを適用します（旧バージョンのアプリコードが新しいスキーマに耐えられる必要があるため — `db/migration` はこの方針に従い追加のみの変更にしています）。
+   2. インスタンスは一斉にではなく 1 台ずつ入れ替え、新しいインスタンスの readiness チェックが通るのを待ってから次に進みます。
+   3. `OSWL_SESSION_STORE_TYPE=jdbc` を設定していれば、セッションはインスタンスのメモリではなく PostgreSQL にあるため、ローリング再起動でユーザーがログアウトされることはありません。
+
+**6. 動作確認:**
+   - インスタンス A にログインした後、LB がインスタンス B にルーティングする後続リクエストを送っても、認証状態が維持される（`/login` にリダイレクトされない）ことを確認します。
+   - インスタンス A を停止しても、セッション（およびシングルセッション強制）がインスタンス B から引き続き機能することを確認します。
+   - 夜間ジョブの実行後、両方のインスタンスのログを確認し、そのジョブのログ行が両方ではなく正確に 1 つのインスタンスにのみ現れることを確認します。
+
 ---
 
-**ローカル開発:** `SPRING_PROFILES_ACTIVE=local`、`.env.example` を `.env` にコピー、`OSWL_ENCRYPTION_KEY` を設定、`./gradlew bootRun` を実行。H2 ファイル DB、H2 コンソール、Swagger、`GET /data/test` はこのプロファイルでのみ利用可能です。
+**ローカル開発:** `./gradlew bootRun`（PowerShell: `.\gradlew.bat bootRun`）で `local` プロファイルと H2 を使用します。ローカル YAML には開発専用の暗号化キーがあります。必要に応じてプロセスの環境変数で変更してください。`.env` は起動ツールが明示的に読み込む場合のみ適用されます。

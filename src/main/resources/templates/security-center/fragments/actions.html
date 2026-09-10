@@ -7,22 +7,24 @@
      data-no-print="true"
      class="border-t border-[var(--grayscale-20)] flex flex-col pl-[16px] sm:pl-[24px] md:pl-[40px] lg:pl-[60px] pr-[16px] sm:pr-[24px] md:pr-[40px] lg:pr-[120px] py-[20px] w-full bg-white shrink-0 relative">
     <div class="flex items-center gap-[12px] w-full">
-        <div class="relative" @click.outside="bulkActionsOpen = false">
+        <div class="relative" @click.outside="bulkActionsOpen = false" @keydown.escape.stop="bulkActionsOpen = false">
             <button type="button"
                     @click="selectedComponents.length > 0 && (bulkActionsOpen = !bulkActionsOpen)"
-                    :disabled="selectedComponents.length === 0"
+                    :disabled="bulkSaving || selectedComponents.length === 0"
+                    :aria-expanded="bulkActionsOpen" aria-controls="sc-bulk-menu"
                     class="bg-[var(--grayscale-5)] border border-[var(--grayscale-30)] flex h-[32px] items-center justify-center gap-[6px] px-[14px] rounded-[6px] shrink-0 transition-colors"
                     :class="selectedComponents.length === 0 ? 'opacity-40 cursor-not-allowed' : (bulkActionsOpen ? 'bg-[var(--grayscale-10)] border-[var(--primary-120)] hover:bg-[var(--grayscale-10)]' : 'hover:bg-[var(--grayscale-10)] cursor-pointer')">
-                <p class="font-medium text-[13px] text-[var(--primary-120)] text-center leading-[1.3] tracking-[-0.13px] whitespace-nowrap" th:text="#{common.bulkActions}">Bulk Actions</p>
+                <p class="font-medium text-[13px] text-[var(--text-accent)] text-center leading-[1.3] tracking-[-0.13px] whitespace-nowrap" th:text="#{common.bulkActions}">Bulk Actions</p>
                 <img th:src="@{/icon/icon-chevron-down.svg}" class="w-3 h-3 transition-transform" :class="bulkActionsOpen ? 'rotate-180' : ''" alt="" aria-hidden="true" style="filter: brightness(0) saturate(100%) invert(47%) sepia(100%) saturate(453%) hue-rotate(148deg) brightness(83%);">
             </button>
 
             <div x-show="bulkActionsOpen"
+                 id="sc-bulk-menu"
                  @click.away="bulkActionsOpen = false"
                  x-transition
                  style="display: none;"
                  class="absolute left-0 top-[36px] z-[9999] w-max min-w-full rounded-[8px] border border-[var(--grayscale-30)] bg-white shadow-[0px_8px_24px_rgba(0,29,53,0.08)] p-[10px]">
-                <p class="text-[10px] text-[#849197] font-normal tracking-[-0.10px] mb-[8px] px-[10px]" th:text="#{common.applyToSelected}">Apply to selected</p>
+                <p class="text-[10px] text-[var(--grayscale-80)] font-normal tracking-[-0.10px] mb-[8px] px-[10px]" th:text="#{common.applyToSelected}">Apply to selected</p>
                 <button type="button"
                         @click="applyBulkAction('reviewed')"
                         class="w-full text-left rounded-[8px] px-[10px] py-[8px] text-[13px] text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)] transition-colors">
@@ -45,19 +47,21 @@
         <button type="button" data-no-print="true"
                 @click="batchUpgradePrs()"
                 class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-30)] flex h-[32px] items-center justify-center gap-[6px] px-[14px] rounded-[6px] shrink-0 transition-colors">
-            <p class="font-medium text-[13px] text-[var(--primary-120)] text-center leading-[1.3] tracking-[-0.13px] whitespace-nowrap" th:text="#{securityCenter.batchPr.btn}">Upgrade All (PRs)</p>
+            <p class="font-medium text-[13px] text-[var(--text-accent)] text-center leading-[1.3] tracking-[-0.13px] whitespace-nowrap" th:text="#{securityCenter.batchPr.btn}">Upgrade All (PRs)</p>
         </button>
 
-        <div class="relative" @click.outside="exportOpen = false">
+        <div class="relative" @click.outside="exportOpen = false" @keydown.escape.stop="exportOpen = false">
             <button type="button"
                     @click="exportOpen = !exportOpen"
+                    :aria-expanded="exportOpen" aria-controls="sc-export-menu"
                     class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-30)] flex h-[32px] items-center justify-center gap-[6px] px-[14px] rounded-[6px] shrink-0 w-[104px] transition-colors"
                     :class="exportOpen ? 'bg-[var(--grayscale-10)] border-[var(--primary-120)]' : ''">
-                <p class="font-medium text-[13px] text-[var(--primary-120)] text-center leading-[1.3] tracking-[-0.13px]" th:text="#{common.export}">Export</p>
+                <p class="font-medium text-[13px] text-[var(--text-accent)] text-center leading-[1.3] tracking-[-0.13px]" th:text="#{common.export}">Export</p>
                 <img th:src="@{/icon/icon-chevron-down.svg}" class="w-3 h-3 transition-transform" :class="exportOpen ? 'rotate-180' : ''" alt="" aria-hidden="true" style="filter: brightness(0) saturate(100%) invert(47%) sepia(100%) saturate(453%) hue-rotate(148deg) brightness(83%);">
             </button>
 
             <div x-show="exportOpen"
+                 id="sc-export-menu"
                  @click.away="exportOpen = false"
                  x-transition
                  style="display: none;"
@@ -71,7 +75,7 @@
                         class="w-full text-left rounded-[8px] px-[10px] py-[8px] text-[13px] font-medium text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)] transition-colors">
                     <span th:text="#{common.csv}">CSV</span></button>
                 <div class="my-[6px] border-t border-[var(--grayscale-20)]"></div>
-                <p class="text-[10px] text-[#849197] font-normal tracking-[-0.10px] mb-[4px] px-[10px]" th:text="#{securityCenter.export.cyclonedx}">CycloneDX</p>
+                <p class="text-[10px] text-[var(--grayscale-80)] font-normal tracking-[-0.10px] mb-[4px] px-[10px]" th:text="#{securityCenter.export.cyclonedx}">CycloneDX</p>
                 <button type="button"
                         @click="exportAs('sbom')"
                         class="w-full text-left rounded-[8px] px-[10px] py-[8px] text-[13px] font-medium text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)] transition-colors">
@@ -92,18 +96,20 @@
             </div>
         </div>
 
-        <div class="relative" @click.outside="sortOpen = false">
+        <div class="relative" @click.outside="sortOpen = false" @keydown.escape.stop="sortOpen = false">
             <button type="button"
                     @click="sortOpen = !sortOpen"
+                    :aria-expanded="sortOpen" aria-haspopup="listbox" aria-controls="sc-sort-menu"
                     class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-30)] flex h-[32px] items-center justify-center gap-[6px] px-[14px] rounded-[6px] shrink-0 transition-colors"
                     :class="sortOpen ? 'bg-[var(--grayscale-10)] border-[var(--primary-120)]' : ''">
-                <p class="font-medium text-[13px] text-[var(--primary-120)] text-center leading-[1.3] tracking-[-0.13px] whitespace-nowrap">
+                <p class="font-medium text-[13px] text-[var(--text-accent)] text-center leading-[1.3] tracking-[-0.13px] whitespace-nowrap">
                     <span th:text="#{securityCenter.sort.label}">Sort</span><span>: </span><span x-text="sortMode === 'risk' ? sortLabels.risk : (sortMode === 'name' ? sortLabels.name : sortLabels.license)"></span>
                 </p>
                 <img th:src="@{/icon/icon-chevron-down.svg}" class="w-3 h-3 transition-transform" :class="sortOpen ? 'rotate-180' : ''" alt="" aria-hidden="true" style="filter: brightness(0) saturate(100%) invert(47%) sepia(100%) saturate(453%) hue-rotate(148deg) brightness(83%);">
             </button>
 
             <div x-show="sortOpen"
+                 id="sc-sort-menu" role="listbox"
                  @click.away="sortOpen = false"
                  x-transition
                  style="display: none;"
@@ -111,18 +117,93 @@
                 <button type="button"
                         @click="applySort('risk')"
                         class="w-full text-left rounded-[8px] px-[10px] py-[8px] text-[13px] text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)] transition-colors"
-                        :class="sortMode === 'risk' ? 'font-semibold text-[var(--primary-120)]' : ''">
+                        :class="sortMode === 'risk' ? 'font-semibold text-[var(--text-accent)]' : ''">
                     <span th:text="#{securityCenter.sort.risk}">Risk (default)</span></button>
                 <button type="button"
                         @click="applySort('name')"
                         class="w-full text-left rounded-[8px] px-[10px] py-[8px] text-[13px] text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)] transition-colors"
-                        :class="sortMode === 'name' ? 'font-semibold text-[var(--primary-120)]' : ''">
+                        :class="sortMode === 'name' ? 'font-semibold text-[var(--text-accent)]' : ''">
                     <span th:text="#{securityCenter.sort.name}">Name</span></button>
                 <button type="button"
                         @click="applySort('license')"
                         class="w-full text-left rounded-[8px] px-[10px] py-[8px] text-[13px] text-[var(--grayscale-100)] hover:bg-[var(--grayscale-5)] transition-colors"
-                        :class="sortMode === 'license' ? 'font-semibold text-[var(--primary-120)]' : ''">
+                        :class="sortMode === 'license' ? 'font-semibold text-[var(--text-accent)]' : ''">
                     <span th:text="#{securityCenter.sort.license}">License risk</span></button>
+            </div>
+        </div>
+
+        <div class="relative" @click.outside="viewsOpen = false; savingView = false" @keydown.escape.stop="viewsOpen = false; savingView = false">
+            <button type="button"
+                    @click="viewsOpen = !viewsOpen"
+                    :aria-expanded="viewsOpen" aria-controls="sc-views-menu"
+                    class="bg-[var(--grayscale-5)] hover:bg-[var(--grayscale-10)] border border-[var(--grayscale-30)] flex h-[32px] items-center justify-center gap-[6px] px-[14px] rounded-[6px] shrink-0 transition-colors"
+                    :class="viewsOpen ? 'bg-[var(--grayscale-10)] border-[var(--primary-120)]' : ''">
+                <p class="font-medium text-[13px] text-[var(--text-accent)] text-center leading-[1.3] tracking-[-0.13px] whitespace-nowrap" th:text="#{securityCenter.views.label}">Views</p>
+                <img th:src="@{/icon/icon-chevron-down.svg}" class="w-3 h-3 transition-transform" :class="viewsOpen ? 'rotate-180' : ''" alt="" aria-hidden="true" style="filter: brightness(0) saturate(100%) invert(47%) sepia(100%) saturate(453%) hue-rotate(148deg) brightness(83%);">
+            </button>
+
+            <div x-show="viewsOpen"
+                 id="sc-views-menu"
+                 @click.away="viewsOpen = false; savingView = false"
+                 x-transition
+                 style="display: none;"
+                 class="absolute left-0 top-[36px] z-[9999] w-max min-w-[260px] max-w-[320px] rounded-[8px] border border-[var(--grayscale-30)] bg-white shadow-[0px_8px_24px_rgba(0,29,53,0.08)] p-[10px]">
+                <template x-if="viewsLoading">
+                    <p class="text-[12px] text-[var(--grayscale-80)] px-[10px] py-[8px]" th:text="#{securityCenter.views.loading}">Loading saved views…</p>
+                </template>
+                <template x-if="!viewsLoading && viewsError">
+                    <div class="flex flex-col gap-[8px] rounded-[8px] border border-red-200 bg-red-50 px-[10px] py-[9px]" role="alert">
+                        <p class="m-0 text-[12px] leading-[1.5] text-red-700" x-text="viewsError"></p>
+                        <button type="button" @click="loadViews()"
+                                class="self-start text-[12px] font-semibold text-red-700 underline underline-offset-2"
+                                th:text="#{common.retry}">Retry</button>
+                    </div>
+                </template>
+                <template x-if="!viewsLoading && !viewsError && views.length === 0 && !savingView">
+                    <p class="text-[12px] text-[var(--grayscale-80)] px-[10px] py-[8px]" th:text="#{securityCenter.views.empty}">No saved views yet.</p>
+                </template>
+                <template x-for="view in views" :key="view.id">
+                    <div x-show="!viewsLoading && !viewsError"
+                         class="flex items-center gap-[4px] rounded-[8px] px-[10px] py-[6px] hover:bg-[var(--grayscale-5)] transition-colors group">
+                        <button type="button" @click="applyView(view)" class="flex-1 min-w-0 text-left flex items-center gap-[6px]">
+                            <span class="text-[13px] text-[var(--grayscale-100)] truncate" x-text="view.name"></span>
+                            <span x-show="view.shared" class="shrink-0 text-[10px] px-[6px] py-[1px] rounded-full bg-[var(--primary-10)] text-[var(--text-accent)]" th:text="#{securityCenter.views.sharedBadge}">Shared</span>
+                        </button>
+                        <button type="button" @click="copyViewLink(view)" class="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-[4px] rounded hover:bg-[var(--grayscale-10)]" th:attr="aria-label=#{securityCenter.views.copyLink}" th:title="#{securityCenter.views.copyLink}">
+                            <img th:src="@{/icon/icon-copy.svg}" class="w-[13px] h-[13px]" alt="" aria-hidden="true">
+                        </button>
+                        <button type="button" x-show="view.own" @click="deleteView(view)" class="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-[4px] rounded hover:bg-[var(--grayscale-10)]" th:attr="aria-label=#{securityCenter.views.deleteBtn}" th:title="#{securityCenter.views.deleteBtn}">
+                            <img th:src="@{/icon/icon-trash.svg}" class="w-[13px] h-[13px]" alt="" aria-hidden="true">
+                        </button>
+                    </div>
+                </template>
+
+                <div x-show="!viewsLoading && !viewsError" class="my-[6px] border-t border-[var(--grayscale-20)]"></div>
+
+                <template x-if="!viewsLoading && !viewsError && !savingView">
+                    <button type="button" @click="savingView = true"
+                            class="w-full text-left rounded-[8px] px-[10px] py-[8px] text-[13px] font-medium text-[var(--text-accent)] hover:bg-[var(--grayscale-5)] transition-colors"
+                            th:text="#{securityCenter.views.save}">Save current view</button>
+                </template>
+                <template x-if="!viewsLoading && !viewsError && savingView">
+                    <div class="flex flex-col gap-[8px] px-[6px] py-[4px]">
+                        <input type="text" x-model="newViewName" @keydown.enter="saveCurrentView()"
+                               th:placeholder="#{securityCenter.views.namePlaceholder}"
+                               class="w-full h-[32px] px-[10px] rounded-[6px] border border-[var(--grayscale-30)] text-[13px] outline-none focus:border-[var(--primary-120)]">
+                        <label class="flex items-center gap-[6px] cursor-pointer">
+                            <input type="checkbox" x-model="newViewShared" class="w-[14px] h-[14px]">
+                            <span class="text-[12px] text-[var(--grayscale-90)]" th:text="#{securityCenter.views.shared}">Shared with team</span>
+                        </label>
+                        <div class="flex gap-[8px] justify-end">
+                            <button type="button" @click="savingView = false; newViewName = ''; newViewShared = false"
+                                    class="text-[12px] px-[10px] py-[6px] rounded-[6px] text-[var(--grayscale-70)] hover:bg-[var(--grayscale-5)]"
+                                    th:text="#{common.cancel}">Cancel</button>
+                            <button type="button" @click="saveCurrentView()" :disabled="!newViewName.trim()"
+                                    class="text-[12px] px-[10px] py-[6px] rounded-[6px] bg-[var(--primary-120)] text-white disabled:opacity-40"
+                                    th:text="#{securityCenter.views.saveBtn}">Save</button>
+                        </div>
+                    </div>
+                </template>
             </div>
         </div>
 

@@ -9,7 +9,7 @@ import java.util.stream.Stream;
 
 /**
  * Single source of truth for which project files the CLI should upload and
- * which directories {@link com.salkcoding.oswl.service.DependencyManifestParserService}
+ * which directories {@link com.salkcoding.oswl.service.ingest.DependencyManifestParserService}
  * skips when walking manifests.
  *
  * <p>Serialized to {@code /scripts/manifest-rules.json} for shell clients.</p>
@@ -37,6 +37,11 @@ public final class ManifestCollectRules {
             "packages.lock.json", "packages.config", "Directory.Packages.props",
             "Gemfile.lock",
             "composer.lock", "conan.lock",
+            "vcpkg.json", "vcpkg-configuration.json",
+            ".gitmodules", "CMakeLists.txt",
+            "Podfile.lock",
+            "conda-lock.yml", "pixi.lock",
+            "Dockerfile",
             "mvnw", "mvnw.cmd", "gradlew", "gradlew.bat",
             "global.json", "nuget.config");
 

@@ -1,5 +1,7 @@
 # 관리
 
+[1.0.5.1 변경 사항](Whats-New-v1.0.5.1.md)
+
 이 페이지는 모든 관리자 전용 기능을 다룹니다: 사용자 관리, 역할 템플릿, 감사 로그, 보안 설정, SMTP 구성.
 
 > 별도로 명시되지 않는 한 이 페이지의 모든 작업에는 **시스템 관리자** 권한이 필요합니다.
@@ -219,6 +221,24 @@ v1.0.4의 작업 코드는 필터 UI에서 **모니터링**(`MONITOR.*`), **연�
 
 세 엔드포인트 모두 관리자 권한이 필요합니다. Prometheus 스크랩 설정은 `application-prod.yaml`의 `management` 블록에 있습니다.
 
+### 비즈니스 메트릭 & Grafana
+
+기본 JVM/HTTP 미터 외에도 OsWL은 다음 비즈니스 메트릭을 기록합니다 (모두 `/actuator/prometheus`로 노출되며, Prometheus 이름 기준 — 점(.)은 밑줄(_)로 변환됩니다):
+
+| 메트릭 | 타입 | 태그 | 설명 |
+|---|---|---|---|
+| `oswl_scan_duration_seconds` | Timer | `outcome` (`completed`\|`failed`) | 스캔 파이프라인 전체 소요 시간 |
+| `oswl_quickimport_queue_depth` | Gauge | — | 워커 슬롯을 기다리는 Quick Import 작업 수 |
+| `oswl_quickimport_running` | Gauge | — | 현재 실행 중인 Quick Import 작업 수 |
+| `oswl_components_ingested_total` | Counter | `ecosystem` | 스캔 인제스트로 저장된 컴포넌트 수 |
+| `oswl_ai_calls_total` | Counter | `provider` | 기록된 AI 호출 수 |
+| `oswl_ai_tokens_total` | Counter | `provider`, `direction` (`in`\|`out`) | AI 프롬프트/완성 토큰 수 |
+| `oswl_ai_cost_usd_total` | Counter | `provider` | 추정 AI 비용 (USD) |
+| `oswl_gate_evaluations_total` | Counter | `outcome` (`pass`\|`fail`) | 시큐리티 게이트 평가 수 |
+| `oswl_external_api_calls_total` | Counter | `source` (`depsdev`, `osv`, `epss`, `kev`, `github-advisory`, `nvd`), `outcome` (`success`\|`failure`\|`ratelimited`) | 외부 데이터 소스 호출 수 |
+
+이 메트릭들을 다루는 Grafana 대시보드가 [`deploy/observability/grafana/oswl-dashboard.json`](../../deploy/observability/grafana/oswl-dashboard.json)에 포함되어 있습니다. **Dashboards → New → Import**로 임포트하면 Prometheus 데이터소스를 선택하라는 prompt가 표시되므로 JSON을 직접 수정할 필요가 없습니다.
+
 ---
 
 ## 오프라인 스냅샷 번들 (v1.0.4)
@@ -294,7 +314,7 @@ CVE/라이선스 요약에 사용할 LLM 제공업체와 보강 동작을 구성
 
 각 프로바이더의 모델 입력란은 자유 입력 콤보박스입니다: 드롭다운에는 현재 모델이 제안으로 표시되지만, 계정에서 접근 가능한 어떤 모델 ID든 직접 입력할 수 있습니다.
 
-같은 탭의 **내장 AI (기본 제공 로컬 모델)** 카드는 함께 제공되는 llama.cpp `llama-server`를 사이드카로 실행(CPU 전용, localhost 전용, API 키 불필요)하여 LOCAL 프로바이더로 등록합니다. 기본으로 번들되는 모델은 **Qwen3 1.7B**(최초 사용 시 다운로드)이며, 카드에서 **모델 드롭다운**(폴더 안의 모든 `.gguf` 또는 자동 순서), **폴더 변경 + 저장**(DB에 유지되며, 실행 중 변경 시 사이드카가 중지됨), 첫 번째 모델 시작 실패 시 다음 모델로 넘어가는 **자동 폴백**을 사용할 수 있습니다. [내장 AI](Embedded-AI.md) 참고.
+내장 AI는 별도로 설치한 llama.cpp 실행 파일을 사용하며, 기본 다운로드 모델은 **Qwen3.5-2B Q4_K_M**입니다. **Gemma 4 E2B**는 선택적으로 직접 설치합니다. 실행 파일은 `embedded-ai/llama/`, 모델은 `embedded-ai/model/<계열>/`에 둡니다. 부팅 시 미리 받기는 다운로드만 수행하며 서버 실행이나 LOCAL 활성화는 하지 않습니다. 기본 다운로드는 Hugging Face의 고정 리비전을 사용하고 SHA-256 및 크기를 검증합니다. 기본 대체 미러는 없으며, 에어갭 모드에서는 다운로드하지 않습니다. 모델을 바꾸려면 설정에서 중지한 뒤 모델을 선택·저장하고 다시 시작하세요. 최신 요구 사항과 설정은 [내장 AI](Embedded-AI.md)를 참고하세요.
 
 활성 제공업체는 **하나**만 둘 수 있습니다. 탭에서 추가로 설정할 수 있는 항목:
 
@@ -353,3 +373,49 @@ AI 카드는 오늘의 호출 수, 토큰 합계, 예상 비용을 보여주고(
 
 변경 사항은 `CACHE.UPDATE_TTL`, `CACHE.CLEAR`로 감사 로그에 기록됩니다.
 
+
+---
+
+## SAML 2.0 SSO 및 SCIM 2.0 프로비저닝
+
+OsWL은 Okta, Entra ID, 온프레미스 AD FS를 사용하는 기업용 SAML 2.0 단일 로그인을 지원합니다. SAML IdP가 설정되면 `/login`에 **SSO로 로그인** 옵션이 표시됩니다.
+
+### SAML 설정
+
+1. SP 서명 키 쌍을 생성합니다(선택 사항이지만 권장):
+   ```bash
+   openssl req -x509 -newkey rsa:2048 -keyout oswl-saml-sp.key -out oswl-saml-sp.crt -nodes -days 3650 -subj "/CN=oswl"
+   ```
+2. `application-prod.yaml`의 SAML 블록의 주석을 해제하고 환경 변수를 설정합니다:
+   | 환경 변수 | 용도 |
+   |---|---|
+   | `OSWL_SAML_IDP_METADATA_URL` | IdP 메타데이터 URL(예: Okta/Entra 앱 메타데이터) |
+   | `OSWL_SAML_IDP_CERTIFICATE` | IdP 서명 인증서 파일 경로 |
+   | `OSWL_SAML_SP_PRIVATE_KEY` | SP 개인 키 파일 경로 |
+   | `OSWL_SAML_SP_CERTIFICATE` | SP 인증서 파일 경로 |
+3. IdP에 SP 메타데이터를 등록합니다. 메타데이터 엔드포인트는 다음과 같습니다:
+   ```
+   https://<your-oswl-host>/saml2/service-provider-metadata/oswl
+   ```
+4. IdP가 email 클레임(NameID 또는 `email`/`mail` 속성)을 전송하는지 확인합니다.
+
+> SAML 로그인은 IdP가 이미 사용자를 인증했으므로 이메일 OTP 단계를 건너뜁니다. 기존 OsWL 계정과 일치하지 않는 이메일은 SCIM이 활성화하고 역할을 할당할 수 있도록 비활성화된 로컬 계정으로 자동 생성됩니다.
+
+### SCIM 2.0 프로비저닝
+
+SCIM을 사용하면 IdP의 사용자 생명주기를 OsWL과 동기화할 수 있습니다.
+
+| 리소스 | 엔드포인트 | 참고 |
+|---|---|---|
+| Users | `/scim/v2/Users` | GET/POST/PUT/PATCH/DELETE |
+| Groups | `/scim/v2/Groups` | GET/POST/PUT/PATCH/DELETE |
+
+**인증:** 모든 SCIM 요청에 `Authorization: Bearer <scim_token>`을 포함해야 합니다. 전용 SCIM 토큰은 `ApiKeyService#issueScimToken`을 통해 프로그래밍 방식으로 발급합니다. SCIM 토큰은 `api_keys` 테이블에 저장되지만 범위가 `SCIM`이며, 일반 CLI 스캔 API에서는 거부됩니다.
+
+**그룹 매핑:** `oswl.scim.group-mapping`(환경 변수: `OSWL_SCIM_GROUP_MAPPING`)으로 SCIM 그룹의 표현 방식을 선택합니다:
+- `TEAM`(기본값) — 각 SCIM 그룹은 Team이 되고, 멤버는 TeamMember 행이 됩니다.
+- `ROLE_TEMPLATE` — 각 SCIM 그룹은 RoleTemplate이 되고, 멤버는 해당 역할 템플릿이 할당됩니다.
+
+**사용자 비활성화:** `DELETE /scim/v2/Users/{id}`는 OsWL에서 `active=false`로 설정합니다. SCIM을 통해 사용자를 물리적으로 삭제하지는 않으므로 감사 귀속 정보가 보존됩니다.
+
+**감사 액션:** SCIM 작업은 `SCIM.USER_CREATE`, `SCIM.USER_UPDATE`, `SCIM.USER_DEACTIVATE`, `SCIM.GROUP_CREATE`, `SCIM.GROUP_UPDATE`, `SCIM.GROUP_DELETE`, `SCIM.GROUP_MEMBER_ADD`, `SCIM.GROUP_MEMBER_REMOVE`, `SCIM.AUTH_FAILURE`, `SCIM_KEY.CREATE`로 기록됩니다. SAML 로그인 이벤트는 `SAML.LOGIN_SUCCESS` 및 `SAML.LOGIN_FAILURE`로 기록됩니다.
