@@ -137,6 +137,9 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **2026-09-11 자료 누락과 수정 버전 충돌의 전체 enrichment 회귀:** `enrich` 진입부터 조회 상태 기록과 기존 CVE 수정 버전까지 실행했다. GHSA 자료 누락은 `UNAVAILABLE`, 정상 빈 목록은 `RESOLVED`지만 두 경우 모두 기존 수정 버전 충돌을 해제하지 않는다. OSV/GHSA가 동일 수정 후보를 제공하고 조회가 완료된 대조군에서만 충돌이 해제된다. 중복 CVE를 만들지 않는 것도 검사했다. 원천 응답은 자체 합성 mock이며 실제 네트워크/DB를 모두 연결한 실환경 검증은 아니다. 신규 3건은 기존 동작의 보강 검증으로 제품 결함 수정 전 재현을 주장하지 않는다. 초기 mock의 List/Set 인자 불일치를 고쳤고 기대값을 바꾸지 않았다.
+- **누적 검증:** 먼저 최근 NVD/GHSA 누락 수정까지 `build verifyProdJar` 성공: Windows/Java 25, 전체 3,113건 중 3,104건 통과·기존 환경 의존 skip 9건·실패/오류 0. 이후 신규 흐름 회귀를 포함한 `test --tests '*VulnerabilityEnrichmentServiceTest' --tests '*SnapshotImportTransactionTest'` 184건 통과·실패/오류/skip 0. 로그 `build/roadmap-coverage-cumulative-build.log`, `build/roadmap-coverage-fix-enrichment.log`. 커밋 제목 `test: verify offline coverage before resolving fix conflicts`. 외부 자료·라이브러리·UI 변경 없음. 전체 공급자/생태계의 실제 수정 버전 정답 및 원천 재배포 조건 검증은 계속 잔여다.
+
 - **2026-09-11 GHSA 오프라인 자료 부재 상태:** 원천 기준일이 최신이어도 개별 component key의 자료가 없으면 `NOT_CONFIGURED` 대신 `UNAVAILABLE`로 전달한다. 정상 빈 목록의 조회 완료와 온라인 토큰 미설정 구분은 유지한다. 이전 동작이 취약점 없음으로 확정했던 것으로 과장하지 않는다. 커밋 제목 `fix: retain unavailable coverage for missing offline github advisories`.
 - **검증·범위:** 실제 GitHub client/source adapter와 enrichment 라우팅을 실행한 모드/자료 존재 여부 3건 중 수정 전 누락 사례 1건 실패했다. Windows/Java 25의 `test --tests '*GitHubAdvisory*Test' --tests '*Advisory*Test' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*SnapshotImportTransactionTest'` 304건 통과·실패/오류/skip 0. 로그 `build/roadmap-ghsa-missing-coverage-before.log`, `build/roadmap-ghsa-missing-coverage-after.log`. 외부 원문·데이터·라이브러리를 도입하지 않은 기존 상태 전달 수정이며 원천 이용·재배포 조건을 새로 승인하지 않는다. 이번 단위의 전체 build/UI 재검증 및 공급자 실환경 검증은 수행하지 않았다.
 
