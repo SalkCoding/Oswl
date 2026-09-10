@@ -43,8 +43,8 @@ public class SnapshotFreshnessHealthIndicator implements HealthIndicator {
         LocalDate oldestAsOf = snapshotService.oldestSourceAsOf();
         if (oldestAsOf == null) {
             return Health.down()
-                    .withDetail("snapshot", "no imported snapshot provenance")
-                    .withDetail("reason", "air-gapped mode is enabled but no snapshot has been imported")
+                    .withDetail("snapshot", "unknown snapshot freshness")
+                    .withDetail("reason", "no snapshot provenance is available or an imported source has no as-of date")
                     .build();
         }
 

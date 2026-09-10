@@ -117,6 +117,30 @@ class SnapshotImportTransactionTest {
         assertOldSource();
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(value = {"2024-01-01;2026-01-01;MERGE;2024-01-01",
+            "null;2026-01-01;MERGE;null", "2024-01-01;null;MERGE;null",
+            "2026-01-01;2024-01-01;MERGE;2024-01-01", "2024-01-01;2026-01-01;REPLACE;2026-01-01"}, delimiter = ';', nullValues = "null")
+    void mergingNewDataCannotRefreshRetainedOlderRecords(String oldDate, String newDate, String mode, String expected) throws Exception {
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("epss")
+                .recordCount(1).importedAt(java.time.LocalDateTime.now())
+                .sourceAsOf(oldDate == null ? null : java.time.LocalDate.parse(oldDate)).build());
+        String line = "{\"cveId\":\"CVE-NEW\",\"score\":0.8}";
+        String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(line.getBytes(StandardCharsets.UTF_8)));
+        String source = newDate == null ? "{}" : "{\"asOf\":\"" + newDate + "\"}";
+        String meta = "{\"formatVersion\":2,\"sources\":{\"epss\":" + source
+                + "},\"files\":{\"epss.jsonl\":{\"sha256\":\"" + hash + "\",\"lines\":1}}}";
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("meta.json", meta, "epss.jsonl", line))),
+                AirgappedSnapshotService.ImportMode.valueOf(mode));
+        assertThat(metadata.findById("epss").orElseThrow().getSourceAsOf())
+                .isEqualTo(expected == null ? null : java.time.LocalDate.parse(expected));
+        assertThat(service.findEpssScores(List.of("CVE-OLD", "CVE-NEW"))).hasSize(mode.equals("MERGE") ? 2 : 1);
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("osv")
+                .recordCount(0).importedAt(java.time.LocalDateTime.now()).sourceAsOf(java.time.LocalDate.of(2026, 1, 1)).build());
+        assertThat(service.oldestSourceAsOf()).isEqualTo(expected == null ? null : java.time.LocalDate.parse(expected));
+    }
+
     @Test void importsMultipleChunksAndCleansStagingFiles() throws Exception {
         Set<Path> before = stagedFiles();
         StringBuilder lines = new StringBuilder();

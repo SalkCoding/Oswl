@@ -369,6 +369,9 @@
 
 - **누적 빌드 검증:** Windows/Java 25의 `.\gradlew.bat build verifyProdJar` 성공. 전체 1,137건 중 1,128건 통과·9건 skip·실패/오류 0, 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-cache-build.log`. skip은 외부 저장소/모델/실환경/대형 heap 조건이 필요한 기존 검사이며 완료 근거로 계산하지 않는다.
 
+- **2026-09-10 MERGE 기준일 보존:** 부분 갱신 전에 기존 데이터가 있는 소스의 기준일을 확보한다. 새 번들을 MERGE할 때 이전·새 기준일 중 오래된 날짜를 소스 기준일로 저장하고 어느 한쪽이 미확인이면 null을 유지한다. 모든 잔여 행이 갱신됐다는 증거가 없으므로 일부 행의 최신 날짜로 소스 전체를 최신화하지 않는다. REPLACE는 새 소스 기준일을 적용한다. 전체 기준일 집계도 날짜 미확인인 반입 소스가 있으면 null로 남기며 헬스 응답은 미반입뿐 아니라 일부 기준일 누락도 설명한다.
+- **부분 갱신 회귀:** 오래된/미확인/더 이른 날짜의 MERGE와 REPLACE 5건 중 수정 전 2건 실패를 확인했다. 실제 H2 데이터 보존·교체 및 다른 날짜 있는 소스와의 전체 기준일 집계까지 검사했다. `test --tests '*Snapshot*Test' --tests '*CocoaPodsSnapshotTest' --tests '*Vdb*Test'` 47건 중 46건 통과, 기존 대용량 환경 의존 skip 1건, 실패/error 0. 헬스 설명 보완 후 compileJava도 성공. Windows/Java 25, 로그 `build/roadmap-snapshot-merge-date-before.log`, `build/roadmap-snapshot-merge-date-after.log`, `build/roadmap-snapshot-merge-date-compile.log`. 커밋 제목 `fix: preserve conservative freshness across snapshot merges`. 자체 합성 자료, 외부 데이터/의존성 및 화면 코드 변경 없음. 행별 revision/기준일과 검증된 동기화 시점, 동시 반입 세대 잠금, export 원 날짜 전파는 잔여다.
+
 ### 37. staging 활성화·세대 고정·실패 복구 — P0 · [설계]
 
 - 현재·대상: 기존 REPLACE/MERGE/upsert와 reader가 사용하는 데이터 세대의 트랜잭션 경계.

@@ -320,14 +320,15 @@ public class AirgappedSnapshotService {
     /**
      * The oldest {@code sourceAsOf} across every source that has ever been imported — the
      * value staleness is measured against (never {@code builtAt}/{@code importedAt}, which say
-     * when the bundle/import happened, not how fresh the upstream data itself is). Null when no
-     * source has provenance yet (never imported, or only ever imported from a v1/meta-less bundle).
+     * when the bundle/import happened, not how fresh the upstream data itself is). Null when
+     * no sources were imported or any imported source has an unknown date.
      */
     @Transactional(readOnly = true)
     public LocalDate oldestSourceAsOf() {
-        return snapshotMetaRepository.findAll().stream()
+        List<SnapshotMeta> metadata = snapshotMetaRepository.findAll();
+        if (metadata.stream().anyMatch(source -> source.getSourceAsOf() == null)) return null;
+        return metadata.stream()
                 .map(SnapshotMeta::getSourceAsOf)
-                .filter(java.util.Objects::nonNull)
                 .min(LocalDate::compareTo)
                 .orElse(null);
     }
@@ -434,6 +435,15 @@ public class AirgappedSnapshotService {
     }
 
     private SnapshotImportResult applyBundle(Map<String, Path> rawFiles, BundleMetaV2 meta, ImportMode mode) {
+        Map<String, LocalDate> retainedDates = new LinkedHashMap<>();
+        if (mode == ImportMode.MERGE) {
+            for (String source : SOURCES) {
+                if (snapshotEntryRepository.countBySource(source) > 0) {
+                    retainedDates.put(source, snapshotMetaRepository.findById(source)
+                            .map(SnapshotMeta::getSourceAsOf).orElse(null));
+                }
+            }
+        }
         Map<String, Integer> counts = new LinkedHashMap<>();
         for (Map.Entry<String, Path> rf : rawFiles.entrySet()) {
             SnapshotBundleStager.checkInterrupted();
@@ -511,9 +521,15 @@ public class AirgappedSnapshotService {
                     .importedAt(now);
             if (meta != null) {
                 BundleSourceMeta sourceMeta = meta.sources() != null ? meta.sources().get(source) : null;
+                LocalDate asOf = sourceMeta != null ? sourceMeta.asOf() : null;
+                if (retainedDates.containsKey(source)) {
+                    // A delta does not prove that every retained row was refreshed.
+                    LocalDate retained = retainedDates.get(source);
+                    asOf = asOf == null || retained == null ? null : (retained.isBefore(asOf) ? retained : asOf);
+                }
                 builder.bundleId(meta.bundleId())
                         .builtAt(meta.builtAt())
-                        .sourceAsOf(sourceMeta != null ? sourceMeta.asOf() : null)
+                        .sourceAsOf(asOf)
                         .origin(sourceMeta != null ? sourceMeta.origin() : null)
                         .formatVersion(CURRENT_FORMAT_VERSION);
             }
