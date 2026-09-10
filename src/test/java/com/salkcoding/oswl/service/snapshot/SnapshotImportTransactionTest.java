@@ -22,6 +22,29 @@ import static org.assertj.core.api.Assertions.*;
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:snapshot-budget;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT")
 class SnapshotImportTransactionTest {
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"0,false", "7,false", "8,true", "40,true", "-1,true", "999,true"})
+    void offlineGithubRetainsFindingsButWithholdsStaleCoverageAndFixes(int age, boolean stale) {
+        String key = AirgappedSnapshotService.componentKey("npm", "fixture", "1.0.0");
+        String empty = AirgappedSnapshotService.componentKey("npm", "empty", "1.0.0");
+        entries.saveAndFlush(SnapshotEntry.builder().source("github-advisory").entryKey(key)
+                .payload("[{\"osvId\":\"GHSA-fixture\",\"fixVersion\":\"2.0.0\"}]").build());
+        entries.saveAndFlush(SnapshotEntry.builder().source("github-advisory").entryKey(empty).payload("[]").build());
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("github-advisory")
+                .recordCount(2).importedAt(java.time.LocalDateTime.now())
+                .sourceAsOf(age == 999 ? null : java.time.LocalDate.now().minusDays(age)).build());
+        var client = new com.salkcoding.oswl.client.GitHubAdvisoryClient(service, true, null,
+                "https://api.github.com/graphql", java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1));
+        var stored = client.findByComponentKeys(List.of(key, empty));
+        var source = new com.salkcoding.oswl.service.vulnerability.sources.GitHubAdvisorySource(client);
+        assertThat(stored).containsKeys(key, empty);
+        var actual = source.lookup("NPM", "fixture", "1.0.0", stored.get(key));
+        assertThat(actual.lookupFailed()).isEqualTo(stale);
+        assertThat(actual.findings()).singleElement().extracting(v -> v.ghsaId()).isEqualTo("GHSA-fixture");
+        assertThat(actual.findings().getFirst().fixVersion()).isEqualTo(stale ? null : "2.0.0");
+        assertThat(source.lookup("NPM", "empty", "1.0.0", stored.get(empty)).lookupFailed()).isEqualTo(stale);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"0,true", "7,true", "8,false", "40,false", "-1,false", "999,false"})
     void offlineOsvCoverageRequiresDatedRecentSource(int age, boolean resolved) {
         String emptyKey = AirgappedSnapshotService.componentKey("npm", "empty", "1.0.0");

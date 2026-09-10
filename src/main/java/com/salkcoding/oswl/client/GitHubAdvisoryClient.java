@@ -149,6 +149,10 @@ public class GitHubAdvisoryClient {
      */
     public List<GitHubAdvisory> findByPackage(String ecosystem, String name, String version) {
         if (airgapped) {
+            if (snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_GITHUB_ADVISORY)) {
+                // Cached findings are supplied separately; do not mark their coverage complete.
+                throw new IncompleteLookupException(List.of());
+            }
             return List.of();
         }
         String ghEcosystem = toGitHubEcosystem(ecosystem);
@@ -196,6 +200,7 @@ public class GitHubAdvisoryClient {
         }
         Map<String, List<AirgappedSnapshotService.SnapshotVuln>> found =
                 snapshotService.findGitHubAdvisoryVulns(componentKeys);
+        boolean stale = snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_GITHUB_ADVISORY);
         Map<String, List<GitHubAdvisory>> result = new LinkedHashMap<>();
         for (String key : componentKeys) {
             List<AirgappedSnapshotService.SnapshotVuln> vulns = found.get(key);
@@ -204,7 +209,7 @@ public class GitHubAdvisoryClient {
             } else {
                 result.put(key, vulns.stream()
                         .map(v -> new GitHubAdvisory(v.osvId(), v.cveId(), v.summary(),
-                                parseSeverity(v.severity()), v.cvssScore(), v.cvss3Vector(), v.fixVersion(), v.fixVersionConflictCandidates()))
+                                parseSeverity(v.severity()), v.cvssScore(), v.cvss3Vector(), stale ? null : v.fixVersion(), v.fixVersionConflictCandidates()))
                         .toList());
             }
         }
