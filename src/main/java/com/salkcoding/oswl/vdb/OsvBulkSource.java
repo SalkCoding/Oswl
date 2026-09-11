@@ -150,6 +150,7 @@ final class OsvBulkSource {
             asOfByBucket.put(ecosystem, asOf);
 
             int entriesScanned = 0;
+            Map<String, String> originalDigests = new LinkedHashMap<>();
             try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
                 ZipEntry entry;
                 while ((entry = zis.getNextEntry()) != null) {
@@ -159,7 +160,16 @@ final class OsvBulkSource {
                         System.err.println("[oswl-vdb] OSV " + bucket + ": scanned " + entriesScanned + " entries");
                     }
                     byte[] content = zis.readAllBytes();
-                    processVulnEntry(content, ecosystem, namesWanted, result, unresolvedKeys, aliases);
+                    JsonNode original = readOriginal(content);
+                    String digest = originalDigest(original);
+                    String previous = originalDigests.putIfAbsent(original.path("id").asText(), digest);
+                    if (previous != null) {
+                        if (!previous.equals(digest)) {
+                            throw new IOException("Conflicting OSV originals share an advisory ID; source coverage is unknown");
+                        }
+                        continue;
+                    }
+                    processOriginal(original, ecosystem, namesWanted, result, unresolvedKeys, aliases);
                 }
             }
             if (entriesScanned == 0) {
@@ -185,6 +195,10 @@ final class OsvBulkSource {
     private void processVulnEntry(byte[] content, String ecosystem, Map<String, Set<String>> namesWanted,
                                   Map<String, List<SnapshotVuln>> result, Set<String> unresolvedKeys,
                                   Map<String, List<String>> aliases) throws IOException {
+        processOriginal(readOriginal(content), ecosystem, namesWanted, result, unresolvedKeys, aliases);
+    }
+
+    private JsonNode readOriginal(byte[] content) throws IOException {
         JsonNode vuln;
         try {
             vuln = mapper.readTree(content);
@@ -197,6 +211,36 @@ final class OsvBulkSource {
         if (!vuln.path("modified").isTextual() || !OsvRevision.isCurrent(vuln.path("modified").asText())) {
             throw new IOException("OSV advisory revision is missing, malformed or in the future; source coverage is unknown");
         }
+        return vuln;
+    }
+
+    // Keep only a digest per ID, not every full advisory in a potentially large archive.
+    private String originalDigest(JsonNode original) throws IOException {
+        try {
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(mapper.writeValueAsBytes(orderedOriginal(original))));
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException("SHA-256 unavailable", impossible);
+        }
+    }
+
+    private Object orderedOriginal(JsonNode value) {
+        if (value.isObject()) {
+            Map<String, Object> ordered = new java.util.TreeMap<>();
+            value.properties().forEach(entry -> ordered.put(entry.getKey(), orderedOriginal(entry.getValue())));
+            return ordered;
+        }
+        if (value.isArray()) {
+            List<Object> ordered = new ArrayList<>();
+            value.forEach(element -> ordered.add(orderedOriginal(element)));
+            return ordered;
+        }
+        return value;
+    }
+
+    private void processOriginal(JsonNode vuln, String ecosystem, Map<String, Set<String>> namesWanted,
+                                 Map<String, List<SnapshotVuln>> result, Set<String> unresolvedKeys,
+                                 Map<String, List<String>> aliases) throws IOException {
         OsvWithdrawal withdrawal = OsvWithdrawal.from(vuln);
         if (withdrawal == OsvWithdrawal.WITHDRAWN) return;
         if (withdrawal == OsvWithdrawal.UNKNOWN) {

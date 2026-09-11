@@ -109,6 +109,55 @@ class OsvBulkInputIntegrityTest {
                 List.of(new WantedComponent("npm", "example", "1.0.0")), null, new HttpCache(directory, true));
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"revision", "withdrawal", "range", "summary"})
+    void conflictingDuplicateOriginalsAbortWithoutReplacingTheExistingBundle(String change) throws Exception {
+        var mapper = new ObjectMapper();
+        var second = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(VALID);
+        switch (change) {
+            case "revision" -> second.put("modified", "2024-09-02T00:00:00Z");
+            case "withdrawal" -> second.put("withdrawn", "2024-09-02T00:00:00Z");
+            case "range" -> ((com.fasterxml.jackson.databind.node.ObjectNode) second.path("affected").get(0))
+                    .putArray("versions").add("2.0.0");
+            case "summary" -> second.put("summary", "different original");
+        }
+        for (boolean reverse : new boolean[] {false, true}) {
+            cache(zipRecords(reverse ? List.of(second.toString(), VALID) : List.of(VALID, second.toString())), true);
+            assertThatThrownBy(this::fetch).isInstanceOf(IOException.class).hasMessageContaining("Conflicting");
+            Path wanted = directory.resolve("wanted.jsonl");
+            Files.writeString(wanted, "{\"ecosystem\":\"npm\",\"name\":\"example\",\"version\":\"1.0.0\"}\n");
+            Path output = directory.resolve("bundle.zip");
+            byte[] previous = zip(VALID);
+            Files.write(output, previous);
+            assertThat(new VdbBuilderCli().run(new String[] {"build", "--sources", "osv", "--wanted", wanted.toString(),
+                    "--offline-sources", directory.toString(), "--out", output.toString()})).isEqualTo(1);
+            assertThat(Files.readAllBytes(output)).isEqualTo(previous);
+        }
+    }
+
+    @Test void equivalentOriginalsAreWrittenOnlyOnceDespiteFormattingAndObjectKeyOrder() throws Exception {
+        String reordered = """
+                {"affected":[{"versions":["1.0.0"],"package":{"name":"example","ecosystem":"npm"}}],
+                "modified":"2024-09-01T00:00:00Z","id":"OSV-fixture"}
+                """;
+        cache(zipRecords(List.of(VALID, reordered, VALID)), true);
+        var result = fetch();
+        assertThat(result.unresolvedKeys()).isEmpty();
+        assertThat(result.vulnsByComponentKey().values()).singleElement().satisfies(vulns -> assertThat(vulns).hasSize(1));
+    }
+
+    private byte[] zipRecords(List<String> records) throws IOException {
+        var bytes = new ByteArrayOutputStream();
+        try (var zip = new ZipOutputStream(bytes)) {
+            for (int i = 0; i < records.size(); i++) {
+                zip.putNextEntry(new ZipEntry(i + ".json"));
+                zip.write(records.get(i).getBytes(StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+        }
+        return bytes.toByteArray();
+    }
+
     private void cache(byte[] bytes, boolean dated) throws IOException {
         Files.write(directory.resolve("osv-npm-all.zip"), bytes);
         if (dated) Files.writeString(directory.resolve("osv-npm-all.zip.lastmodified"), "2024-10-01");
