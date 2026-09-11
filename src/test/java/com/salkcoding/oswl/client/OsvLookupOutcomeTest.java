@@ -140,7 +140,11 @@ class OsvLookupOutcomeTest {
             server.expect(requestTo("https://api.osv.dev/v1/vulns/OSV-withdrawn")).andRespond(withSuccess(
                     "{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"OSV-withdrawn\",\"withdrawn\":" + withdrawal + "}", MediaType.APPLICATION_JSON));
             var result = client.queryBatch(List.of(new OsvClient.OsvQuery("npm", "example", "1.0.0"))).getFirst();
-            assertThat(result.vulns()).as(withdrawal).isEmpty();
+            if (withdrawal.startsWith("\"2026")) assertThat(result.vulns()).as(withdrawal).isEmpty();
+            else assertThat(result.vulns()).as(withdrawal).singleElement().satisfies(v -> {
+                assertThat(v.osvId()).isEqualTo("OSV-withdrawn");
+                assertThat(v.fixVersion()).isNull();
+            });
             assertThat(result.resolved()).as(withdrawal).isEqualTo(withdrawal.startsWith("\"2026"));
             server.verify();
         }

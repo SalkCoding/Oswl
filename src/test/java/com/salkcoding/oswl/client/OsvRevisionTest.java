@@ -104,6 +104,35 @@ class OsvRevisionTest {
     }
 
     @ParameterizedTest
+    @CsvSource({"2024-01-01T00:00:00Z,true", "9999-01-01T00:00:00Z,false", "invalid,false"})
+    void withdrawalMustHaveTakenEffectBeforeEitherModeHidesTheFinding(String withdrawn, boolean complete) throws Exception {
+        var raw = new com.fasterxml.jackson.databind.ObjectMapper().readTree("""
+                {"id":"OSV-fixture","modified":"2026-01-01T00:00:00Z","withdrawn":"%s",
+                "affected":[{"package":{"ecosystem":"npm","name":"example"},
+                "ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"1.2.4"}]}]}]}
+                """.formatted(withdrawn));
+        batch("{\"results\":[{\"vulns\":[" + stub("2026-01-01T00:00:00Z") + "]}]}");
+        server.expect(requestTo("https://api.osv.dev/v1/vulns/OSV-fixture")).andRespond(withSuccess(raw.toString(), MediaType.APPLICATION_JSON));
+        var online = client.queryBatch(List.of(query())).getFirst();
+        var snapshots = org.mockito.Mockito.mock(com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.class);
+        String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey("npm", "example", query().version());
+        org.mockito.Mockito.when(snapshots.findOsvVulns(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(key, List.of(
+                new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln("OSV-fixture", null, null,
+                        "1.2.4", null, null, null, null, null, java.util.Set.of(), raw))));
+        var offline = new OsvClient(snapshots, true).queryBatch(List.of(query())).getFirst();
+        for (var result : List.of(online, offline)) {
+            assertThat(result.resolved()).isEqualTo(complete);
+            assertThat(result.commonFix().version()).isNull();
+            if (complete) assertThat(result.vulns()).isEmpty();
+            else assertThat(result.vulns()).singleElement().satisfies(v -> {
+                assertThat(v.osvId()).isEqualTo("OSV-fixture");
+                assertThat(v.fixVersion()).isNull();
+            });
+        }
+        server.verify();
+    }
+
+    @ParameterizedTest
     @CsvSource({"2026-01-01T00:00:00Z,2026-01-01T00:00:00Z,true",
             "2026-01-01T00:00:00Z,2026-01-01T00:00:00.000Z,true",
             "2026-01-01T00:00:00.123456Z,2026-01-01T00:00:00.123456789Z,true",

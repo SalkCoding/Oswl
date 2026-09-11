@@ -30,14 +30,15 @@ class OsvBulkRangeIntegrationTest {
         assertThat(unknown).isEmpty();
     }
 
-    @Test
-    void malformedWithdrawalCannotProduceAConfirmedCleanResult() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"true", "\"9999-01-01T00:00:00Z\""})
+    void malformedWithdrawalCannotProduceAConfirmedCleanResult(String withdrawn) {
         Map<String, List<SnapshotVuln>> findings = new LinkedHashMap<>();
         Set<String> unknown = new LinkedHashSet<>();
         process("""
-                {"modified":"2024-09-01T00:00:00Z","id":"OSV-invalid","withdrawn":true,"affected":[{
+                {"modified":"2024-09-01T00:00:00Z","id":"OSV-invalid","withdrawn":%s,"affected":[{
                 "package":{"ecosystem":"npm","name":"example"},"versions":["1.0.0"]}]}
-                """, Set.of("1.0.0"), findings, unknown);
+                """.formatted(withdrawn), Set.of("1.0.0"), findings, unknown);
         assertThat(unknown).containsExactly(key("1.0.0"));
     }
 

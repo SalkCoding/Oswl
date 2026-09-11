@@ -221,8 +221,13 @@ public class OsvClient {
             if (advisory != null) {
                 var withdrawal = OsvWithdrawal.from(advisory);
                 if (withdrawal == OsvWithdrawal.WITHDRAWN) continue;
+                if (withdrawal == OsvWithdrawal.UNKNOWN) {
+                    resolved = false;
+                    findings.add(parseVuln(Map.of("id", vuln.osvId())));
+                    continue;
+                }
                 var membership = OsvRangeEvaluator.evaluateAdvisory(advisory, query.ecosystem(), query.name(), query.version());
-                if (withdrawal == OsvWithdrawal.UNKNOWN || membership == OsvRangeEvaluator.Result.UNKNOWN) {
+                if (membership == OsvRangeEvaluator.Result.UNKNOWN) {
                     resolved = false;
                     continue;
                 }
@@ -396,6 +401,8 @@ public class OsvClient {
                     if (withdrawal == OsvWithdrawal.WITHDRAWN) continue;
                     if (withdrawal == OsvWithdrawal.UNKNOWN) {
                         resolved = false;
+                        findings.put(id, parseVuln(Map.of("id", id)));
+                        rangeEvidence.remove(id);
                         continue;
                     }
                     var membership = OsvRangeEvaluator.evaluateAdvisory(JSON.valueToTree(detail),
