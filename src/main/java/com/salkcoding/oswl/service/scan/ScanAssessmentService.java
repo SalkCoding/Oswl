@@ -14,9 +14,24 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ScanAssessmentService {
-    private static final ObjectMapper JSON = new ObjectMapper()
-            .enable(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
-            .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    private static final ObjectMapper JSON = assessmentMapper();
+
+    private static ObjectMapper assessmentMapper() {
+        var mapper = com.fasterxml.jackson.databind.json.JsonMapper.builder()
+                .enable(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_NUMBERS_FOR_ENUMS)
+                .disable(com.fasterxml.jackson.databind.DeserializationFeature.ACCEPT_FLOAT_AS_INT)
+                .disable(com.fasterxml.jackson.databind.MapperFeature.ALLOW_COERCION_OF_SCALARS)
+                .build();
+        var text = mapper.coercionConfigFor(com.fasterxml.jackson.databind.type.LogicalType.Textual);
+        for (var shape : List.of(com.fasterxml.jackson.databind.cfg.CoercionInputShape.Integer,
+                com.fasterxml.jackson.databind.cfg.CoercionInputShape.Float,
+                com.fasterxml.jackson.databind.cfg.CoercionInputShape.Boolean)) {
+            text.setCoercion(shape, com.fasterxml.jackson.databind.cfg.CoercionAction.Fail);
+        }
+        return mapper;
+    }
     private final ScanResultRepository scans;
 
     /** First published data phase wins. Later entity saves cannot erase or replace it. */

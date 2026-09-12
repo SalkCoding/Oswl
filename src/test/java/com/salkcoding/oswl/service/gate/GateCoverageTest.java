@@ -58,6 +58,36 @@ class GateCoverageTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"format-float", "format-text", "malicious-number", "verified-text",
+            "version-number", "id-float", "severity-number", "epss-text"})
+    void gateCannotCoercePreservedEvidenceTypes(String state) throws Exception {
+        var library = evidenceLibrary();
+        preserve(scan, library);
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var root = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(scan.getAssessmentJson());
+        var entry = (com.fasterxml.jackson.databind.node.ObjectNode) root.get("libraries").get(0);
+        switch (state) {
+            case "format-float" -> root.put("formatVersion", 1.9);
+            case "format-text" -> root.put("formatVersion", "1");
+            case "malicious-number" -> entry.put("malicious", 0);
+            case "verified-text" -> entry.put("lookupTimesVerified", "true");
+            case "version-number" -> entry.put("version", 1);
+            case "id-float" -> entry.put("libraryId", 3.9);
+            case "severity-number" -> ((com.fasterxml.jackson.databind.node.ArrayNode) entry.get("findings"))
+                    .addObject().put("cveId", "CVE-2026-123455").put("severity", 4);
+            case "epss-text" -> ((com.fasterxml.jackson.databind.node.ArrayNode) entry.get("findings"))
+                    .addObject().put("cveId", "CVE-2026-123455").put("epssScore", "0");
+        }
+        String json = mapper.writeValueAsString(root);
+        ReflectionTestUtils.setField(scan, "assessmentJson", json);
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.evaluate(1L, GatePolicyService.GateOptions.defaults()))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(scan.getAssessmentJson()).isEqualTo(json);
+        assertThat(library.getVersion()).isEqualTo("1");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"outcome", "findings", "format", "trailing"})
     void ambiguousPreservedJsonCannotBecomeAPassingGate(String state) throws Exception {
         var library = evidenceLibrary();

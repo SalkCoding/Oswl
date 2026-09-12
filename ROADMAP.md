@@ -499,6 +499,8 @@
 
 - **2026-09-13 중복 라이브러리 판정 거절:** 같은 libraryId의 중복 판정을 게이트의 map은 마지막 값으로 선택하고 요약/보고서는 목록으로 집계하는 불일치를 확인했다. 악성 여부·심각 취약점 목록 충돌 및 동일 항목을 정역순으로 넣은 6건에서 수정 전 예외가 나지 않는 실패를 재현했다. 공통 ScanAssessment 모델이 동일 ID의 두 번째 항목을 거절하여 임의 revision 선택이나 중복 집계를 방지한다. 정상 capture는 기존처럼 컴포넌트의 고유 라이브러리를 한 번만 저장하므로 중복 컴포넌트 자체는 지원한다. 기존 모호한 JSON은 수정하지 않고 읽기 실패로 남긴다. 새 외부 자료/라이브러리·DB migration·UI 변경 없음. 별도 evaluation revision·후보 집계 분리 등 전체 항목 잔여는 유지한다. 커밋 제목 `fix: reject duplicate libraries in preserved assessments`. 관련 일반 검사 99건 통과·실패/skip 0. 전체 `build verifyProdJar` 3분 35초 성공: 4,613건 중 4,601건 통과·기존 skip 12건·실패/오류 0. 로그 `build/assessment-identity-before.log`, `build/assessment-identity-after.log`, `build/assessment-identity-build.log`. UI 변경이 없어 브라우저 검사는 재실행하지 않았다.
 
+- **2026-09-13 보존 판정 타입 변환 거절:** 형식 버전·라이브러리 ID의 소수, 문자열 형식 버전·검증 여부·EPSS, 숫자 악성 여부·버전·심각도를 정상 값으로 변환하던 8조건의 수정 전 실패를 재현했다. 공통 판정 reader가 scalar 암묵 변환·소수의 정수 변환·숫자 enum 및 숫자/불리언의 문자열 변환을 거절하도록 수정했다. 정상 capture 형식은 유지하고 읽기 실패 시 저장 JSON이나 공유 데이터를 변경하지 않는다. 게이트·판정·요약 관련 검사와 실제 앱/H2/Chromium 로그인 기반 내보내기 HTTP 5조건이 통과했고, 관리자 오류 400·일반 사용자 403·원문 보존을 확인했다. 전체 `build verifyProdJar` 2분 58초 성공: 일반 4,666건 중 4,654 통과·기존 skip 12·실패/오류 0. 세 언어 CLI 문서 반영. 새 외부 자료·라이브러리·DB migration·화면 배치 변경 없음. PostgreSQL은 이번에 재실행하지 않았다. 로그 `build/assessment-types-before.log`, `build/assessment-types-checked.log`, `build/assessment-types-build.log`. 별도 평가 revision 등 전체 항목 잔여는 유지한다. 커밋 제목 `fix: reject coerced types in preserved scan assessments`.
+
 ### 17. 소스·시크릿·IaC 등 분석기별 완전성 상태 — P0 · [코드 확인]
 
 - 현재·대상: [SecretIacScanService](src/main/java/com/salkcoding/oswl/service/secretscan/SecretIacScanService.java)의 반환/로그와 CLI manifest-only 제출. 공급원별 coverage 전체를 새로 만드는 작업은 아니다.

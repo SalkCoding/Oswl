@@ -37,7 +37,7 @@ class ScanArchiveEvidenceHttpTest extends UiTestBase {
     private final PasswordEncoder encoder;
 
     @ParameterizedTest
-    @ValueSource(strings = {"preserved", "legacy", "mismatch", "ambiguous"})
+    @ValueSource(strings = {"preserved", "legacy", "mismatch", "ambiguous", "coerced"})
     void realHttpPreservesEvidenceAndRequiresSystemAdmin(String state) throws Exception {
         String suffix = UUID.randomUUID().toString();
         var project = projects.save(Project.builder().name("archive-http-" + suffix).build());
@@ -50,6 +50,7 @@ class ScanArchiveEvidenceHttpTest extends UiTestBase {
                 new ScanAssessment(1, "2026-09-01T00:00:00Z", List.of(ScanAssessmentService.fromLibrary(library))));
         if (state.equals("ambiguous")) evidence = evidence.replace("\"OSV\":\"UNAVAILABLE\"",
                 "\"OSV\":\"UNAVAILABLE\",\"OSV\":\"RESOLVED\"");
+        if (state.equals("coerced")) evidence = evidence.replace("\"formatVersion\":1", "\"formatVersion\":1.9");
         var old = scans.saveAndFlush(ScanResult.builder().project(project).version("1.0")
                 .status(ScanStatus.COMPLETED).assessmentJson(evidence).build());
         if (!state.equals("mismatch")) components.saveAndFlush(ScanComponent.builder().scanResult(old).library(library).build());
@@ -70,7 +71,7 @@ class ScanArchiveEvidenceHttpTest extends UiTestBase {
         context.clearCookies();
         loginAsTestAdmin();
         var response = context.request().get(endpoint);
-        if (state.equals("mismatch") || state.equals("ambiguous")) {
+        if (state.equals("mismatch") || state.equals("ambiguous") || state.equals("coerced")) {
             assertThat(response.status()).isEqualTo(400);
             assertThat(response.text()).doesNotContain("CVE-2026-123450");
         } else {
