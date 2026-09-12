@@ -4,6 +4,9 @@ OsWL provides an official CLI (`oswl`) and a REST API for submitting dependency 
 
 ---
 
+Gate baseline selection uses the closest completed scan before the target scan within the same project, ordered by scan time and then scan ID. Later scans are excluded from baseline selection when an older scan is evaluated, and the query is not limited to the latest ten scans. A scan with no earlier completed scan has no baseline. This automatic selection does not yet pin a protected-branch baseline or policy revision.
+
+
 ## Retrying an upload
 
 Each `oswl scan` invocation generates a fresh random idempotency key and prints it before uploading. If the upload response is lost, rerun the same input and credentials with `oswl scan ... --idempotency-key <printed-key>`. The server returns the original scan ID without restarting its analysis. A changed input with the same key returns 409; use a new key (or omit the option) for a new analysis. Do not reuse a key to restart a failed scan.

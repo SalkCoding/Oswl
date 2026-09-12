@@ -16,6 +16,15 @@ public interface ScanResultRepository extends JpaRepository<ScanResult, Long> {
     @Query("UPDATE ScanResult s SET s.assessmentJson = :assessment WHERE s.id = :id AND s.assessmentJson IS NULL")
     int pinAssessmentIfAbsent(@Param("id") Long id, @Param("assessment") String assessment);
 
+    @Query("""
+            SELECT s FROM ScanResult s
+            WHERE s.project.id = :projectId AND s.status = 'COMPLETED'
+              AND (s.scannedAt < :scannedAt OR (s.scannedAt = :scannedAt AND s.id < :scanId))
+            ORDER BY s.scannedAt DESC, s.id DESC LIMIT 1
+            """)
+    Optional<ScanResult> findPreviousCompleted(@Param("projectId") Long projectId,
+            @Param("scannedAt") java.time.LocalDateTime scannedAt, @Param("scanId") Long scanId);
+
     Optional<ScanResult> findByProjectIdAndIdempotencyKey(Long projectId, String idempotencyKey);
 
     @org.springframework.transaction.annotation.Transactional

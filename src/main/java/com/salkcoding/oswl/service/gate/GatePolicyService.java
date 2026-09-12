@@ -135,10 +135,8 @@ public class GatePolicyService {
         }
 
         // Baseline = most recent completed scan before this one (for new-vuln detection)
-        ScanResult baseline = scanResultRepository.findRecentCompleted(projectId, 10).stream()
-                .filter(s -> !s.getId().equals(scan.getId()))
-                .findFirst()
-                .orElse(null);
+        ScanResult baseline = scan.getScannedAt() == null ? null : scanResultRepository
+                .findPreviousCompleted(projectId, scan.getScannedAt(), scan.getId()).orElse(null);
         // Load the baseline components once — both key sets are derived from the same rows
         // (the fetch-joined query is heavy, so calling it twice doubled the baseline cost).
         List<ScanComponent> baselineComponents = baseline != null

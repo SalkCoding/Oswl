@@ -59,6 +59,49 @@ class CustomRulePublicationTest {
     @Autowired com.salkcoding.oswl.service.ingest.ScanIngestService ingest;
     @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
     @Autowired SourceFindingStore findingStore;
+    @Test void baselineQueryOrdersTimestampTiesAndExcludesOtherProjectsAndIncompleteScans() {
+        var project = projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder().name("Baseline order").build());
+        var other = projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder().name("Other baseline project").build());
+        var time = java.time.LocalDateTime.now().withNano(0);
+        var previous = scans.save(com.salkcoding.oswl.domain.entity.scan.ScanResult.builder().project(project)
+                .version("previous").scannedAt(time).status(ScanStatus.COMPLETED).build());
+        scans.save(com.salkcoding.oswl.domain.entity.scan.ScanResult.builder().project(other)
+                .version("foreign").scannedAt(time).status(ScanStatus.COMPLETED).build());
+        scans.save(com.salkcoding.oswl.domain.entity.scan.ScanResult.builder().project(project)
+                .version("failed").scannedAt(time).status(ScanStatus.FAILED).build());
+        var target = scans.save(com.salkcoding.oswl.domain.entity.scan.ScanResult.builder().project(project)
+                .version("target").scannedAt(time).status(ScanStatus.COMPLETED).build());
+        scans.save(com.salkcoding.oswl.domain.entity.scan.ScanResult.builder().project(project)
+                .version("future").scannedAt(time).status(ScanStatus.COMPLETED).build());
+        assertThat(scans.findPreviousCompleted(project.getId(),time,target.getId()))
+                .hasValueSatisfying(scan -> assertThat(scan.getId()).isEqualTo(previous.getId()));
+        assertThat(scans.findPreviousCompleted(project.getId(),time,previous.getId())).isEmpty();
+    }
+
+    @Test void futureScanCannotHideNewSecretsWhenGatingHistoricalScan() {
+        var project = projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder().name("Historical gate").build());
+        var time = java.time.LocalDateTime.now().minusHours(2);
+        var previous = scans.save(com.salkcoding.oswl.domain.entity.scan.ScanResult.builder().project(project)
+                .version("previous").scannedAt(time).status(ScanStatus.COMPLETED).build());
+        var target = scans.save(com.salkcoding.oswl.domain.entity.scan.ScanResult.builder().project(project)
+                .version("target").scannedAt(time.plusMinutes(1)).status(ScanStatus.COMPLETED).build());
+        for (int i=0;i<12;i++) {
+            var future = scans.save(com.salkcoding.oswl.domain.entity.scan.ScanResult.builder().project(project)
+                    .version("future-"+i).scannedAt(time.plusMinutes(2+i)).status(ScanStatus.COMPLETED).build());
+            findings.save(com.salkcoding.oswl.domain.entity.scan.ScanFinding.builder().scanResult(future)
+                    .type(ScanFindingType.SECRET).ruleId("fixture-secret").filePath("config.txt")
+                    .severity(RiskLevel.HIGH).description("Fixture secret finding").build());
+        }
+        findings.saveAndFlush(com.salkcoding.oswl.domain.entity.scan.ScanFinding.builder().scanResult(target)
+                .type(ScanFindingType.SECRET).ruleId("fixture-secret").filePath("config.txt")
+                .severity(RiskLevel.HIGH).description("Fixture secret finding").build());
+        var result = gate.evaluate(project.getId(),new com.salkcoding.oswl.service.gate.GatePolicyService.GateOptions(
+                target.getId(),null,null,null,null,true,false,true));
+        assertThat(result.passed()).isFalse();
+        assertThat(result.baselineVersion()).isEqualTo(previous.getVersion());
+        assertThat(result.violations()).extracting(v -> v.type()).contains("SECRET");
+    }
+
     @Test void identicalRetryKeepsOneScanAndChangedInputConflicts() {
         var project = projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder().name("Retry identity").build());
         var payload = com.salkcoding.oswl.dto.scan.ScanPayload.create("main", List.of());

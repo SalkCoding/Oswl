@@ -415,7 +415,7 @@
 - 선행: 7·9·15~17번.
 - DoD: parse 후 변경한 payload, 다른 commit의 스캔, 서버 연결 실패를 해당 CI 통과 증거로 사용할 수 없다. 안정적인 reason/종료 코드와 기존 CLI 이행 기간이 정의된다. collector 서명만으로 입력 완전성을 보장하지 않는다.
 
-### 19. 강제 게이트·baseline·예외와 참고 평가 분리 — P0 · [코드 확인]
+### 19. 강제 게이트·baseline·예외와 참고 평가 분리 — P0 · [부분 구현]
 
 - 현재·대상: [GatePolicyService](src/main/java/com/salkcoding/oswl/service/gate/GatePolicyService.java)의 요청 옵션 우선/최근 baseline, [PrGateService](src/main/java/com/salkcoding/oswl/service/gate/PrGateService.java)의 headSha 연결을 재확인한다. scanId 소유 검사는 이미 있다.
 - [ ] 수정: 조직 최소 정책을 요청으로 약화하지 못하게 조합 규칙을 만든다. 보호 브랜치 baselineScanId/commit/시점/policy revision을 고정한다. exact scan/artifact에 gate를 결합하고 what-if·VEX/예외·화면 필터를 구분한다.
@@ -425,6 +425,10 @@
 ## 4단계 — 현재 지원 생태계별 입력·매칭 보완
 
 **20~31번 공통:** 1번에서 해당 데이터 이용 조건을 확인하고, 6번의 격리 경계 안에서만 필요한 해석 명령을 실행한다. 11~15번의 공통 엔진·원문·inventory를 재사용한다. 각 항목은 native 규칙과 독립 근거로 확인한 취약/정상/미확인 표본을 제공하고, 42~43번에서 온라인·오프라인 결과를 검증한 뒤 기업 지원 완료로 표시한다. 데이터 제공 범위 밖의 패키지는 UNKNOWN/미지원으로 남긴다.
+
+- 기준 스캔 선택 수정: 대상보다 앞선 완료 스캔만 조회하며 같은 시각에는 scanId로 순서를 정한다. 최근 10개 조회 제한을 없애 과거 스캔 평가에 미래 스캔이 섞여 신규 시크릿을 숨기는 통과 오류를 수정했다. 프로젝트·상태·동일 시각·최초 스캔 경계를 검증한다. 보호 브랜치 기준 고정과 정책 revision, 보존 판정을 사용하는 게이트 전환은 남아 있다.
+
+- 검증: 수정 전 과거 스캔의 신규 시크릿 게이트가 통과하는 실패 테스트로 재현했다. 수정 후 해당 통합 검증과 시각·ID 경계 검증을 포함해 전체 4,447개 중 4,435개 통과·12개 건너뜀, `build verifyProdJar` 통과.
 
 ### 20. npm·Yarn·pnpm의 실제 패키지와 설치 트리 — P1 · [지원 범위별 필수]
 
