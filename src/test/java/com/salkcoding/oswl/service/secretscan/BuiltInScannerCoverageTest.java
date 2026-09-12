@@ -88,6 +88,22 @@ class BuiltInScannerCoverageTest {
         assertThat(findings).allMatch(f -> !f.description().contains("AKIA1234567890ABCDEF"));
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,false", "true,false", "true,true"})
+    void nulTerminationCannotClaimCompleteCoverage(boolean nul, boolean priorFinding) throws Exception {
+        String secret = "AKIA1234567890ABCDEF\n";
+        String input = priorFinding ? secret : "ordinary text\n";
+        input += nul ? "\0\n" + secret : "more text\n";
+        java.nio.file.Files.writeString(root.resolve("source.txt"), input);
+        var scanner = new SecretScanner();
+        scanner.loadRules();
+        var findings = scanner.scan(root);
+        assertThat(findings.stream().filter(f -> f.ruleId().equals("secret-scan-incomplete")).count())
+                .isEqualTo(nul ? 1 : 0);
+        assertThat(findings.stream().filter(f -> !f.ruleId().equals("secret-scan-incomplete")).count())
+                .isEqualTo(priorFinding ? 1 : 0);
+    }
+
     @Test void emptyReadableSourceRemainsAValidEmptyResult() {
         var secrets = new SecretScanner();
         secrets.loadRules();

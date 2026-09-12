@@ -530,6 +530,8 @@
 
 - **2026-09-13 시크릿 입력 디코딩 실패 보존:** SecretScanner의 기본 UTF-8 reader가 손상 바이트를 대체 문자로 바꾸어 완료로 반환하던 문제를 수정했다. 잘못된 연속 바이트·잘린 문자·허용되지 않는 시작 바이트 3조건의 수정 전 실패를 확인하고 decoder의 오류 보고를 명시했다. 정상 한글/실제 U+FFFD 인코딩은 대조군으로 유지하며 다른 파일의 탐지 결과가 남고 원래 비밀 값이 설명에 노출되지 않음을 검사한다. 실제 H2 저장→gate에서 손상/정상 입력 2조건의 미완료 저장과 시크릿 차단 옵션과 무관한 coverage 판정을 검증했다. 관련 BuiltInScannerCoverageTest/CustomRulePublicationTest/GateCoverageTest 127건 통과·실패/오류/skip 0, `bootJar verifyProdJar` 성공(33초). 세 언어 문서 반영. 자체 합성 입력이며 새 외부 자료/라이브러리·DB schema·UI 변경 없음. 전체 build·PostgreSQL·브라우저는 이번에 재실행하지 않았다. 다른 인코딩 자동 변환과 전체 분석기 상태 모델은 구현하지 않았다. 로그 `build/secret-decoding-before.log`, `build/secret-decoding-checked.log`, `build/secret-decoding-persistence.log`. 커밋 제목 `fix: retain secret decoding failures as incomplete coverage`.
 
+- **2026-09-13 시크릿 NUL 중단의 미완료 전달:** 확장자 제외를 통과한 파일에서 NUL 문자를 만나 나머지 분석을 중단한 경우에도 정상 완료로 반환하던 문제를 수정했다. NUL 이전 탐지 유무 2조건의 수정 전 실패와 정상 텍스트 대조군을 확인했다. 중단 전에 수집한 탐지는 보존하고 기존 미완료 표시를 추가한다. 실제 H2 저장→gate의 입력 조건에 NUL을 추가하여 정상 UTF-8/손상 UTF-8/NUL의 완료 여부를 검증했다. 관련 검사와 `bootJar verifyProdJar` 성공(37초). 전체 `build verifyProdJar` 2분 56초 성공: 4,748건 중 4,736 통과·기존 skip 12·실패/오류 0. 최근 크기 제한/디코딩 변경도 포함한다. 세 언어 문서 반영. 자체 합성 입력이며 새 외부 자료/라이브러리·DB schema·UI 변경 없음. PostgreSQL·브라우저는 이번에 재실행하지 않았다. 바이너리 확장자 제외는 유지하며 전체 분석기 상태 모델은 잔여다. 로그 `build/secret-nul-before.log`, `build/secret-nul-checked.log`, `build/secret-input-build.log`. 커밋 제목 `fix: mark nul-terminated secret inspection as incomplete`.
+
 ### 18. CLI parse receipt·commit·산출물과 결과 결합 — P0 · [설계]
 
 - 현재·대상: [ScanController](src/main/java/com/salkcoding/oswl/controller/ingest/ScanController.java)의 parse→클라이언트 재제출과 CLI collection 흐름.

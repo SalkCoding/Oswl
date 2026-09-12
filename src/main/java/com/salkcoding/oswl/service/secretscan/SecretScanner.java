@@ -136,7 +136,10 @@ public class SecretScanner {
             int lineNo = 0;
             while ((line = reader.readLine()) != null) {
                 lineNo++;
-                if (line.indexOf('\0') >= 0) return; // binary content slipped past the extension check
+                if (line.indexOf('\0') >= 0) {
+                    incomplete[0] = true;
+                    return;
+                }
                 Set<String> matchedRuleIds = new HashSet<>();
                 for (SecretRule rule : rules) {
                     Matcher m = rule.pattern().matcher(line);

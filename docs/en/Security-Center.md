@@ -207,3 +207,5 @@ Secret and IaC file-reading or directory-traversal failures now retain an incomp
 An otherwise applicable file larger than 1,000,000 bytes also records incomplete coverage instead of silently returning zero findings. Files at or below that limit remain eligible for inspection. Existing binary-extension exclusions and IaC target classification are applied before this size check. This is a per-file limit; total byte and time budgets remain separate work.
 
 Secret inspection treats malformed or truncated UTF-8 as incomplete coverage. It does not replace invalid bytes and claim a successful read. Findings from other readable files remain available. Valid UTF-8, including an explicitly encoded replacement character, remains readable. Other source encodings are not automatically guessed or converted.
+
+If a NUL character stops inspection of a file that passed the extension exclusions, secret coverage is incomplete. Findings collected before that point remain available; the unread remainder is not treated as inspected. Files excluded by the existing binary-extension policy remain excluded.

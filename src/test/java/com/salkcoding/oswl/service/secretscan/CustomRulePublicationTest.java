@@ -62,11 +62,11 @@ class CustomRulePublicationTest {
     @Autowired SecretIacScanService builtInScans;
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
-    void secretDecodingStateReachesStoredGateCoverage(boolean malformed,
+    @org.junit.jupiter.params.provider.CsvSource({"c328,true", "efbfbd,false", "00,true"})
+    void secretDecodingStateReachesStoredGateCoverage(String hex, boolean malformed,
             @org.junit.jupiter.api.io.TempDir java.nio.file.Path root) throws Exception {
         java.nio.file.Files.write(root.resolve("encoded.txt"), java.util.HexFormat.of()
-                .parseHex(malformed ? "c328" : "efbfbd"));
+                .parseHex(hex));
         var project = projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder()
                 .name("Decoding coverage " + java.util.UUID.randomUUID()).build());
         var scan = scans.save(com.salkcoding.oswl.domain.entity.scan.ScanResult.builder().project(project)
