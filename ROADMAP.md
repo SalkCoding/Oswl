@@ -526,6 +526,8 @@
 
 - **2026-09-13 내장 탐지 제한의 미완료 전달:** SecretScanner/IacScanner는 300건에서 조기 중단하지만 완료처럼 반환했다. 단일/분할 파일의 299/300/301건 중 제한에 도달한 4조건의 수정 전 실패를 확인했다. 300건은 유지하고 미완료 표시 1건을 별도로 추가한다. 정확히 300건도 입력 끝을 확인하기 전에 멈추므로 완료라고 단정하지 않는다. 두 스캐너의 6조건과 실제 H2 저장→gate에서 300개 IaC 탐지·미완료 1건 보존 및 시크릿 옵션과 무관한 coverage 차단을 검증했다. BuiltInScannerCoverageTest/CustomRulePublicationTest/GateCoverageTest 116건 통과·실패/skip 0, `bootJar verifyProdJar` 성공(37초). 세 언어 문서 반영. 합성 fixture/기존 규칙만 사용했고 새 외부 자료/라이브러리·DB schema·화면 배치 변경 없음. 전체 build·PostgreSQL·브라우저는 이번에 재실행하지 않았다. 파일/시간/바이트 예산 및 비활성·미제공 상태의 전체 분석기 모델은 잔여다. 로그 `build/builtin-limit-before.log`, `build/builtin-limit-checked.log`. 커밋 제목 `fix: mark built-in finding limits as incomplete coverage`.
 
+- **2026-09-13 내장 파일 크기 제한의 미완료 전달:** SecretScanner/IacScanner가 분석 대상 파일의 1,000,000바이트 초과를 조용히 건너뛰던 경로에 미완료 표시를 추가했다. 999,999/1,000,000/1,000,001바이트와 제외 바이너리 대조군 4조건 중 초과 조건 1건의 수정 전 실패를 확인했다. 제한 이하의 실제 탐지와 바이너리 제외는 유지된다. BuiltInScannerCoverageTest/CustomRulePublicationTest/GateCoverageTest 120건 통과·실패/오류/skip 0, `bootJar verifyProdJar` 성공(35초). 세 언어 문서 반영. 합성 입력과 기존 규칙만 사용했고 새 외부 자료·라이브러리·DB schema·화면 변경 없음. 전체 build·PostgreSQL·브라우저는 이번에 재실행하지 않았다. 전체 바이트/시간 예산과 분석기 상태 모델은 잔여다. 로그 `build/builtin-file-budget-before.log`, `build/builtin-file-budget-checked.log`. 커밋 제목 `fix: preserve oversized source files as incomplete coverage`.
+
 ### 18. CLI parse receipt·commit·산출물과 결과 결합 — P0 · [설계]
 
 - 현재·대상: [ScanController](src/main/java/com/salkcoding/oswl/controller/ingest/ScanController.java)의 parse→클라이언트 재제출과 CLI collection 흐름.

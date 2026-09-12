@@ -48,6 +48,31 @@ class BuiltInScannerCoverageTest {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {999999, 1000000, 1000001})
+    void oversizedApplicableInputCannotClaimCompleteCoverage(int size) throws Exception {
+        byte[] content = new byte[size];
+        java.util.Arrays.fill(content, (byte)' ');
+        for (int i = 63; i < content.length; i += 64) content[i] = '\n';
+        byte[] tail = "AKIA1234567890ABCDEF acl = \"public-read\"".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        System.arraycopy(tail, 0, content, content.length - tail.length, tail.length);
+        java.nio.file.Files.write(root.resolve("large.tf"), content);
+        var secret = new SecretScanner();
+        secret.loadRules();
+        for (var result : java.util.List.of(secret.scan(root), new IacScanner().scan(root))) {
+            assertThat(result).hasSize(1);
+            assertThat(result.getFirst().ruleId().endsWith("-scan-incomplete")).isEqualTo(size > 1000000);
+        }
+    }
+
+    @Test void excludedBinaryFileDoesNotBecomeAnOversizeFailure() throws Exception {
+        java.nio.file.Files.write(root.resolve("image.png"), new byte[1000001]);
+        var secret = new SecretScanner();
+        secret.loadRules();
+        assertThat(secret.scan(root)).isEmpty();
+        assertThat(new IacScanner().scan(root)).isEmpty();
+    }
+
     @Test void emptyReadableSourceRemainsAValidEmptyResult() {
         var secrets = new SecretScanner();
         secrets.loadRules();

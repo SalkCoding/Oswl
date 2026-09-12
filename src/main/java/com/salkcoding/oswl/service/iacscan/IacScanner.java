@@ -86,7 +86,7 @@ public class IacScanner {
                 public FileVisitResult visitFile(@NonNull Path file, @NonNull BasicFileAttributes attrs) {
                     if (findings.size() >= MAX_FINDINGS) return FileVisitResult.TERMINATE;
                     try {
-                        scanFile(root, file, attrs, findings);
+                        scanFile(root, file, attrs, findings, incomplete);
                     } catch (Exception e) {
                         incomplete[0] = true;
                         log.debug("[IacScan] skip file '{}': {}", file, e.getMessage());
@@ -107,11 +107,15 @@ public class IacScanner {
                 ".", null, "Scan incomplete: the scanner could not inspect all inputs", null);
     }
 
-    private void scanFile(Path root, Path file, BasicFileAttributes attrs, List<ScanFindingCandidate> findings) throws IOException {
-        if (!attrs.isRegularFile() || attrs.size() == 0 || attrs.size() > MAX_FILE_BYTES) return;
+    private void scanFile(Path root, Path file, BasicFileAttributes attrs, List<ScanFindingCandidate> findings, boolean[] incomplete) throws IOException {
+        if (!attrs.isRegularFile() || attrs.size() == 0) return;
         IacTargetKind kind = classify(file);
         if (kind == null) return;
 
+        if (attrs.size() > MAX_FILE_BYTES) {
+            incomplete[0] = true;
+            return;
+        }
         Path fileReal = file.toRealPath(LinkOption.NOFOLLOW_LINKS);
         if (!fileReal.startsWith(root)) return;
         String relPath = root.relativize(fileReal).toString().replace('\\', '/');
