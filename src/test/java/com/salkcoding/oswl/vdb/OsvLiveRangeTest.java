@@ -43,6 +43,7 @@ class OsvLiveRangeTest {
                 advisory.getBytes(StandardCharsets.UTF_8), "NPM", Map.of("example", Set.of(version)), findings, unknown);
         String key = AirgappedSnapshotService.componentKey("npm", "example", version);
         var store = mock(AirgappedSnapshotService.class);
+        org.mockito.Mockito.when(store.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection())).thenCallRealMethod();
         when(store.findOsvVulns(anyCollection())).thenReturn(Map.of(key, findings.getOrDefault(key, List.of())));
         when(store.findUnresolvedKeys(anyCollection())).thenReturn(unknown);
         var offline = new OsvClient(store, true).queryBatch(List.of(new OsvClient.OsvQuery("npm", "example", version))).getFirst();

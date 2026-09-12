@@ -28,6 +28,7 @@ class OsvLookupOutcomeTest {
                 .andRespond(withSuccess("{\"results\":[{}]}", MediaType.APPLICATION_JSON));
         String validKey = AirgappedSnapshotService.componentKey("npm", "valid", "1.0.0");
         var snapshot = mock(AirgappedSnapshotService.class);
+        org.mockito.Mockito.when(snapshot.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection())).thenCallRealMethod();
         when(snapshot.findOsvVulns(anyCollection())).thenAnswer(invocation -> {
             java.util.Collection<String> keys = invocation.getArgument(0);
             assertThat(keys).containsExactly(validKey);
@@ -152,6 +153,7 @@ class OsvLookupOutcomeTest {
     @Test void missingOfflineDataDoesNotBecomeASuccessfulEmptyLookup() {
         var snapshot = mock(AirgappedSnapshotService.class);
         String key = AirgappedSnapshotService.componentKey("PyPI", "present", "1");
+        org.mockito.Mockito.when(snapshot.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection())).thenCallRealMethod();
         when(snapshot.findOsvVulns(anyCollection())).thenReturn(Map.of(key, List.of()));
         var results = new OsvClient(snapshot, true).queryBatch(List.of(
                 new OsvClient.OsvQuery("PyPI", "present", "1"),

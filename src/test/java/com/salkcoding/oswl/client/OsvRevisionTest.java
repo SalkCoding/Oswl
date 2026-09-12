@@ -48,6 +48,7 @@ class OsvRevisionTest {
             String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey("npm", "example", query().version());
             var records = originals.stream().map(raw -> new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln(
                     raw.path("id").asText(), null, null, "99.0.0", null, null, null, null, null, java.util.Set.of(), raw)).toList();
+            org.mockito.Mockito.when(snapshots.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection())).thenCallRealMethod();
             org.mockito.Mockito.when(snapshots.findOsvVulns(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(key, records));
             var offline = new OsvClient(snapshots, true).queryBatch(List.of(query())).getFirst();
             assertThat(offline).isEqualTo(online);
@@ -102,6 +103,7 @@ class OsvRevisionTest {
         var online = client.queryBatch(List.of(query())).getFirst();
         var snapshots = org.mockito.Mockito.mock(com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.class);
         String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey("npm", "example", query().version());
+        org.mockito.Mockito.when(snapshots.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection())).thenCallRealMethod();
         org.mockito.Mockito.when(snapshots.findOsvVulns(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(key, List.of(
                 new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln("OSV-fixture", "CVE-WRONG", "stale summary",
                         "99.0.0", "CWE-999", "HIGH", 8.1, "stale-vector", null, java.util.Set.of(), raw))));
@@ -130,6 +132,7 @@ class OsvRevisionTest {
         var online = client.queryBatch(List.of(query())).getFirst();
         var snapshots = org.mockito.Mockito.mock(com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.class);
         String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey("npm", "example", query().version());
+        org.mockito.Mockito.when(snapshots.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection())).thenCallRealMethod();
         org.mockito.Mockito.when(snapshots.findOsvVulns(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(key, List.of(
                 new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln("OSV-fixture", null, null,
                         "1.2.4", null, null, null, null, null, java.util.Set.of(), raw))));
@@ -157,6 +160,7 @@ class OsvRevisionTest {
         var online = client.queryBatch(List.of(query())).getFirst();
         var snapshots = org.mockito.Mockito.mock(com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.class);
         String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey("npm", "example", query().version());
+        org.mockito.Mockito.when(snapshots.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection())).thenCallRealMethod();
         org.mockito.Mockito.when(snapshots.findOsvVulns(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(key, List.of(
                 new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln("OSV-fixture", null, null,
                         "1.2.4", null, null, null, null, null, java.util.Set.of(), raw))));

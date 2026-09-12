@@ -88,6 +88,7 @@ class OsvFixVersionParityTest {
         assertThat(findings).containsKey(key);
         assertThat(unresolved).isEmpty();
         var snapshots = mock(AirgappedSnapshotService.class);
+        org.mockito.Mockito.when(snapshots.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection())).thenCallRealMethod();
         when(snapshots.findOsvVulns(any())).thenReturn(findings);
         when(snapshots.findUnresolvedKeys(any())).thenReturn(unresolved);
         var offline = new OsvClient(snapshots, true).queryBatch(List.of(query)).getFirst();

@@ -45,6 +45,7 @@ class OsvWildcardPackageTest {
         var store = mock(AirgappedSnapshotService.class);
         String key = AirgappedSnapshotService.componentKey(ecosystem, "example", version);
         var raw = new SnapshotVuln("OSV-wildcard", null, null, null, null, null, null, null, null, Set.of(), mapper.readTree(original));
+        org.mockito.Mockito.when(store.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection())).thenCallRealMethod();
         when(store.findOsvVulns(anyCollection())).thenReturn(Map.of(key, List.of(raw)));
         var offline = new OsvClient(store, true).queryBatch(List.of(query)).getFirst();
         assertThat(offline).isEqualTo(live);

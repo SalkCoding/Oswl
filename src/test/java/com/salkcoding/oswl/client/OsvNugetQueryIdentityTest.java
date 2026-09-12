@@ -35,6 +35,7 @@ class OsvNugetQueryIdentityTest {
                 new OsvClient.OsvQuery("NuGet", "System.Text.Json", "8.0.4"));
         assertThat(client.queryBatch(queries)).extracting(OsvClient.OsvResult::resolved).containsExactly(true, false, true);
         var snapshot = mock(AirgappedSnapshotService.class);
+        org.mockito.Mockito.when(snapshot.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection())).thenCallRealMethod();
         when(snapshot.findOsvVulns(anyCollection())).thenReturn(java.util.Map.of(
                 "NUGET|System.Text.Json|8.0.3", List.of(), "NUGET|System.Text.Json|8.0.4", List.of()));
         assertThat(new OsvClient(snapshot, true).queryBatch(queries)).extracting(OsvClient.OsvResult::resolved)
@@ -64,6 +65,7 @@ class OsvNugetQueryIdentityTest {
         var online = new OsvClient();
         ReflectionTestUtils.setField(online, "restClient", builder.build());
         var snapshot = mock(AirgappedSnapshotService.class);
+        org.mockito.Mockito.when(snapshot.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection())).thenCallRealMethod();
         when(snapshot.findOsvVulns(anyCollection())).thenAnswer(call -> {
             var found = new LinkedHashMap<String, List<AirgappedSnapshotService.SnapshotVuln>>();
             for (String key : call.<java.util.Collection<String>>getArgument(0)) found.put(key, List.of());

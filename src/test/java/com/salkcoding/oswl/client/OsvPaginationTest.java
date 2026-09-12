@@ -39,6 +39,7 @@ class OsvPaginationTest {
         ReflectionTestUtils.setField(client, "airgapped", true);
         ReflectionTestUtils.setField(client, "snapshotService", snapshots);
         String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey("npm", "example", "1.0.0");
+        org.mockito.Mockito.when(snapshots.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection())).thenCallRealMethod();
         org.mockito.Mockito.when(snapshots.findOsvVulns(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(key,
                 state.equals("reversed") ? List.of(second, first, independent) : List.of(first, second, independent)));
         var result = client.queryBatch(List.of(query())).getFirst();
@@ -113,6 +114,7 @@ class OsvPaginationTest {
         ReflectionTestUtils.setField(client, "airgapped", true);
         ReflectionTestUtils.setField(client, "snapshotService", snapshots);
         String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey("npm", "example", "1.0.0");
+        org.mockito.Mockito.when(snapshots.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection())).thenCallRealMethod();
         org.mockito.Mockito.when(snapshots.findOsvVulns(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(key, List.of(
                 new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln("OSV-first", null, null, "2.0.0", null),
                 new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln("OSV-second", null, null, "3.0.0", null))));
@@ -138,6 +140,7 @@ class OsvPaginationTest {
         var record = new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln(
                 "OSV-original", null, null, "99.0.0", null, null, null, null, null, java.util.Set.of(), raw);
         String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey("npm", "example", "1.0.0");
+        org.mockito.Mockito.when(snapshots.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection())).thenCallRealMethod();
         org.mockito.Mockito.when(snapshots.findOsvVulns(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(key, List.of(record)));
         var result = client.queryBatch(List.of(query())).getFirst();
         assertThat(result.resolved()).isEqualTo(!state.equals("foreign"));

@@ -171,9 +171,11 @@ public class OsvClient {
             keys.add(key);
             if (key != null) distinctKeys.add(key);
         }
-        Map<String, List<SnapshotVuln>> found = snapshotService.findOsvVulns(distinctKeys);
-        Set<String> unresolved = snapshotService.findUnresolvedKeys(distinctKeys);
-        boolean stale = snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_OSV);
+        var snapshot = snapshotService.readOsvSnapshot(distinctKeys);
+        if (snapshot == null) return Collections.nCopies(queries.size(), OsvResult.unresolved());
+        Map<String, List<SnapshotVuln>> found = snapshot.findings();
+        Set<String> unresolved = snapshot.unresolvedKeys();
+        boolean stale = snapshot.stale();
 
         List<OsvResult> results = new ArrayList<>(queries.size());
         int hits = 0;

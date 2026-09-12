@@ -264,6 +264,16 @@ public class AirgappedSnapshotService {
         return parseVulnLists(SOURCE_OSV, componentKeys);
     }
 
+    public record OsvSnapshotView(Map<String, List<SnapshotVuln>> findings, Set<String> unresolvedKeys, boolean stale) {}
+
+    /** Do not combine old findings with coverage or dates published by a concurrent import. */
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.SERIALIZABLE,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public OsvSnapshotView readOsvSnapshot(Collection<String> componentKeys) {
+        return new OsvSnapshotView(findOsvVulns(componentKeys), findUnresolvedKeys(componentKeys),
+                isSourceStaleOrUndated(SOURCE_OSV));
+    }
+
     /** deps.dev version info per component key; absent keys mean "unresolved". */
     @Transactional(readOnly = true)
     public Map<String, SnapshotVersion> findVersions(Collection<String> componentKeys) {
