@@ -28,8 +28,7 @@ public final class OsvRangeEvaluator {
             }
             if (!ecosystem.equals(pkg.path("ecosystem").asText())) continue;
             try {
-                if (!AdvisoryPackageNames.canonical(ecosystem, name)
-                        .equals(AdvisoryPackageNames.canonical(ecosystem, pkg.path("name").asText()))) continue;
+                if (!AdvisoryPackageNames.matchesOsvName(ecosystem, name, pkg.path("name").asText())) continue;
                 matched = true;
                 if (entry.has("versions") && !entry.path("versions").isArray()) {
                     unknown = true;

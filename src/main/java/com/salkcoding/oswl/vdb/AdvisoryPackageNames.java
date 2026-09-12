@@ -6,6 +6,13 @@ import java.util.Locale;
 public final class AdvisoryPackageNames {
     private AdvisoryPackageNames() { }
 
+    /** OSV's whole-name wildcard applies within an already matched ecosystem only. */
+    public static boolean matchesOsvName(String ecosystem, String queryName, String advisoryName) {
+        if (queryName == null || queryName.isBlank()) throw new IllegalArgumentException("Missing package name");
+        String canonicalQuery = canonical(ecosystem, queryName);
+        return "*".equals(advisoryName) || canonicalQuery.equals(canonical(ecosystem, advisoryName));
+    }
+
     public static String canonical(String ecosystem, String name) {
         if ("NUGET".equalsIgnoreCase(ecosystem)) {
             if (name == null || name.length() > 4096

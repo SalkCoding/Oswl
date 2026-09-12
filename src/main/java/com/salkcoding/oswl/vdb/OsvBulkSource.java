@@ -262,7 +262,9 @@ final class OsvBulkSource {
                 throw new IOException("OSV affected entry has no valid package identity; source coverage is unknown");
             }
             if (!ecosystem.equals(AirgappedSnapshotService.normalizeEcosystem(pkgEcosystem))) continue;
-            for (String wantedName : aliases.getOrDefault(AdvisoryPackageNames.canonical(ecosystem, pkgName), List.of())) {
+            var matchingNames = "*".equals(pkgName) ? namesWanted.keySet()
+                    : aliases.getOrDefault(AdvisoryPackageNames.canonical(ecosystem, pkgName), List.of());
+            for (String wantedName : matchingNames) {
                 Set<String> versionsWanted = namesWanted.get(wantedName);
                 if (versionsWanted == null || versionsWanted.isEmpty()) continue;
 
@@ -289,7 +291,7 @@ final class OsvBulkSource {
                         unresolvedByThisAdvisory.add(key);
                     } else if (affectedResult) {
                         if (affectedByThisAdvisory.add(key)) {
-                            result.computeIfAbsent(key, k -> new ArrayList<>()).add(toSnapshotVuln(vuln, pkgEcosystem, pkgName, wantedVersion));
+                            result.computeIfAbsent(key, k -> new ArrayList<>()).add(toSnapshotVuln(vuln, pkgEcosystem, wantedName, wantedVersion));
                         }
                     }
                 }
