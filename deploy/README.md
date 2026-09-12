@@ -9,6 +9,8 @@ Run the commands below from the repository root.
 
 ## Build an image
 
+Before deploying generation-preserving snapshot imports, apply [`V40__snapshot_generations.sql`](../src/main/resources/db/migration/V40__snapshot_generations.sql). It adds three history/pointer tables and the initialization lock; existing payload tables remain unchanged. The first import attempt preserves a baseline, and each successful publication copies the complete current dataset and source metadata in its transaction. Reserve space for full copies; automatic retention and scan pinning are not yet connected. A failed copy rolls back the publication. Older application versions do not maintain the generation pointer or history, so mixed-version writes cannot be treated as tracked generations. Keep the additive tables on rollback and re-establish authoritative data before relying on history after re-upgrade.
+
 Before deploying notice-preserving snapshot imports, apply [`V39__snapshot_data_notices.sql`](../src/main/resources/db/migration/V39__snapshot_data_notices.sql). The nullable `airgapped_snapshot_meta.data_notices` text column retains supplied notice objects; old rows remain null and previously discarded notices cannot be reconstructed. Merge retains previous notices, while Replace adopts the supplied notices for each replaced source. Rollback may leave this additive column in place, but older application versions do not maintain its contents; reimport the authoritative source bundles after upgrading again. This migration does not authorize redistribution of the stored data.
 
 ```sh

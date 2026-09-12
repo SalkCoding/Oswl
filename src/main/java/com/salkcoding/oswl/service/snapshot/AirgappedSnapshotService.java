@@ -127,6 +127,7 @@ public class AirgappedSnapshotService {
     private final LibraryRepository libraryRepository;
     private final PlatformTransactionManager transactionManager;
     private final EntityManager entityManager;
+    private final SnapshotGenerationService generations;
     /** Local instance (codebase convention — matches DepsDevClient/GitHubService); avoids a bean dependency. */
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -541,6 +542,7 @@ public class AirgappedSnapshotService {
             });
             ImportMode mode = requestedMode != null ? requestedMode : resolveModeFromMeta(meta);
             SnapshotBundleStager.checkInterrupted();
+            generations.initialize();
             TransactionTemplate transaction = new TransactionTemplate(transactionManager);
             transaction.setTimeout(300);
             // Retained dates, notices and rows must be based on one publication state.
@@ -670,6 +672,8 @@ public class AirgappedSnapshotService {
             snapshotMetaRepository.save(builder.build());
         }
         checkNoticeBudget(allStoredNotices());
+        entityManager.flush();
+        generations.publish();
         return new SnapshotImportResult(counts, total, mode.name());
     }
 

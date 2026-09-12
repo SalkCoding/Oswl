@@ -37,6 +37,7 @@ class SnapshotReadConsistencyTest {
     @MockitoSpyBean SnapshotMetaRepository metadata;
     @jakarta.persistence.PersistenceContext jakarta.persistence.EntityManager entityManager;
     @Autowired JdbcTemplate jdbc;
+    @Autowired com.salkcoding.oswl.repository.snapshot.SnapshotGenerationRepository generations;
     @Autowired PlatformTransactionManager transactions;
 
     @ParameterizedTest
@@ -80,6 +81,11 @@ class SnapshotReadConsistencyTest {
             assertThat(snapshots.findEpssScores(List.of("CVE-2026-876541"))).containsKey("CVE-2026-876541");
             assertThat(metadata.findById("epss").orElseThrow().getSourceAsOf()).isEqualTo(LocalDate.now().minusDays(30));
             assertThat(snapshots.findEpssScores(List.of("CVE-2026-876542")).containsKey("CVE-2026-876542")).isEqualTo(currentCommitted);
+            long active = generations.activeId();
+            assertThat(generations.payloads(active, "epss", List.of("CVE-2026-876541", "CVE-2026-876542")))
+                    .containsKeys("CVE-2026-876541", "CVE-2026-876542");
+            assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(generations.metadata(active))
+                    .path("epss").path("sourceAsOf").asText()).isEqualTo(LocalDate.now().minusDays(30).toString());
         }
     }
 

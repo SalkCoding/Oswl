@@ -12,11 +12,12 @@ import java.sql.SQLException;
 public class DatabaseMutationLockRepository {
     public static final long UNKNOWN_LIBRARY_VERSION = 1;
     public static final long WEB_PUSH = 2;
+    public static final long SNAPSHOT_GENERATION = 3;
     private final JdbcTemplate jdbc;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void lock(long id) {
-        if (id != UNKNOWN_LIBRARY_VERSION && id != WEB_PUSH) throw new IllegalArgumentException("Unknown mutation lock");
+        if (id != UNKNOWN_LIBRARY_VERSION && id != WEB_PUSH && id != SNAPSHOT_GENERATION) throw new IllegalArgumentException("Unknown mutation lock");
         jdbc.execute((ConnectionCallback<Void>) connection -> {
             boolean postgres = "PostgreSQL".equals(connection.getMetaData().getDatabaseProductName());
             var point = postgres ? null : connection.setSavepoint();
