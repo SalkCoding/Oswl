@@ -6,6 +6,7 @@ import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import com.salkcoding.oswl.domain.entity.vulnerability.Library;
 import com.salkcoding.oswl.dto.scan.ScanArchiveExportDto;
 import com.salkcoding.oswl.dto.scan.ScanArchiveResult;
+import com.salkcoding.oswl.dto.scan.ScanAssessment;
 import com.salkcoding.oswl.repository.project.ProjectRepository;
 import com.salkcoding.oswl.repository.scan.DependencyPathRepository;
 import com.salkcoding.oswl.repository.scan.ScanComponentRepository;
@@ -130,19 +131,31 @@ public class ScanArchivingService {
         List<ScanComponent> components = scanComponentRepository.findByScanResultId(scan.getId());
         Map<Long, List<DependencyPath>> paths = dependencyPathRepository.findByScanResultId(scan.getId()).stream()
                 .collect(Collectors.groupingBy(path -> path.getScanComponent().getId()));
+        Map<Long, ScanAssessment.LibraryAssessment> preserved = scan.getAssessmentJson() == null
+                ? null : ScanAssessmentService.read(scan.getAssessmentJson()).libraries().stream()
+                .collect(Collectors.toMap(ScanAssessment.LibraryAssessment::libraryId,
+                        java.util.function.Function.identity()));
         List<ScanArchiveExportDto.ComponentExportDto> componentDtos = components.stream()
-                .map(component -> toComponentExport(component, paths.getOrDefault(component.getId(), List.of())))
+                .map(component -> toComponentExport(component, paths.getOrDefault(component.getId(), List.of()), preserved))
                 .toList();
         return new ScanArchiveExportDto(scan.getId(), scan.getVersion(), scan.getScannedAt(), componentDtos);
     }
 
-    private ScanArchiveExportDto.ComponentExportDto toComponentExport(ScanComponent comp, List<DependencyPath> paths) {
+    private ScanArchiveExportDto.ComponentExportDto toComponentExport(ScanComponent comp, List<DependencyPath> paths,
+            Map<Long, ScanAssessment.LibraryAssessment> preserved) {
         Library lib = comp.getLibrary();
-        List<ScanArchiveExportDto.CveExportDto> cveDtos = lib.getCves().stream()
-                .map(cve -> new ScanArchiveExportDto.CveExportDto(
-                        cve.getCveId(),
+        var evidence = preserved == null ? ScanAssessmentService.fromLibrary(lib) : preserved.get(lib.getId());
+        if (evidence == null) {
+            throw new IllegalStateException("Preserved scan assessment does not cover component library " + lib.getId());
+        }
+        List<ScanArchiveExportDto.CveExportDto> cveDtos = preserved == null ? lib.getCves().stream()
+                .map(cve -> new ScanArchiveExportDto.CveExportDto(cve.getCveId(),
                         cve.getSeverity() != null ? cve.getSeverity().name() : null,
-                        cve.getCvssScore(), cve.getEpssScore(), cve.getKevListed(), cve.getFixVersion()))
+                        cve.getCvssScore(), cve.getEpssScore(), cve.getKevListed(), cve.getFixVersion())).toList()
+                : evidence.findings().stream()
+                .map(cve -> new ScanArchiveExportDto.CveExportDto(
+                        cve.cveId(), cve.severity() != null ? cve.severity().name() : null,
+                        cve.cvssScore(), cve.epssScore(), cve.kevListed(), cve.fixVersion()))
                 .toList();
         List<List<String>> dependencyPaths = paths.stream()
                 .map(path -> path.getPathNodes().stream()
@@ -150,9 +163,8 @@ public class ScanArchivingService {
                         .toList())
                 .toList();
         return new ScanArchiveExportDto.ComponentExportDto(
-                lib.getName(), lib.getVersion(), lib.getEcosystem(),
-                lib.getLicenseStatus() != null ? lib.getLicenseStatus().name() : null,
-                lib.getLicenseName(), cveDtos, dependencyPaths);
+                evidence.name(), evidence.version(), evidence.ecosystem(),
+                (preserved == null && lib.getLicenseStatus() == null) ? null : evidence.licenseStatus().name(), evidence.licenseName(), cveDtos, dependencyPaths);
     }
 
 }

@@ -461,6 +461,8 @@
 
 - 게이트 보존 검증: 이전 구현에서 회귀 4건의 실패를 확인한 뒤 보존 결과·기준 비교·조회 실패·목록 불일치·악성 판정 양방향 검증을 통과했다. 전체 4,453개 중 4,441개 통과·12개 건너뜀, `build verifyProdJar` 통과.
 
+- **2026-09-13 보관 전 내보내기의 판정 고정:** ScanArchivingService의 상세 내보내기가 보존된 스캔 판정 대신 현재 공유 CVE를 읽어 과거 수정 버전과 심각도가 바뀌는 문제를 수정했다. 보존 판정의 라이브러리·라이선스·취약점 필드를 사용하고, 해당 컴포넌트 근거가 없으면 실패시킨다. 판정 없는 legacy 경로와 저장된 의존 경로는 유지한다. 실제 H2의 보존/legacy/누락 3조건에서 캐시 교체 후 내보내기·중복 컴포넌트·행 보존을 검사했고 수정 전 2건 실패를 재현했다. 관련 스캔 요약·보관·판정 테스트 통과(`build/archive-evidence-before.log`, `build/archive-evidence-after.log`). 3개 언어 Scan-History 문서를 갱신했다. 이 간략 DTO는 전체 출처/범위/판정 JSON을 전달하지 않으며, 후보의 확정 취약점 집계 분리와 전체 증거 내보내기는 잔여다. 새 외부 자료/라이브러리·DB migration·UI 변경은 없다. 커밋 제목 `fix: export preserved scan findings before archiving`. 전체 `build verifyProdJar` 3분 25초 성공: 4,600건 중 4,588건 통과·기존 skip 12건·실패/오류 0(`build/archive-evidence-build.log`). 마지막으로 라이선스·CVSS·EPSS·KEV 보존 단언을 강화한 관련 검사 9건 모두 통과했다(`build/archive-evidence-final.log`). UI 변경이 없어 브라우저 검사는 재실행하지 않았다.
+
 ### 17. 소스·시크릿·IaC 등 분석기별 완전성 상태 — P0 · [코드 확인]
 
 - 현재·대상: [SecretIacScanService](src/main/java/com/salkcoding/oswl/service/secretscan/SecretIacScanService.java)의 반환/로그와 CLI manifest-only 제출. 공급원별 coverage 전체를 새로 만드는 작업은 아니다.

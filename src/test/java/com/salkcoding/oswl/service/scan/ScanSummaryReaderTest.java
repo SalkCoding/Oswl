@@ -29,6 +29,54 @@ class ScanSummaryReaderTest {
     @Autowired ScanComponentRepository components;
     @Autowired LibraryRepository libraries;
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"preserved", "legacy", "missing"})
+    void archiveExportUsesTheSelectedScansEvidence(String state) throws Exception {
+        var project = projects.save(Project.builder().name("Export-" + UUID.randomUUID()).build());
+        var library = Library.builder().name("export-" + UUID.randomUUID()).version("1").ecosystem("NPM")
+                .licenseStatus(LicenseStatus.RESTRICTED).build();
+        library.getCves().add(Cve.builder().library(library).cveId("CVE-2026-123450")
+                .severity(RiskLevel.HIGH).fixVersion("2.0.0").cvssScore(8.1).epssScore(0.25).kevListed(true).build());
+        library = libraries.saveAndFlush(library);
+        String json = state.equals("legacy") ? null : new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
+                new com.salkcoding.oswl.dto.scan.ScanAssessment(1, "2026-09-01T00:00:00Z",
+                        state.equals("missing") ? List.of() : List.of(ScanAssessmentService.fromLibrary(library))));
+        var old = scans.saveAndFlush(ScanResult.builder().project(project).version("1.0")
+                .status(ScanStatus.COMPLETED).assessmentJson(json).build());
+        components.save(ScanComponent.builder().scanResult(old).library(library).build());
+        components.saveAndFlush(ScanComponent.builder().scanResult(old).library(library).build());
+        scans.saveAndFlush(ScanResult.builder().project(project).version("2.0").status(ScanStatus.COMPLETED).build());
+        library.updateLicense("MIT", LicenseStatus.PERMITTED);
+        library.getCves().clear();
+        library.getCves().add(Cve.builder().library(library).cveId("CVE-2026-123451")
+                .severity(RiskLevel.LOW).fixVersion("9.0.0").cvssScore(2.0).epssScore(0.01).kevListed(false).build());
+        libraries.saveAndFlush(library);
+        if (state.equals("missing")) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> archive.exportPendingArchive(project.getId(), 1))
+                    .isInstanceOf(IllegalStateException.class);
+        } else {
+            var exported = archive.exportPendingArchive(project.getId(), 1);
+            assertThat(exported).singleElement().satisfies(record -> {
+                assertThat(record.scanId()).isEqualTo(old.getId());
+                assertThat(record.components()).hasSize(2).allSatisfy(component -> {
+                    assertThat(component.licenseStatus()).isEqualTo(state.equals("legacy") ? "PERMITTED" : "RESTRICTED");
+                    assertThat(component.licenseName()).isEqualTo(state.equals("legacy") ? "MIT" : null);
+                    assertThat(component.cves()).singleElement().satisfies(finding -> {
+                            assertThat(finding.cveId()).isEqualTo(state.equals("legacy") ? "CVE-2026-123451" : "CVE-2026-123450");
+                            assertThat(finding.fixVersion()).isEqualTo(state.equals("legacy") ? "9.0.0" : "2.0.0");
+                            assertThat(finding.severity()).isEqualTo(state.equals("legacy") ? "LOW" : "HIGH");
+                            assertThat(finding.cvssScore()).isEqualTo(state.equals("legacy") ? 2.0 : 8.1);
+                            assertThat(finding.epssScore()).isEqualTo(state.equals("legacy") ? 0.01 : 0.25);
+                            assertThat(finding.kevListed()).isEqualTo(!state.equals("legacy"));
+                        });
+                });
+            });
+        }
+        assertThat(components.countByScanResultId(old.getId())).isEqualTo(2);
+        assertThat(old.isArchived()).isFalse();
+        assertThat(old.getAssessmentJson()).isEqualTo(json);
+    }
+
     @Test void duplicateComponentsDoNotMultiplyCountsAndArchivePreservesTrend() {
         var project = projects.save(Project.builder().name("Summary-" + UUID.randomUUID()).build());
         var library = Library.builder().name("lib-" + UUID.randomUUID()).version("1").ecosystem("NPM")
