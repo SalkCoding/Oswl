@@ -21,6 +21,47 @@ class OsvRevisionTest {
 
     OsvRevisionTest() { ReflectionTestUtils.setField(client, "restClient", builder.build()); }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"[]", "[{}]",
+            "[{\"package\":{\"ecosystem\":\"npm\",\"name\":\"other\"},\"versions\":[\"1.2.3\"]}]",
+            "[{\"package\":{\"ecosystem\":\"PyPI\",\"name\":\"example\"},\"versions\":[\"1.2.3\"]}]",
+            "[{\"package\":{\"ecosystem\":\"npm\",\"name\":\"example\"},\"versions\":false}]",
+            "[{\"package\":{\"ecosystem\":\"npm\",\"name\":\"example\"},\"ranges\":[{\"type\":\"GIT\",\"events\":[{\"introduced\":\"0\"}]}]}]"})
+    void mixedUncertainMembershipPreservesConfirmedFindingsWithoutInventingACommonFix(String affected) throws Exception {
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var known = mapper.readTree("""
+                {"id":"OSV-known","modified":"2026-01-01T00:00:00Z","affected":[{
+                "package":{"ecosystem":"npm","name":"example"},"ranges":[{"type":"SEMVER",
+                "events":[{"introduced":"0"},{"fixed":"1.2.4"}]}]}]}
+                """);
+        var uncertain = mapper.readTree("{\"id\":\"OSV-uncertain\",\"modified\":\"2026-01-01T00:00:00Z\",\"affected\":" + affected + "}");
+        for (boolean reverse : new boolean[] {false, true}) {
+            server.reset();
+            var originals = reverse ? List.of(uncertain, known) : List.of(known, uncertain);
+            var stubs = originals.stream().map(raw -> java.util.Map.of("id", raw.path("id").asText(),
+                    "modified", raw.path("modified").asText())).toList();
+            batch(mapper.writeValueAsString(java.util.Map.of("results", List.of(java.util.Map.of("vulns", stubs)))));
+            for (var original : originals) server.expect(requestTo("https://api.osv.dev/v1/vulns/" + original.path("id").asText()))
+                    .andRespond(withSuccess(original.toString(), MediaType.APPLICATION_JSON));
+            var online = client.queryBatch(List.of(query())).getFirst();
+            var snapshots = org.mockito.Mockito.mock(com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.class);
+            String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey("npm", "example", query().version());
+            var records = originals.stream().map(raw -> new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln(
+                    raw.path("id").asText(), null, null, "99.0.0", null, null, null, null, null, java.util.Set.of(), raw)).toList();
+            org.mockito.Mockito.when(snapshots.findOsvVulns(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(key, records));
+            var offline = new OsvClient(snapshots, true).queryBatch(List.of(query())).getFirst();
+            assertThat(offline).isEqualTo(online);
+            assertThat(online.resolved()).isFalse();
+            assertThat(online.commonFix().version()).isNull();
+            assertThat(online.advisoryRevisions()).containsOnlyKeys("OSV-known");
+            assertThat(online.vulns()).singleElement().satisfies(v -> {
+                assertThat(v.osvId()).isEqualTo("OSV-known");
+                assertThat(v.fixVersion()).isEqualTo("1.2.4");
+            });
+            server.verify();
+        }
+    }
+
     @Test
     void laterConflictingRevisionRemovesEarlierAcceptedEvidence() {
         batch("{\"results\":[{\"vulns\":[" + stub("2026-01-01T00:00:00Z") + "],\"next_page_token\":\"cursor\"}]}");
