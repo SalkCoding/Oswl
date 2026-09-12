@@ -145,6 +145,20 @@ final class VdbBundleWriter {
             meta.put("wantedCount", wantedListInfo.wantedCount());
             meta.put("resolvedCount", wantedListInfo.resolvedCount());
         }
+        ObjectNode dataNotices = meta.putObject("dataNotices");
+        dataNotices.put("scope", "These notices are not a redistribution clearance for the bundle or its other data sources. "
+                + "The OsWL software license does not relicense third-party data. Retain supplied record-level credits and notices.");
+        dataNotices.put("changes", "Bundle records are selected and normalized from upstream data for requested components. "
+                + "Fields may be omitted or combined across sources; records are not original advisory documents. "
+                + "Delta bundles contain only changes relative to their base bundle.");
+        ObjectNode githubNotice = dataNotices.putObject("githubAdvisoryDatabase");
+        githubNotice.put("appliesTo", "GitHub Advisory Database material, where present; not every record with a GHSA alias.");
+        githubNotice.put("attribution", "GitHub Advisory Database and contributors; retain any supplied creator attribution.");
+        githubNotice.put("sourceUrl", "https://github.com/github/advisory-database");
+        githubNotice.put("license", "CC-BY-4.0");
+        githubNotice.put("licenseUrl", "https://creativecommons.org/licenses/by/4.0/");
+        githubNotice.put("disclaimer", "No endorsement is implied. Licensed material is supplied without warranties; "
+                + "see the license for its disclaimer and limitations. Linked external content is not covered by this notice.");
         ObjectNode sources = meta.putObject("sources");
         putSourceMeta(sources, "osv", osvByKey.size(), osvAsOf, "osv.dev bulk dump");
         putSourceMeta(sources, "depsdev-version", depsdevVersions.size(), LocalDate.now(), "deps.dev api (wanted-list)");

@@ -472,3 +472,5 @@ SCIM을 사용하면 IdP의 사용자 생명주기를 OsWL과 동기화할 수 �
 **사용자 비활성화:** `DELETE /scim/v2/Users/{id}`는 OsWL에서 `active=false`로 설정합니다. SCIM을 통해 사용자를 물리적으로 삭제하지는 않으므로 감사 귀속 정보가 보존됩니다.
 
 **감사 액션:** SCIM 작업은 `SCIM.USER_CREATE`, `SCIM.USER_UPDATE`, `SCIM.USER_DEACTIVATE`, `SCIM.GROUP_CREATE`, `SCIM.GROUP_UPDATE`, `SCIM.GROUP_DELETE`, `SCIM.GROUP_MEMBER_ADD`, `SCIM.GROUP_MEMBER_REMOVE`, `SCIM.AUTH_FAILURE`, `SCIM_KEY.CREATE`로 기록됩니다. SAML 로그인 이벤트는 `SAML.LOGIN_SUCCESS` 및 `SAML.LOGIN_FAILURE`로 기록됩니다.
+
+CLI 전체·증분 번들에도 `meta.json.dataNotices`를 포함합니다. GitHub Advisory Database 자료가 있을 때의 출처 표시, CC-BY-4.0 및 출처 링크, 보증 부인, 선별·정규화·증분 처리 사실을 안내합니다. 반입과 재내보내기는 기존 고지 저장 경로로 이 고지를 유지합니다. CLI 메타데이터 누락을 보완한 것이며, 원문의 모든 크레딧 보존·레코드별 권리 식별·다른 원천의 이용 허가를 뜻하지 않습니다. [공식 데이터베이스 라이선스](https://raw.githubusercontent.com/github/advisory-database/main/LICENSE.md)는 2026-09-13에 확인했습니다. OSV 벌크 수집은 아직 원문 범위 근거를 생략하므로, 이 고지만으로 기존 요약 레코드에서 공통 수정 버전을 선택할 수는 없습니다.

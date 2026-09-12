@@ -57,10 +57,20 @@ class SnapshotImportTransactionTest {
             Integer exit = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
                     new com.salkcoding.oswl.vdb.VdbBuilderCli(), "run", (Object) args.toArray(String[]::new));
             assertThat(exit).isZero();
+            var notice = exportedMeta(Files.readAllBytes(output)).path("dataNotices");
+            assertThat(notice.path("githubAdvisoryDatabase").path("license").asText()).isEqualTo("CC-BY-4.0");
+            assertThat(notice.path("githubAdvisoryDatabase").path("sourceUrl").asText())
+                    .isEqualTo("https://github.com/github/advisory-database");
+            assertThat(notice.path("githubAdvisoryDatabase").path("licenseUrl").asText())
+                    .isEqualTo("https://creativecommons.org/licenses/by/4.0/");
+            assertThat(notice.path("scope").asText()).contains("not a redistribution clearance");
+            assertThat(notice.path("changes").asText()).contains("normalized");
             try (var input = Files.newInputStream(output)) {
                 service.importBundle(input, step == 0 ? AirgappedSnapshotService.ImportMode.REPLACE
                         : AirgappedSnapshotService.ImportMode.MERGE);
             }
+            assertThat(exportedMeta(service.exportBundle()).path("upstreamDataNotices"))
+                    .anySatisfy(retained -> assertThat(retained).isEqualTo(notice));
             String key = "NPM|example|1.0.0";
             assertThat(service.findUnresolvedKeys(List.of(key)).contains(key)).isEqualTo(partial);
             var result = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(

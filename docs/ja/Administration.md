@@ -473,3 +473,5 @@ SCIM を使用すると、IdP のユーザー ライフサイクルを OsWL と�
 **ユーザー無効化:** `DELETE /scim/v2/Users/{id}` は OsWL 上で `active=false` に設定します。SCIM 経由ではユーザーを物理的に削除しないため、監査の帰属情報が保持されます。
 
 **監査アクション:** SCIM 操作は `SCIM.USER_CREATE`、`SCIM.USER_UPDATE`、`SCIM.USER_DEACTIVATE`、`SCIM.GROUP_CREATE`、`SCIM.GROUP_UPDATE`、`SCIM.GROUP_DELETE`、`SCIM.GROUP_MEMBER_ADD`、`SCIM.GROUP_MEMBER_REMOVE`、`SCIM.AUTH_FAILURE`、`SCIM_KEY.CREATE` として記録されます。SAML ログイン イベントは `SAML.LOGIN_SUCCESS` および `SAML.LOGIN_FAILURE` として記録されます。
+
+CLI の完全・差分バンドルにも `meta.json.dataNotices` を含めます。GitHub Advisory Database の資料がある場合の帰属、CC-BY-4.0 と出典へのリンク、保証の免責、選択・正規化・差分処理を説明します。インポートと再エクスポートは既存の通知保存経路でこの通知を保持します。CLI メタデータの欠落を補う変更であり、原文の全クレジットの保存、レコード別の権利特定、他の出典の利用許可を意味しません。[公式データベースライセンス](https://raw.githubusercontent.com/github/advisory-database/main/LICENSE.md) は 2026-09-13 に確認しました。OSV バルク収集はまだ原文の範囲根拠を省略するため、この通知だけで従来の要約レコードから共通修正バージョンを選べるようにはなりません。
