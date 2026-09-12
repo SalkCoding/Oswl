@@ -66,44 +66,21 @@ public class ScanIngestService {
 
         projectCliKeyPolicyService.assertScanIngestAllowed(projectId);
 
-        // Same project + same version → upsert (clear old components, re-run analysis).
-        // Same project + different version → always create a new ScanResult row.
+        // A version labels an analysis input; it is not an identity for a saved result.
         String incomingVersion = payload.getVersion();
-        ScanResult scanResult;
         boolean rescan = false;
         if (incomingVersion != null) {
             var existingOpt = scanResultRepository.lockForRescan(projectId, incomingVersion);
             if (existingOpt.isPresent()) {
                 rescan = true;
-                ScanResult existing = existingOpt.get();
-                if (importJobs.hasActiveSourceScan(existing.getId()))
+                if (importJobs.hasActiveSourceScan(existingOpt.get().getId()))
                     throw new com.salkcoding.oswl.exception.ConflictException("This scan version is still being inspected; retry after it finishes");
-                if (existing.getStatus() != com.salkcoding.oswl.domain.enums.ScanStatus.COMPLETED
-                        || existing.getAiStatus() == com.salkcoding.oswl.domain.enums.AiEnrichmentStatus.PENDING
-                        || existing.getAiStatus() == com.salkcoding.oswl.domain.enums.AiEnrichmentStatus.RUNNING
-                        || existing.getFindings().stream().anyMatch(f -> "source-scan-pending".equals(f.getRuleId()))) {
-                    // An interrupted process has no reliable completion signal. Keep its
-                    // result isolated so a retry works and a delayed worker cannot overwrite it.
-                    scanResult = scanResultRepository.save(ScanResult.builder()
-                            .project(project).version(incomingVersion).build());
-                } else {
-                    existing.getComponents().clear();
-                    existing.getFindings().clear();
-                    existing.resetForRescan();
-                    scanResult = existing;
-                }
-            } else {
-                scanResult = scanResultRepository.save(ScanResult.builder()
-                        .project(project)
-                        .version(incomingVersion)
-                        .build());
             }
-        } else {
-            scanResult = scanResultRepository.save(ScanResult.builder()
-                    .project(project)
-                    .version(null)
-                    .build());
         }
+        ScanResult scanResult = scanResultRepository.save(ScanResult.builder()
+                .project(project)
+                .version(incomingVersion)
+                .build());
 
         // Capture the requester's UI locale so async AI enrichment answers in their language.
         scanResult.recordAiLocale(

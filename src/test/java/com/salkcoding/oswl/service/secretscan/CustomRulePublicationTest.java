@@ -59,16 +59,21 @@ class CustomRulePublicationTest {
     @Autowired com.salkcoding.oswl.service.ingest.ScanIngestService ingest;
     @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
     @Autowired SourceFindingStore findingStore;
-    @Test void successfulSameVersionRescanClearsOldIncompleteFindings() throws Exception {
+    @Test void successfulSameVersionRescanPreservesOldIncompleteFindings() throws Exception {
         var project=projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder().name("Rescan recovery").build());
         var scan=scans.save(com.salkcoding.oswl.domain.entity.scan.ScanResult.builder().project(project).version("retry").status(ScanStatus.COMPLETED).build());
         findings.saveAndFlush(com.salkcoding.oswl.domain.entity.scan.ScanFinding.builder().scanResult(scan).type(ScanFindingType.IAC).ruleId("custom-scan-incomplete").severity(RiskLevel.HIGH).filePath(".").description("Incomplete").build());
         assertThat(gate.evaluate(project.getId(),com.salkcoding.oswl.service.gate.GatePolicyService.GateOptions.defaults()).passed()).isFalse();
         var retried=ingest.ingest(project.getId(),com.salkcoding.oswl.dto.scan.ScanPayload.create("retry",List.of()));
-        assertThat(retried.getId()).isEqualTo(scan.getId());
+        assertThat(retried.getId()).isNotEqualTo(scan.getId());
         long deadline=System.nanoTime()+java.time.Duration.ofSeconds(10).toNanos();
-        while(scans.findById(scan.getId()).orElseThrow().getStatus()!=ScanStatus.COMPLETED && System.nanoTime()<deadline) Thread.sleep(50);
-        assertThat(findings.hasIncompleteScanner(scan.getId(),project.getId())).isFalse();
+        while(scans.findById(retried.getId()).orElseThrow().getStatus()!=ScanStatus.COMPLETED && System.nanoTime()<deadline) Thread.sleep(50);
+        assertThat(scans.findById(retried.getId()).orElseThrow().getStatus()).isEqualTo(ScanStatus.COMPLETED);
+        assertThat(findings.hasIncompleteScanner(retried.getId(),project.getId())).isFalse();
+        assertThat(findings.hasIncompleteScanner(scan.getId(),project.getId())).isTrue();
+        var original = gate.evaluate(project.getId(),new com.salkcoding.oswl.service.gate.GatePolicyService.GateOptions(scan.getId(),null,null,null,null,true,true,false));
+        assertThat(original.passed()).isFalse();
+        assertThat(original.coverage().complete()).isFalse();
         assertThat(gate.evaluate(project.getId(),com.salkcoding.oswl.service.gate.GatePolicyService.GateOptions.defaults()).passed()).isTrue();
     }
     @Test void interruptedCliRetryHasAnIndependentResultEvenWhenTheOldWorkerFinishes() throws Exception {

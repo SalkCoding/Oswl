@@ -196,15 +196,24 @@ class ScanIngestServiceTest {
     }
 
     @Test
-    @DisplayName("동일 버전으로 재수신 시 기존 ScanResult를 재사용한다")
-    void ingest_reusesScanResult_whenVersionAlreadyExists() {
+    @DisplayName("동일 버전의 새 분석은 이전 결과와 스냅샷 세대를 보존한다")
+    void ingest_preservesScanResult_whenVersionAlreadyExists() {
         Project project = Project.builder().id(1L).name("P").build();
         ScanResult existing = ScanResult.builder()
-                .project(project).version("1.0").status(ScanStatus.COMPLETED).build();
+                .id(41L).project(project).version("1.0").status(ScanStatus.COMPLETED).build();
+        existing.pinSnapshotGeneration(7L);
+        var component = ScanComponent.builder().scanResult(existing).reviewed(true).build();
+        existing.getComponents().add(component);
+        var scannedAt = existing.getScannedAt();
 
         when(projectRepository.lockForScanIngest(1L)).thenReturn(Optional.of(project));
         when(scanResultRepository.lockForRescan(1L, "1.0")).thenReturn(Optional.of(existing));
-        when(scanResultRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(scanResultRepository.save(any())).thenAnswer(inv -> {
+            ScanResult saved = inv.getArgument(0);
+            if (saved.getId() == null)
+                org.springframework.test.util.ReflectionTestUtils.setField(saved, "id", 42L);
+            return saved;
+        });
 
         ScanPayload payload = mock(ScanPayload.class);
         when(payload.getVersion()).thenReturn("1.0");
@@ -212,7 +221,16 @@ class ScanIngestServiceTest {
 
         ScanResult result = scanIngestService.ingest(1L, payload);
 
-        assertThat(result).isSameAs(existing);
+        assertThat(result).isNotSameAs(existing);
+        assertThat(result.getId()).isEqualTo(42L);
+        assertThat(existing.getId()).isEqualTo(41L);
+        assertThat(result.getSnapshotGenerationId()).isNull();
+        assertThat(result.getStatus()).isEqualTo(ScanStatus.SCANNING);
+        assertThat(existing.getStatus()).isEqualTo(ScanStatus.COMPLETED);
+        assertThat(existing.getSnapshotGenerationId()).isEqualTo(7L);
+        assertThat(existing.getScannedAt()).isEqualTo(scannedAt);
+        assertThat(existing.getComponents()).containsExactly(component);
+        verify(scanResultRepository, never()).save(existing);
     }
 
     @Test

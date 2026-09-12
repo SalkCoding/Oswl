@@ -239,34 +239,4 @@ public class ScanResult {
         this.errorMessage = message;
     }
 
-    /**
-     * Resets the scan for re-scanning the same version.
-     * Clears the previous payload/state so new component data can be received again.
-     * Callers must clear the components collection before invoking this method.
-     */
-    public void resetForRescan() {
-        this.status = ScanStatus.PENDING;
-        this.errorMessage = null;
-        this.scannedAt = LocalDateTime.now();
-        this.securityAiInsight = null;
-        this.licenseAiInsight = null;
-        this.securityPostureInsight = null;
-        this.versionDiffAiInsight = null;
-        this.versionDiffFromScanId = null;
-        this.aiStatus = null;
-        this.archived = false;
-        this.archivedAt = null;
-        this.archivedComponentCount = null;
-        this.archivedSecurityCritical = null;
-        this.archivedSecurityHigh = null;
-        this.archivedSecurityMedium = null;
-        this.archivedSecurityLow = null;
-        this.archivedSecurityUnscored = null;
-        this.archivedLicenseCritical = null;
-        this.archivedLicenseHigh = null;
-        this.archivedLicenseMedium = null;
-        this.archivedLicenseLow = null;
-    }
 }
-
-
