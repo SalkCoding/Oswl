@@ -543,7 +543,21 @@ public class AirgappedSnapshotService {
             SnapshotBundleStager.checkInterrupted();
             TransactionTemplate transaction = new TransactionTemplate(transactionManager);
             transaction.setTimeout(300);
-            return transaction.execute(status -> applyBundle(rawFiles, meta, mode, notices));
+            // Retained dates, notices and rows must be based on one publication state.
+            transaction.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_SERIALIZABLE);
+            transaction.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            for (int attempt = 1; ; attempt++) {
+                SnapshotBundleStager.checkInterrupted();
+                try {
+                    SnapshotImportResult result = transaction.execute(status -> applyBundle(rawFiles, meta, mode, notices));
+                    log.info("[Snapshot] Imported offline snapshot ({} mode): {} records across {}", mode,
+                            result.totalRecords(), result.sources());
+                    return result;
+                } catch (org.springframework.dao.ConcurrencyFailureException conflict) {
+                    if (attempt >= 3) throw conflict;
+                    log.warn("[Snapshot] Concurrent publication rolled back; retrying import ({}/3)", attempt + 1);
+                }
+            }
         } catch (IOException e) {
             throw new InvalidRequestException("Snapshot bundle is not a readable zip: " + e.getMessage());
         }
@@ -656,7 +670,6 @@ public class AirgappedSnapshotService {
             snapshotMetaRepository.save(builder.build());
         }
         checkNoticeBudget(allStoredNotices());
-        log.info("[Snapshot] Imported offline snapshot ({} mode): {} records across {}", mode, total, counts);
         return new SnapshotImportResult(counts, total, mode.name());
     }
 

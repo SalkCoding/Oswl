@@ -34,9 +34,81 @@ import static org.mockito.Mockito.doAnswer;
 class SnapshotReadConsistencyTest {
     @MockitoSpyBean AirgappedSnapshotService snapshots;
     @Autowired SnapshotEntryRepository entries;
-    @Autowired SnapshotMetaRepository metadata;
+    @MockitoSpyBean SnapshotMetaRepository metadata;
+    @jakarta.persistence.PersistenceContext jakarta.persistence.EntityManager entityManager;
     @Autowired JdbcTemplate jdbc;
     @Autowired PlatformTransactionManager transactions;
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void concurrentMergesCannotRenewRetainedOldRows(boolean outerTransaction) throws Exception {
+        jdbc.update("DELETE FROM airgapped_snapshot_entries WHERE source='epss'");
+        entries.saveAndFlush(SnapshotEntry.builder().source("epss").entryKey("CVE-2026-876540").payload("0.1").build());
+        metadata.saveAndFlush(SnapshotMeta.builder().source("epss").recordCount(1).importedAt(LocalDateTime.now())
+                .sourceAsOf(LocalDate.now()).build());
+        var bothRead = new java.util.concurrent.CountDownLatch(2);
+        var oldCommitted = new java.util.concurrent.CountDownLatch(1);
+        var readers = java.util.concurrent.ConcurrentHashMap.<Long>newKeySet();
+        doAnswer(call -> {
+            var row = entityManager.find(SnapshotMeta.class, "epss");
+            if (readers.add(Thread.currentThread().threadId())) {
+                bothRead.countDown();
+                assertThat(bothRead.await(10, TimeUnit.SECONDS)).isTrue();
+                if (Thread.currentThread().getName().equals("new-snapshot-import")) {
+                    assertThat(oldCommitted.await(10, TimeUnit.SECONDS)).isTrue();
+                }
+            }
+            return java.util.Optional.ofNullable(row);
+        }).when(metadata).findById("epss");
+        try (var writers = Executors.newFixedThreadPool(2)) {
+            var old = writers.submit(() -> {
+                Thread.currentThread().setName("old-snapshot-import");
+                try {
+                    publishEpss("CVE-2026-876541", LocalDate.now().minusDays(30), outerTransaction);
+                    return true;
+                } finally { oldCommitted.countDown(); }
+            });
+            var current = writers.submit(() -> {
+                Thread.currentThread().setName("new-snapshot-import");
+                publishEpss("CVE-2026-876542", LocalDate.now(), outerTransaction);
+                return true;
+            });
+            assertThat(old.get(20, TimeUnit.SECONDS)).isTrue();
+            boolean currentCommitted = current.get(20, TimeUnit.SECONDS);
+            assertThat(currentCommitted).isTrue();
+            org.mockito.Mockito.reset(metadata);
+            assertThat(snapshots.findEpssScores(List.of("CVE-2026-876541"))).containsKey("CVE-2026-876541");
+            assertThat(metadata.findById("epss").orElseThrow().getSourceAsOf()).isEqualTo(LocalDate.now().minusDays(30));
+            assertThat(snapshots.findEpssScores(List.of("CVE-2026-876542")).containsKey("CVE-2026-876542")).isEqualTo(currentCommitted);
+        }
+    }
+
+    private void publishEpss(String id, LocalDate date, boolean outerTransaction) throws Exception {
+        byte[] bundle = epssBundle(id, date);
+        Runnable publish = () -> snapshots.importBundle(new java.io.ByteArrayInputStream(bundle), AirgappedSnapshotService.ImportMode.MERGE);
+        if (outerTransaction) {
+            var outer = new TransactionTemplate(transactions);
+            outer.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+            outer.executeWithoutResult(status -> publish.run());
+        } else publish.run();
+    }
+
+    private static byte[] epssBundle(String id, LocalDate date) throws Exception {
+        String line = "{\"cveId\":\"" + id + "\",\"score\":0.5}\n";
+        String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(line.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        String meta = "{\"formatVersion\":2,\"sources\":{\"epss\":{\"asOf\":\"" + date
+                + "\"}},\"files\":{\"epss.jsonl\":{\"sha256\":\"" + hash + "\",\"lines\":1}}}";
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var zip = new java.util.zip.ZipOutputStream(bytes)) {
+            for (var entry : java.util.Map.of("epss.jsonl", line, "meta.json", meta).entrySet()) {
+                zip.putNextEntry(new java.util.zip.ZipEntry(entry.getKey()));
+                zip.write(entry.getValue().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+        }
+        return bytes.toByteArray();
+    }
 
     @org.junit.jupiter.api.Test
     void epssCannotAttachEarlierFreshnessToNewStaleScores() throws Exception {
