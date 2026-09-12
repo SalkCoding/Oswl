@@ -10,6 +10,7 @@ public final class OsvQueryIdentity {
                     || version == null || version.isBlank()) return false;
             ecosystem = ecosystem.strip().toUpperCase(java.util.Locale.ROOT);
             AdvisoryPackageNames.canonical(ecosystem, name);
+            if (ecosystem.startsWith("ALPINE:")) ApkVersionComparator.compare(version, version);
             switch (ecosystem) {
                 case "NPM", "CARGO", "CRATES.IO" -> SemVerVersionComparator.compare(version, version);
                 case "GO" -> GoVersionComparator.compare(version, version);

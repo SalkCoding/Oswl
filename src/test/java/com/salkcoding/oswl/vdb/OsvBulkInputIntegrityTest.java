@@ -58,7 +58,9 @@ class OsvBulkInputIntegrityTest {
     @ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource(value = {"npm;absent;*;true", "cargo;absent;latest;true",
             "go;absent;master;true", "pypi;absent;>=1;true", "maven;absent;[1,2);true",
-            "nuget;absent;1.*;true", "pypi;invalid/name;1.0.0;true", "npm;absent;1.0.0;false"}, delimiter = ';')
+            "nuget;absent;1.*;true", "pypi;invalid/name;1.0.0;true", "npm;absent;1.0.0;false",
+            "Alpine:v3.18;absent;*;true", "Alpine:v3.18;absent;latest;true",
+            "Alpine:v3.18;absent;1.0-r0;false", "Alpine:v3.18;absent;1.0_rc1-r2;false"}, delimiter = ';')
     void absentPackageCannotValidateAnInvalidWantedIdentity(String ecosystem, String name,
             String version, boolean unresolved) throws Exception {
         var cache = org.mockito.Mockito.mock(HttpCache.class);
