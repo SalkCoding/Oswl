@@ -203,9 +203,9 @@ public class OsvClient {
     }
 
     private OsvResult snapshotResult(List<SnapshotVuln> vulns, OsvQuery query, boolean current, boolean resolved, java.time.Instant validUntil) {
-        boolean concreteVersion = hasConcreteVersion(query);
-        resolved &= concreteVersion;
-        current &= concreteVersion;
+        boolean concreteIdentity = hasConcreteIdentity(query);
+        resolved &= concreteIdentity;
+        current &= concreteIdentity;
         List<OsvVuln> findings = new ArrayList<>();
         List<SnapshotVuln> evidence = new ArrayList<>();
         Map<String, SnapshotVuln> revisions = new java.util.LinkedHashMap<>();
@@ -283,10 +283,12 @@ public class OsvClient {
 
     // ── Internal ─────────────────────────────────────────────────────────
 
-    private static boolean hasConcreteVersion(OsvQuery query) {
+    private static boolean hasConcreteIdentity(OsvQuery query) {
         try {
             String version = query.version();
-            switch (query.ecosystem().strip().toUpperCase(java.util.Locale.ROOT)) {
+            String ecosystem = query.ecosystem().strip().toUpperCase(java.util.Locale.ROOT);
+            com.salkcoding.oswl.vdb.AdvisoryPackageNames.canonical(ecosystem, query.name());
+            switch (ecosystem) {
                 case "NPM", "CARGO", "CRATES.IO" -> com.salkcoding.oswl.vdb.SemVerVersionComparator.compare(version, version);
                 case "GO" -> com.salkcoding.oswl.vdb.GoVersionComparator.compare(version, version);
                 case "PYPI", "PIP" -> com.salkcoding.oswl.vdb.Pep440VersionComparator.compare(version, version);
@@ -406,8 +408,8 @@ public class OsvClient {
         Map<String, com.fasterxml.jackson.databind.JsonNode> rangeEvidence = new java.util.LinkedHashMap<>();
         Set<String> cursors = new LinkedHashSet<>();
         Set<String> untrustedIds = new LinkedHashSet<>();
-        boolean concreteVersion = hasConcreteVersion(query);
-        boolean resolved = concreteVersion;
+        boolean concreteIdentity = hasConcreteIdentity(query);
+        boolean resolved = concreteIdentity;
         if (details.deadline == 0) details.deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos();
         for (int pageNumber = 1; ; pageNumber++) {
             Object rawVulns = page.get("vulns");
@@ -480,7 +482,7 @@ public class OsvClient {
         var commonFix = resolved ? OsvFixVersionSelector.selectAcrossAdvisories(
                 List.copyOf(rangeEvidence.values()), query.ecosystem(), query.name(), query.version()) : null;
         List<OsvVuln> displayed = List.copyOf(findings.values());
-        if (!concreteVersion) displayed = displayed.stream().map(v -> new OsvVuln(v.osvId(), v.cveId(), v.summary(), null,
+        if (!concreteIdentity) displayed = displayed.stream().map(v -> new OsvVuln(v.osvId(), v.cveId(), v.summary(), null,
                 v.cweId(), v.severity(), v.cvssScore(), v.cvssVector(), v.fixVersionConflictCandidates())).toList();
         return new OsvResult(displayed, resolved, commonFix, advisoryRevisions(rangeEvidence.values()),
                 advisoryDigests(rangeEvidence.values()), validUntil);

@@ -209,3 +209,7 @@ An otherwise applicable file larger than 1,000,000 bytes also records incomplete
 Secret inspection treats malformed or truncated UTF-8 as incomplete coverage. It does not replace invalid bytes and claim a successful read. Findings from other readable files remain available. Valid UTF-8, including an explicitly encoded replacement character, remains readable. Other source encodings are not automatically guessed or converted.
 
 If a NUL character stops inspection of a file that passed the extension exclusions, secret coverage is incomplete. Findings collected before that point remain available; the unread remainder is not treated as inspected. Files excluded by the existing binary-extension policy remain excluded.
+
+## Python package lookup identity
+
+OSV applies the existing Python package-name validation even when a response has no findings. Invalid names leave both online and offline lookups unresolved. Stored findings remain available as incomplete evidence, but their fix recommendations are withheld without modifying the stored candidate. Valid mixed separators and a one-character name remain accepted. The rules follow the [PyPA name specification](https://packaging.python.org/en/latest/specifications/name-normalization/); this change does not repair malformed names by guessing the intended package.
