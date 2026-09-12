@@ -9,6 +9,8 @@ Gate baseline selection uses the closest completed scan before the target scan w
 
 A missing severity does not disable independent KEV or EPSS gate rules. A finding that triggers either rule is reported as `UNSCORED`; no severity is inferred. EPSS compares against the configured inclusive threshold. This does not supply missing severity or threat-intelligence evidence.
 
+NVD/CPE-only findings remain matching candidates, even with HIGH confidence. The gate emits `MATCH_REVIEW` and incomplete `COVERAGE` instead of treating them as confirmed CVE violations. Ignoring a component, severity thresholds, and onlyNew/onlyReachable filters do not bypass this review. A candidate in a baseline cannot hide a later package-confirmed finding. Findings with OSV, deps.dev, or GitHub Advisory provenance retain package-based evaluation. Full CPE configuration/environment evaluation and a review-resolution workflow are still pending; records without source or confidence metadata retain legacy behavior.
+
 
 The effective EPSS gate threshold is validated after request, policy and instance-default resolution: it must be finite and at most 1. Values in [0,1] enable the rule; finite negative values disable only when the enforced baseline permits it. NaN, infinities and values above 1 return an invalid-request error instead of producing a gate result. Request strengthening follows the enforced-baseline rules below.
 

@@ -370,12 +370,17 @@
 - **2026-09-10 GHSA 캐시 병합 보완:** source adapter에서 같은 GHSA ID의 캐시 finding보다 현재 live finding의 판정을 반영한다. 기존 offline-first 중복 제거 때문에 새 fixed 또는 명시적 fixed 보류가 사라지던 문제를 수정했다. 부분 조회의 확인된 finding도 fixed 보류 상태로 교체하면서 lookupFailed를 유지한다. 응답에서 확인하지 못한 다른 ID의 캐시 finding은 보존한다. 이 변경만으로 순수 오프라인 과거 데이터의 수정/철회 전파가 완료되는 것은 아니다.
 - **캐시 병합 회귀:** 정상 후보·범위 내 잘못된 후보·부분 응답의 HTTP→client→source 검사 3건은 수정 전 모두 실패했다. 수정 후 `.\gradlew.bat test --tests '*GitHubAdvisoryRangeTest' --tests '*VulnerabilityEnrichmentServiceTest'` 68건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-ghsa-cache-before.log`, `build/roadmap-ghsa-cache-after.log`. 커밋 제목 `fix: preserve live advisory decisions when merging cache`. 자체 합성 입력이며 외부 자료/의존성 및 UI 변경 없음. 원문 modified 기준 revision 충돌 조정, live 미응답 ID의 철회 판정과 과거 DB fixed 정정은 잔여다.
 
-### 14. CPE 추정을 확정 취약·게이트에서 분리 — P0 · [코드 확인]
+### 14. CPE 추정을 확정 취약·게이트에서 분리 — P0 · [부분 구현]
 
 - 현재·대상: [CpeNameMapper](src/main/java/com/salkcoding/oswl/client/CpeNameMapper.java), [NvdClient](src/main/java/com/salkcoding/oswl/client/NvdClient.java)의 이름 추정과 configuration 맥락 손실, 게이트의 신뢰도 처리.
 - [ ] 수정: 추정 CPE는 후보로 보존한다. vendor/product/edition/OS/architecture 및 configuration AND/OR·환경 노드를 평가하고 isVulnerable 필터만으로 완전 판정을 주장하지 않는다. 공급자 증거 없는 이름 대응을 exact로 승격하지 않는다.
 - 선행: 10~11번.
 - DoD: 동명 제품·private/public 충돌·vulnerable=false 환경 노드·OS 조건 사례에서 후보와 확정 결과가 분리된다. 필수 후보 검토/UNKNOWN 차단은 별도 사유로 남는다. [NVD API](https://nvd.nist.gov/developers/vulnerabilities).
+
+
+- **2026-09-12 게이트 후보 분리:** 보존 판정과 legacy 투영에서 NVD/CPE 출처 또는 매칭 신뢰도만 있고 패키지 공급자 근거가 없는 항목은 HIGH 신뢰도여도 확정 CVE로 승격하지 않는다. 별도 `MATCH_REVIEW`와 미완료 coverage로 차단하며 무시·심각도·신규/도달성 필터보다 먼저 검사한다. OSV/deps.dev/GitHub Advisory 출처가 함께 있는 항목은 기존 패키지 근거 평가를 유지한다. 기준 스캔의 후보는 이후 패키지 근거로 확인된 동일 ID를 기존 확정 취약점으로 숨기지 않는다.
+- **회귀·잔여 범위:** 신뢰도 3종의 수정 전 실패를 재현했고, 혼합 출처 3종의 legacy/보존 경로, 무시된 후보, 후보→패키지 확인의 기준 비교를 포함한 새 회귀 11건이 통과했다. 로그 `build/roadmap-cpe-gate-before.log`, `build/roadmap-cpe-gate-checked.log`. 자체 합성 자료이며 새 외부 원문·라이브러리·UI 변경은 없다. configuration AND/OR·vulnerable=false·OS/architecture·동명 제품 검증, 검토 해소 절차, 출처/신뢰도가 없는 legacy 자료의 재판정 및 게이트 밖 보고서의 후보 구분은 잔여다. 이번 공식 NVD 문서 열기는 본문을 반환하지 않아 configuration 계약 전체의 외부 검증 완료를 주장하지 않는다.
+- **전체 검증:** Windows/Java 25에서 `build verifyProdJar` 통과. 총 4,487건 중 4,475건 성공, 기존 조건부 skip 12건, 실패·오류 0. 운영 JAR의 local 전용 클래스/fixture 제외 확인. 로그 `build/roadmap-cpe-gate-build.log`. 커밋 제목 `fix: separate cpe candidates from confirmed gate findings`. UI 변경이 없어 브라우저 검증은 수행하지 않았다.
 
 ### 15. 공통 resolved inventory와 workspace 단위 coverage — P0 · [코드 확인/설계]
 

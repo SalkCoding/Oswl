@@ -158,6 +158,19 @@ public class GatePolicyService {
         assessments(scan, components).forEach(a -> saved.put(a.libraryId(),a));
         boolean preserved = scan.getAssessmentJson() != null;
         List<Violation> violations = new ArrayList<>();
+        for (ScanComponent component : components) {
+            var library = saved.get(component.getLibrary().getId());
+            if (library == null) continue;
+            for (var finding : library.findings()) {
+                if (!finding.requiresCpeReview()) continue;
+                String id = finding.cveId() != null ? finding.cveId() : finding.ghsaId();
+                violations.add(new Violation("MATCH_REVIEW", id == null ? "CPE_MATCH" : id,
+                        library.name() + "@" + (library.version() == null ? "" : library.version()),
+                        "UNKNOWN", null, false,
+                        "CPE candidate requires package identity and configuration evidence; confidence alone is not confirmation", false));
+            }
+        }
+        boolean matchingComplete = violations.isEmpty();
         long unanalysed = components.stream().filter(c -> preserved
                 ? saved.get(c.getLibrary().getId()) == null || !saved.get(c.getLibrary().getId()).lookupComplete()
                 : !c.getLibrary().isVulnerabilitiesAnalyzed()).count();
@@ -166,12 +179,12 @@ public class GatePolicyService {
                 components.stream().map(c -> c.getLibrary().getId()).collect(java.util.stream.Collectors.toSet())));
         boolean scannersComplete = !scanFindingRepository.hasIncompleteScanner(scan.getId(), projectId);
         Coverage coverage = new Coverage(components.size(), unanalysed, scanCompleted, detailsAvailable,
-                scanCompleted && detailsAvailable && unanalysed == 0 && scannersComplete);
+                scanCompleted && detailsAvailable && unanalysed == 0 && scannersComplete && matchingComplete);
         if (!coverage.complete()) {
             violations.add(new Violation("COVERAGE", "INCOMPLETE_ANALYSIS", "scan", "UNKNOWN", null, false,
                     "Cannot establish complete stored lookup coverage: scanCompleted=" + scanCompleted
                             + ", detailsAvailable=" + detailsAvailable + ", unanalysedComponents=" + unanalysed
-                            + ", scannersComplete=" + scannersComplete,
+                            + ", scannersComplete=" + scannersComplete + ", matchingComplete=" + matchingComplete,
                     false));
         }
         int evaluated = 0;
@@ -204,6 +217,7 @@ public class GatePolicyService {
 
             if (reachabilityGatePasses) {
                 for (ScanAssessment.Finding cve : lib.findings()) {
+                    if (cve.requiresCpeReview()) continue;
                     String vulnId = cve.cveId() != null ? cve.cveId() : cve.ghsaId();
                     if (vulnId == null) continue;
                     boolean isNew = !baselineVulnKeys.contains(coord + "|" + vulnId);
@@ -306,6 +320,7 @@ public class GatePolicyService {
         for (var lib : libraries) {
             String coord = lib.name() + "@" + (lib.version() != null ? lib.version() : "");
             for (ScanAssessment.Finding cve : lib.findings()) {
+                if (cve.requiresCpeReview()) continue;
                 String vulnId = cve.cveId() != null ? cve.cveId() : cve.ghsaId();
                 if (vulnId != null) keys.add(coord + "|" + vulnId);
             }

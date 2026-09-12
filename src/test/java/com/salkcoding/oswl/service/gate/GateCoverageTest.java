@@ -257,6 +257,69 @@ class GateCoverageTest {
         assertThat(result.onlyReachable()).isFalse();
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(com.salkcoding.oswl.domain.enums.MatchConfidence.class)
+    void cpeConfidenceAloneCannotBecomeConfirmedGateEvidence(com.salkcoding.oswl.domain.enums.MatchConfidence confidence) throws Exception {
+        var library = evidenceLibrary();
+        library.getCves().add(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder()
+                .cveId("CVE-2026-123450").severity(com.salkcoding.oswl.domain.enums.RiskLevel.HIGH)
+                .sources(Set.of(com.salkcoding.oswl.domain.enums.CveSource.NVD)).matchConfidence(confidence).build());
+        preserve(scan,library);
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        var result = service.evaluate(1L,GatePolicyService.GateOptions.defaults());
+        assertThat(result.passed()).isFalse();
+        assertThat(result.coverage().complete()).isFalse();
+        assertThat(result.violations()).extracting(v -> v.type()).contains("MATCH_REVIEW").doesNotContain("CVE");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"OSV,false","OSV,true","DEPS_DEV,false","DEPS_DEV,true","GITHUB_ADVISORY,false","GITHUB_ADVISORY,true"})
+    void packageSourceEvidenceIsNotDiscardedBecauseNvdAlsoContributed(
+            com.salkcoding.oswl.domain.enums.CveSource source, boolean preserved) throws Exception {
+        var library = evidenceLibrary();
+        library.getCves().add(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder()
+                .cveId("CVE-2026-123450").severity(com.salkcoding.oswl.domain.enums.RiskLevel.HIGH)
+                .sources(Set.of(source,com.salkcoding.oswl.domain.enums.CveSource.NVD))
+                .matchConfidence(com.salkcoding.oswl.domain.enums.MatchConfidence.LOW).build());
+        if (preserved) preserve(scan,library);
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        var result = service.evaluate(1L,GatePolicyService.GateOptions.defaults());
+        assertThat(result.coverage().complete()).isTrue();
+        assertThat(result.violations()).extracting(v -> v.type()).containsExactly("CVE");
+    }
+
+    @Test void candidateReviewCannotBeHiddenByIgnoringAComponent() {
+        var library = evidenceLibrary();
+        library.getCves().add(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder()
+                .cveId("CVE-2026-123450").sources(Set.of(com.salkcoding.oswl.domain.enums.CveSource.CPE)).build());
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).ignored(true).build()));
+        var result = service.evaluate(1L,GatePolicyService.GateOptions.defaults());
+        assertThat(result.passed()).isFalse();
+        assertThat(result.coverage().complete()).isFalse();
+        assertThat(result.violations()).extracting(v -> v.type()).contains("MATCH_REVIEW").doesNotContain("CVE");
+    }
+
+    @Test void baselineCandidateDoesNotSuppressLaterPackageConfirmedFinding() throws Exception {
+        ReflectionTestUtils.setField(service,"defaultOnlyNew",true);
+        var library = evidenceLibrary();
+        library.getCves().add(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder()
+                .cveId("CVE-2026-123450").severity(com.salkcoding.oswl.domain.enums.RiskLevel.HIGH)
+                .sources(Set.of(com.salkcoding.oswl.domain.enums.CveSource.NVD)).build());
+        var baseline = ScanResult.builder().id(1L).project(project).status(ScanStatus.COMPLETED).build();
+        preserve(baseline,library);
+        library.getCves().clear();
+        library.getCves().add(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder()
+                .cveId("CVE-2026-123450").severity(com.salkcoding.oswl.domain.enums.RiskLevel.HIGH)
+                .sources(Set.of(com.salkcoding.oswl.domain.enums.CveSource.OSV)).build());
+        preserve(scan,library);
+        when(scans.findPreviousCompleted(1L,scan.getScannedAt(),scan.getId())).thenReturn(Optional.of(baseline));
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        var result = service.evaluate(1L,GatePolicyService.GateOptions.defaults());
+        assertThat(result.passed()).isFalse();
+        assertThat(result.newVulnerabilityCount()).isEqualTo(1);
+        assertThat(result.violations()).extracting(v -> v.type()).containsExactly("CVE");
+    }
+
     @Test void missingLookupCannotPassEvenWhenIgnoredOrFiltered() {
         Library library = Library.builder().id(3L).name("unsupported").version("1").build();
         when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder()
