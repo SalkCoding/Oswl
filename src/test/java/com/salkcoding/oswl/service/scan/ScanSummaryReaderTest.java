@@ -18,7 +18,13 @@ import java.util.List;
 import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@SpringBootTest
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
+@SpringBootTest(properties = {
+        "spring.datasource.url=${OSWL_SUMMARY_TEST_URL:jdbc:h2:mem:scan-summary;DB_CLOSE_DELAY=0;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT}",
+        "spring.datasource.driver-class-name=${OSWL_SUMMARY_TEST_DRIVER:org.h2.Driver}",
+        "spring.datasource.username=${OSWL_SUMMARY_TEST_USER:sa}",
+        "spring.datasource.password=${OSWL_SUMMARY_TEST_PASSWORD:}",
+        "spring.jpa.database-platform=${OSWL_SUMMARY_TEST_DIALECT:org.hibernate.dialect.H2Dialect}"})
 @Transactional
 class ScanSummaryReaderTest {
     @Autowired ScanSummaryReader reader;
