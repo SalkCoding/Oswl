@@ -197,9 +197,9 @@ class OsvLookupOutcomeTest {
                     "{\"results\":[{\"vulns\":[{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"GHSA-fixture\"}]},{\"vulns\":[{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"GHSA-fixture\"}]}]}", MediaType.APPLICATION_JSON));
             server.expect(requestTo("https://api.osv.dev/v1/vulns/GHSA-fixture")).andRespond(success ? withSuccess(
                     "{\"modified\":\"2026-01-01T00:00:00Z\",\"id\":\"GHSA-fixture\",\"aliases\":[\"CVE-2026-0001\"],\"severity\":[{\"type\":\"CVSS_V3\",\"score\":\"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H\"}]," +
-                            "\"affected\":[{\"package\":{\"ecosystem\":\"npm\",\"name\":\"a\"},\"versions\":[\"1\"]}," +
-                            "{\"package\":{\"ecosystem\":\"npm\",\"name\":\"b\"},\"versions\":[\"1\"]}]}", MediaType.APPLICATION_JSON) : withServerError());
-            var result = client.queryBatch(List.of(new OsvClient.OsvQuery("npm", "a", "1"), new OsvClient.OsvQuery("npm", "b", "1")));
+                            "\"affected\":[{\"package\":{\"ecosystem\":\"npm\",\"name\":\"a\"},\"versions\":[\"1.0.0\"]}," +
+                            "{\"package\":{\"ecosystem\":\"npm\",\"name\":\"b\"},\"versions\":[\"1.0.0\"]}]}", MediaType.APPLICATION_JSON) : withServerError());
+            var result = client.queryBatch(List.of(new OsvClient.OsvQuery("npm", "a", "1.0.0"), new OsvClient.OsvQuery("npm", "b", "1.0.0")));
             assertThat(result).allMatch(r -> r.resolved() == success && r.vulns().size() == 1);
             if (success) {
                 assertThat(result.getFirst().vulns().getFirst().effectiveSeverity()).isEqualTo(com.salkcoding.oswl.domain.enums.RiskLevel.CRITICAL);

@@ -64,6 +64,42 @@ class OsvLiveRangeTest {
         assertThat(result.vulns()).isEmpty();
     }
 
+    @ParameterizedTest
+    @CsvSource(value = {"npm;*;false", "crates.io;latest;false", "Go;master;false", "PyPI;>=1;false",
+            "Maven;[1,2);false", "npm;1.0.0;true", "crates.io;1.0.0;true", "Go;v1.0.0;true",
+            "PyPI;1.0.post1;true", "Maven;1.0.Final;true"}, delimiter = ';')
+    void emptyLookupStillRequiresAConcreteInstalledVersion(String ecosystem, String version, boolean resolved) {
+        var builder = RestClient.builder().baseUrl("https://api.osv.dev");
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new OsvClient();
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        server.expect(requestTo("https://api.osv.dev/v1/querybatch"))
+                .andRespond(withSuccess("{\"results\":[{}]}", MediaType.APPLICATION_JSON));
+        var query = new OsvClient.OsvQuery(ecosystem, "fixture", version);
+        var online = client.queryBatch(List.of(query)).getFirst();
+        assertThat(online.resolved()).isEqualTo(resolved);
+        var store = mock(AirgappedSnapshotService.class);
+        when(store.readOsvSnapshot(anyCollection())).thenCallRealMethod();
+        String key = AirgappedSnapshotService.componentKey(ecosystem, "fixture", version);
+        when(store.findOsvVulns(anyCollection())).thenReturn(Map.of(key, List.of()));
+        when(store.findUnresolvedKeys(anyCollection())).thenReturn(Set.of());
+        var offline = new OsvClient(store, true).queryBatch(List.of(query)).getFirst();
+        assertThat(offline.resolved()).isEqualTo(resolved);
+        assertThat(offline.vulns()).isEmpty();
+        assertThat(offline.commonFix().version()).isNull();
+        var retained = new AirgappedSnapshotService.SnapshotVuln("OSV-fixture", "CVE-2026-123450", "fixture",
+                "2.0.0", null, "HIGH", 7.5, null, null);
+        when(store.findOsvVulns(anyCollection())).thenReturn(Map.of(key, List.of(retained)));
+        var cached = new OsvClient(store, true).queryBatch(List.of(query)).getFirst();
+        assertThat(cached.resolved()).isEqualTo(resolved);
+        assertThat(cached.vulns()).singleElement().satisfies(v -> {
+            assertThat(v.osvId()).isEqualTo("OSV-fixture");
+            assertThat(v.fixVersion()).isEqualTo(resolved ? "2.0.0" : null);
+        });
+        assertThat(retained.fixVersion()).isEqualTo("2.0.0");
+        server.verify();
+    }
+
     private String advisory(String affected) {
         return "{\"id\":\"OSV-fixture\",\"modified\":\"2026-01-01T00:00:00Z\",\"affected\":" + affected + "}";
     }
