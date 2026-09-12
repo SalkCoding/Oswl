@@ -177,10 +177,19 @@ public class GitHubAdvisoryClient {
     }
 
     public void validateQueryIdentity(String ecosystem, String name, String version) {
-        if ("NUGET".equals(toGitHubEcosystem(ecosystem))) {
-            // Validate before either mode can accept an empty result as completed coverage.
-            AdvisoryPackageNames.canonical("NUGET", name);
-            com.salkcoding.oswl.vdb.NuGetVersionComparator.compare(version, version);
+        String ghEcosystem = toGitHubEcosystem(ecosystem);
+        if (ghEcosystem == null) return;
+        // Validate independently of finding count, in both live and snapshot lookups.
+        if (name == null || name.isBlank()) throw new IllegalArgumentException("Missing advisory package name");
+        AdvisoryPackageNames.canonical(ghEcosystem, name);
+        String concrete = version == null ? null : version.strip();
+        switch (ghEcosystem) {
+            case "NUGET" -> com.salkcoding.oswl.vdb.NuGetVersionComparator.compare(version, version);
+            case "NPM", "RUST" -> SemVerVersionComparator.compare(concrete, concrete);
+            case "GO" -> GoVersionComparator.compare(concrete, concrete);
+            case "MAVEN" -> MavenVersionComparator.compare(concrete, concrete);
+            case "PIP" -> Pep440VersionComparator.compare(concrete, concrete);
+            default -> { }
         }
     }
 

@@ -349,6 +349,30 @@ class GitHubAdvisoryRangeTest {
         server.verify();
     }
 
+    @ParameterizedTest
+    @CsvSource(value = {"npm;*;true", "cargo;latest;true", "go;master;true", "pypi;>=1;true",
+            "maven;[1,2);true", "nuget;1.*;true", "npm;1.0.0;false", "cargo;1.0.0;false",
+            "go;v1.0.0;false", "pypi;1.0.post1;false", "maven;1.0.Final;false", "nuget;1.0;false"}, delimiter = ';')
+    void emptyResultsCannotValidateAnUnsupportedInstalledVersion(String ecosystem, String version, boolean failed) {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var live = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
+                Duration.ofSeconds(1), Duration.ofSeconds(1));
+        ReflectionTestUtils.setField(live, "restClient", builder.build());
+        server.expect(org.springframework.test.web.client.ExpectedCount.between(0, 1), requestTo("https://api.github.com/graphql"))
+                .andRespond(withSuccess("{\"data\":{\"securityVulnerabilities\":{\"nodes\":[],\"pageInfo\":{\"hasNextPage\":false}}}}", MediaType.APPLICATION_JSON));
+        var online = new GitHubAdvisorySource(live).lookup(ecosystem, "fixture", version, List.of());
+        assertThat(online.lookupFailed()).isEqualTo(failed);
+        assertThat(online.findings()).isEmpty();
+        var offline = new GitHubAdvisoryClient(org.mockito.Mockito.mock(com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.class),
+                true, null, null, Duration.ofSeconds(1), Duration.ofSeconds(1));
+        var stored = new GitHubAdvisorySource(offline).lookupSnapshot(ecosystem, "fixture", version,
+                new com.salkcoding.oswl.dto.snapshot.SnapshotLookup<>(List.of(), true));
+        assertThat(stored.lookupFailed()).isEqualTo(failed);
+        assertThat(stored.findings()).isEmpty();
+        server.verify();
+    }
+
     private String page(String id, boolean more, String cursor) throws Exception {
         return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("data", Map.of("securityVulnerabilities",
                 Map.of("pageInfo", Map.of("hasNextPage", more, "endCursor", cursor), "nodes", List.of(Map.of(
@@ -405,7 +429,9 @@ class GitHubAdvisoryRangeTest {
         node.put("advisory", Map.of("identifiers", List.of(Map.of("type", "GHSA", "value", "GHSA-fixture"))));
         String body = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("data",
                 Map.of("securityVulnerabilities", Map.of("pageInfo", Map.of("hasNextPage", false), "nodes", List.of(node)))));
-        server.expect(requestTo("https://api.github.com/graphql")).andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+        server.expect(version == null ? org.springframework.test.web.client.ExpectedCount.never()
+                : org.springframework.test.web.client.ExpectedCount.once(), requestTo("https://api.github.com/graphql"))
+                .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
         var result = new GitHubAdvisorySource(client).lookup("npm", "fixture", version, List.of());
         assertThat(result.lookupFailed()).isEqualTo(failed);
         assertThat(result.findings()).hasSize(findings);
