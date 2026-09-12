@@ -36,6 +36,80 @@ class ScanSummaryReaderTest {
     @Autowired LibraryRepository libraries;
     @Autowired jakarta.persistence.EntityManager entityManager;
 
+    @Autowired com.salkcoding.oswl.service.vulnerability.SecurityCenterService securityCenter;
+
+    @Test void patchFilterCountsMatchesAcrossUnmatchedPages() {
+        var project = projects.save(Project.builder().name("Patch-pages-" + UUID.randomUUID()).build());
+        var scan = scans.save(ScanResult.builder().project(project).status(ScanStatus.COMPLETED).build());
+        var expected = new java.util.ArrayList<Long>();
+        for (int i = 0; i < 211; i++) {
+            boolean complete = i >= 110;
+            var lib = Library.builder().name(String.format("patch-page-%03d", i)).version("1").ecosystem("NPM")
+                    .fetchedAt(LocalDateTime.now()).vulnerabilityLookupAt(LocalDateTime.now())
+                    .vulnerabilityLookupOutcomes(java.util.Map.of("OSV", complete ? "RESOLVED" : "UNAVAILABLE")).build();
+            lib.getCves().add(Cve.builder().library(lib).cveId("CVE-2026-123452").severity(RiskLevel.HIGH)
+                    .sources(java.util.Set.of(CveSource.OSV)).fixVersion("2").build());
+            libraries.save(lib);
+            Long id = components.save(ScanComponent.builder().scanResult(scan).library(lib).build()).getId();
+            if (complete) expected.add(id);
+        }
+        entityManager.flush(); entityManager.clear();
+        var f = new com.salkcoding.oswl.dto.SecurityCenterRowFilterParams(null, false,
+                false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false,
+                true, false, false, false, false, "name");
+        var first = securityCenter.queryRows(project.getId(), scan.getId(), f, 0);
+        var second = securityCenter.queryRows(project.getId(), scan.getId(), f, 1);
+        var empty = securityCenter.queryRows(project.getId(), scan.getId(), f, 2);
+        assertThat(first.getContent()).extracting(com.salkcoding.oswl.dto.ComponentRowDto::getId).containsExactlyElementsOf(expected.subList(0, 100));
+        assertThat(second.getContent()).extracting(com.salkcoding.oswl.dto.ComponentRowDto::getId).containsExactly(expected.get(100));
+        assertThat(first.getTotalElements()).isEqualTo(101);
+        assertThat(second.getTotalElements()).isEqualTo(101);
+        assertThat(empty.getContent()).isEmpty();
+        assertThat(empty.getTotalElements()).isEqualTo(101);
+        assertThat(first.hasNext()).isTrue();
+        assertThat(second.hasNext()).isFalse();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"patchable", "nonPatchable", "deprecated", "outdated", "latest"})
+    void patchFiltersUseDisplayedAssessment(String filter) {
+        var project = projects.save(Project.builder().name("Patch-filter-" + UUID.randomUUID()).build());
+        var scan = scans.save(ScanResult.builder().project(project).status(ScanStatus.COMPLETED).build());
+        java.util.Map<String, Long> ids = new java.util.HashMap<>();
+        for (String state : List.of("fixed", "unfixed", "failed", "candidate", "missingSeverity", "deprecated", "outdated", "latest", "candidateLatest")) {
+            var lib = Library.builder().name(state + UUID.randomUUID()).version("1").ecosystem("NPM")
+                    .fetchedAt(LocalDateTime.now()).vulnerabilityLookupAt(LocalDateTime.now())
+                    .vulnerabilityLookupOutcomes(java.util.Map.of("OSV", state.equals("failed") ? "UNAVAILABLE" : "RESOLVED"))
+                    .deprecated(state.equals("deprecated") ? "retired" : null)
+                    .isLatestVersion(state.equals("latest") || state.equals("candidateLatest"))
+                    .build();
+            if (!List.of("deprecated", "outdated", "latest").contains(state)) {
+                lib.getCves().add(Cve.builder().library(lib).cveId("CVE-2026-123451")
+                        .sources(java.util.Set.of(state.startsWith("candidate") ? CveSource.NVD : CveSource.OSV))
+                        .severity(state.equals("missingSeverity") ? null : RiskLevel.HIGH)
+                        .fixVersion(state.equals("unfixed") ? null : "2").build());
+            }
+            libraries.save(lib);
+            ids.put(state, components.save(ScanComponent.builder().scanResult(scan).library(lib).build()).getId());
+        }
+        entityManager.flush(); entityManager.clear();
+        var f = new com.salkcoding.oswl.dto.SecurityCenterRowFilterParams(null, false,
+                false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false,
+                filter.equals("patchable"), filter.equals("nonPatchable"), filter.equals("deprecated"),
+                filter.equals("outdated"), filter.equals("latest"), "name");
+        var expected = switch (filter) {
+            case "patchable" -> List.of(ids.get("fixed"), ids.get("missingSeverity"));
+            case "nonPatchable" -> List.of(ids.get("unfixed"));
+            default -> List.of(ids.get(filter));
+        };
+        var result = securityCenter.queryRows(project.getId(), scan.getId(), f, 0);
+        assertThat(result.getContent()).extracting(com.salkcoding.oswl.dto.ComponentRowDto::getId)
+                .containsExactlyInAnyOrderElementsOf(expected);
+        assertThat(result.getTotalElements()).isEqualTo(expected.size());
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "NONE", "missing"})
     void severityFiltersExcludeCandidatesAndIncludeMissingSeverity(String level) {
@@ -58,7 +132,7 @@ class ScanSummaryReaderTest {
                 false, false, false, false, false, false, false, false, false,
                 level.equals("CRITICAL"), level.equals("HIGH"), level.equals("MEDIUM"), level.equals("LOW"),
                 level.equals("NONE") || level.equals("missing"),
-                false, false, false, false, false, false, false, false, false,
+                false, false, false, false,
                 org.springframework.data.domain.PageRequest.of(0, 10));
         assertThat(result.getContent()).extracting(ScanComponent::getId).containsExactlyInAnyOrderElementsOf(expected);
         assertThat(result.getTotalElements()).isEqualTo(2);

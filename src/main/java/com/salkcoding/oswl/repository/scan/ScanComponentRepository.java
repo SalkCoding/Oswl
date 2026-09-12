@@ -233,20 +233,6 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
                  OR (:licCautionF = TRUE AND l.licenseStatus = com.salkcoding.oswl.domain.enums.LicenseStatus.CAUTION)
                  OR (:licUnknownF = TRUE AND l.licenseStatus = com.salkcoding.oswl.domain.enums.LicenseStatus.UNKNOWN)
                  OR (:licPermittedF = TRUE AND l.licenseStatus = com.salkcoding.oswl.domain.enums.LicenseStatus.PERMITTED) )
-              AND ( (:patchableF = FALSE AND :nonPatchableF = FALSE AND :patchDeprecatedF = FALSE AND :patchOutdatedF = FALSE AND :patchUpToDateF = FALSE)
-                 OR (:patchableF = TRUE
-                     AND EXISTS (SELECT 1 FROM Cve cv2 WHERE cv2.library = l AND cv2.severity <> com.salkcoding.oswl.domain.enums.RiskLevel.NONE)
-                     AND EXISTS (SELECT 1 FROM Cve cv3 WHERE cv3.library = l AND cv3.severity <> com.salkcoding.oswl.domain.enums.RiskLevel.NONE AND cv3.fixVersion IS NOT NULL AND TRIM(cv3.fixVersion) <> ''))
-                 OR (:nonPatchableF = TRUE
-                     AND EXISTS (SELECT 1 FROM Cve cv4 WHERE cv4.library = l AND cv4.severity <> com.salkcoding.oswl.domain.enums.RiskLevel.NONE)
-                     AND NOT EXISTS (SELECT 1 FROM Cve cv5 WHERE cv5.library = l AND cv5.severity <> com.salkcoding.oswl.domain.enums.RiskLevel.NONE AND cv5.fixVersion IS NOT NULL AND TRIM(cv5.fixVersion) <> ''))
-                 OR (:patchDeprecatedF = TRUE AND l.deprecated IS NOT NULL)
-                 OR (:patchOutdatedF = TRUE
-                     AND NOT EXISTS (SELECT 1 FROM Cve cv6 WHERE cv6.library = l AND cv6.severity <> com.salkcoding.oswl.domain.enums.RiskLevel.NONE)
-                     AND l.deprecated IS NULL AND l.isLatestVersion = FALSE)
-                 OR (:patchUpToDateF = TRUE
-                     AND NOT EXISTS (SELECT 1 FROM Cve cv7 WHERE cv7.library = l AND cv7.severity <> com.salkcoding.oswl.domain.enums.RiskLevel.NONE)
-                     AND l.deprecated IS NULL AND l.isLatestVersion = TRUE) )
             """)
     Page<ScanComponent> searchForSecurityCenter(
             @Param("scanId") Long scanId,
@@ -269,10 +255,5 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
             @Param("licCautionF") boolean licCautionF,
             @Param("licUnknownF") boolean licUnknownF,
             @Param("licPermittedF") boolean licPermittedF,
-            @Param("patchableF") boolean patchableF,
-            @Param("nonPatchableF") boolean nonPatchableF,
-            @Param("patchDeprecatedF") boolean patchDeprecatedF,
-            @Param("patchOutdatedF") boolean patchOutdatedF,
-            @Param("patchUpToDateF") boolean patchUpToDateF,
             Pageable pageable);
 }

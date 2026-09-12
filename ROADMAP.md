@@ -111,6 +111,9 @@
 
 ### 10. 확정 영향·후보·미확인과 매칭 증거 모델 — P0 · [부분 구현]
 
+- **2026-09-13 패치 필터 판정 통일:** SQL의 개별 fixVersion 존재 여부만으로 조회 실패/CPE 후보를 패치 가능으로 검색하고 null 심각도의 수정 정보를 누락하던 오류를 회귀 5조건 중 2건 실패로 재현했다. 컴포넌트 행과 같은 Library.computePatchability를 사용하며, 발견 항목이 있을 때 버전 상태 필터로 빠지지 않게 했다. 잘못된 SQL 패치 분기를 제거했다. 패치 필터 선택 시 다른 조건을 만족하는 행을 100개씩 평가한 뒤 정확한 전체 건수와 페이지를 구성하며, 정렬 동률에는 컴포넌트 ID를 사용한다. 110개 제외 행 뒤의 101개 일치 행을 첫/둘째/범위 밖 페이지에서 검증했다. 기본 목록은 기존 DB 페이지 조회를 유지한다. 패치 필터는 모든 후보를 평가하므로 대규모 스캔 비용·영속성 컨텍스트 메모리 최적화 검증이 잔여이며 위험순 정렬 의미도 별도 잔여다. 세 언어 문서에 이 비용과 개별 수정/공통 안전 대상의 차이를 명시했다. 전체 build/verifyProdJar 및 UI 성공(4분 16초): 일반 4,640건 중 4,628 통과·기존 skip 12·실패/오류 0, Chromium 세 언어 필터 조작 포함 CandidateSummaryUiTest 1건 통과 및 한국어 실제 화면 확인. ScanSummaryReader 22건을 H2와 PostgreSQL에서 통과했다. 전용 PG DB는 연결 0 확인 후 삭제하고 서버를 종료했다. 새 외부 자료·라이브러리·DB migration 없음. 로그 `build/patch-filter-before.log`, `build/patch-filter-after.log`, `build/patch-filter-build-ui.log`, `build/patch-filter-postgres.log`; XML `build/patch-filter-h2.xml`, `build/patch-filter-postgres.xml`. 커밋 제목 `fix: use component assessments for patch filters`.
+
+
 - **2026-09-13 심각도 검색 기준 통일:** 서버의 심각도 필터가 CPE 후보를 포함하고 null 심각도를 미평가에서 누락하던 문제를 수정했다. 요약과 같은 CPE_REVIEW 조건을 사용하며 패키지 출처가 있는 발견은 유지한다. 필터 없음은 후보를 계속 표시한다. 실제 DB의 CRITICAL/HIGH/MEDIUM/LOW/NONE/null 6조건에서 수정 전 모두 실패했고, 수정 후 ScanSummaryReader 검사 16건을 H2와 PostgreSQL에서 각각 통과했다. 서비스·컨트롤러 관련 검사와 bootJar/verifyProdJar도 통과했다. 실제 Chromium의 세 언어 표에서 필터 클릭 후 후보 행 제외와 빈 결과 표시를 확인했다. 위험순 정렬·패치 가능 여부 필터의 의미 통일은 여전히 잔여이며 전체 항목을 완료 표시하지 않는다. 새 외부 자료·라이브러리·DB migration 없음. 검증 전용 PostgreSQL DB는 연결 0 확인 후 삭제하고 서버를 종료했다. 로그 `build/candidate-filter-before.log`, `build/candidate-filter-after.log`, `build/candidate-filter-postgres-ui.log`; H2/PostgreSQL XML `build/candidate-filter-h2.xml`, `build/candidate-filter-postgres.xml`. 전체 build는 재실행하지 않았다. 커밋 제목 `fix: align severity filters with candidate exclusion`.
 
 

@@ -34,7 +34,7 @@ class CandidateSummaryUiTest extends UiTestBase {
                 .fetchedAt(java.time.LocalDateTime.now()).vulnerabilityLookupAt(java.time.LocalDateTime.now())
                 .vulnerabilityLookupOutcomes(Map.of("NVD", "RESOLVED")).build();
         library.getCves().add(Cve.builder().library(library).cveId("CVE-2026-123450")
-                .sources(Set.of(CveSource.NVD)).severity(RiskLevel.CRITICAL).build());
+                .sources(Set.of(CveSource.NVD)).severity(RiskLevel.CRITICAL).fixVersion("2").build());
         library = libraries.saveAndFlush(library);
         var scan = scans.saveAndFlush(ScanResult.builder().project(project).version("1").status(ScanStatus.COMPLETED).build());
         var component = components.saveAndFlush(ScanComponent.builder().scanResult(scan).library(library).build());
@@ -66,6 +66,12 @@ class CandidateSummaryUiTest extends UiTestBase {
                     com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat(page.getByText(
                             messages.getMessage("securityCenter.table.noResults", null, Locale.forLanguageTag(lang)),
                             new Page.GetByTextOptions().setExact(true))).isVisible();
+                    page.locator("label").filter(new com.microsoft.playwright.Locator.FilterOptions()
+                            .setHas(page.locator("input[x-model='filters.secCritical']"))).click();
+                    com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat(page.locator(".component-row")).hasCount(1);
+                    page.locator("label").filter(new com.microsoft.playwright.Locator.FilterOptions()
+                            .setHas(page.locator("input[x-model='filters.patchable']"))).click();
+                    com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat(page.locator(".component-row")).hasCount(0);
                 }
                 page.evaluate("window.scrollTo(0,0)");
                 page.screenshot(new Page.ScreenshotOptions().setPath(output.resolve("component-"+lang+"-"+route.replace('/', '_')+".png")).setFullPage(true));
