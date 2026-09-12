@@ -1,5 +1,7 @@
 # CLI Integration
 
+When the current GitHub Advisory client can query an ecosystem, a cached missing, NOT_CONFIGURED or UNSUPPORTED GitHub outcome is retried on the next analysis, including with permanent caching. A previous RESOLVED outcome retains normal cache behavior. This does not detect changes to token permissions or API servers after a resolved lookup; provider configuration revisions remain a separate requirement. Preserved historical assessments are not rewritten.
+
 Each preserved assessment must contain at most one entry per library ID, including when the entries are identical. Duplicates fail the shared reader instead of allowing a gate to select one value while a report counts both. Repeated component occurrences are still supported: capture records their distinct libraries once. Stored ambiguous records are not rewritten.
 
 Preserved scan assessments reject duplicate JSON object fields and any trailing JSON value. Ambiguous stored evidence causes the read to fail; gates, reports, summaries and archive exports do not fall back to current shared findings. The stored record is not rewritten. This checks JSON structure, not provider authenticity or the truth of its contents; embedded source text retains its separate validation rules.
