@@ -44,7 +44,7 @@ class GoAdvisoryComparisonTest {
         if (affected) {
             var finding = new GitHubAdvisoryClient.GitHubAdvisory("GHSA-fixture", null, "fixture", null, null, null, "1.2.4");
             java.util.List<GitHubAdvisoryClient.GitHubAdvisory> confirmed = ReflectionTestUtils.invokeMethod(
-                    GitHubAdvisoryClient.class, "confirmedFixes", "GO", installed, java.util.List.of(finding),
+                    GitHubAdvisoryClient.class, "confirmedFixes", "GO", installed, java.util.List.of(finding), java.util.List.of(finding),
                     java.util.Map.of("GHSA-fixture", java.util.List.of("< 1.2.4")));
             assertThat(confirmed).singleElement().extracting(GitHubAdvisoryClient.GitHubAdvisory::fixVersion).isEqualTo("1.2.4");
         }

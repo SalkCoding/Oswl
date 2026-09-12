@@ -228,6 +228,7 @@ public class GitHubAdvisoryClient {
         List<GitHubAdvisory> findings = new ArrayList<>();
         List<GitHubAdvisory> candidates = new ArrayList<>();
         Map<String, List<String>> ranges = new LinkedHashMap<>();
+        Map<String, Boolean> withdrawalStates = new LinkedHashMap<>();
         java.util.Set<String> cursors = new java.util.HashSet<>();
         String cursor = null;
         boolean incomplete = false;
@@ -247,6 +248,10 @@ public class GitHubAdvisoryClient {
             candidates.addAll(fetched.candidates());
             fetched.ranges().forEach((id, values) -> ranges.computeIfAbsent(id, unused -> new ArrayList<>()).addAll(values));
             incomplete |= fetched.incomplete();
+            for (var state : fetched.withdrawalStates().entrySet()) {
+                Boolean prior = withdrawalStates.putIfAbsent(state.getKey(), state.getValue());
+                if (prior != null && !prior.equals(state.getValue())) incomplete = true;
+            }
             if (fetched.nextCursor() == null) {
                 if (incomplete) throw new IncompleteLookupException(findings);
                 return confirmedFixes(ghEcosystem, version, findings, candidates, ranges);
@@ -293,7 +298,7 @@ public class GitHubAdvisoryClient {
     }
 
     private record AdvisoryPage(List<GitHubAdvisory> findings, List<GitHubAdvisory> candidates, boolean incomplete, String nextCursor,
-                                Map<String, List<String>> ranges) { }
+                                Map<String, List<String>> ranges, Map<String, Boolean> withdrawalStates) { }
 
     @SuppressWarnings("unchecked")
     private AdvisoryPage queryPage(String ghEcosystem, String name, String version, String cursor) throws java.io.IOException {
@@ -336,6 +341,7 @@ public class GitHubAdvisoryClient {
         List<GitHubAdvisory> result = new ArrayList<>();
         List<GitHubAdvisory> candidates = new ArrayList<>();
         Map<String, List<String>> ranges = new LinkedHashMap<>();
+        Map<String, Boolean> withdrawalStates = new LinkedHashMap<>();
         for (Object nodeObj : nodeList) {
             try {
                 if (!(nodeObj instanceof Map<?, ?> node) || !(node.get("advisory") instanceof Map<?, ?>))
@@ -344,18 +350,20 @@ public class GitHubAdvisoryClient {
                         || !ghEcosystem.equals(pkg.get("ecosystem")) || !(pkg.get("name") instanceof String returnedName)
                         || !AdvisoryPackageNames.canonical(ghEcosystem, name).equals(AdvisoryPackageNames.canonical(ghEcosystem, returnedName)))
                     throw new IllegalArgumentException("Advisory package identity does not match the query");
+                GitHubAdvisory advisory = parseAdvisoryNode(node);
+                if (advisory.ghsaId() == null || advisory.ghsaId().isBlank())
+                    throw new IllegalArgumentException("Missing advisory identity");
                 Map<?, ?> rawAdvisory = (Map<?, ?>) node.get("advisory");
                 Object withdrawn = rawAdvisory.get("withdrawnAt");
                 if (withdrawn != null) {
                     if (!(withdrawn instanceof String date)) throw new IllegalArgumentException("Malformed withdrawal date");
                     java.time.Instant withdrawnAt = java.time.Instant.parse(date);
                     if (withdrawnAt.isAfter(java.time.Instant.now())) throw new IllegalArgumentException("Future withdrawal date");
-                    continue;
                 }
+                Boolean prior = withdrawalStates.putIfAbsent(advisory.ghsaId(), withdrawn != null);
+                if (prior != null && prior != (withdrawn != null)) incomplete = true;
+                if (withdrawn != null) continue;
                 String range = (String) node.get("vulnerableVersionRange");
-                GitHubAdvisory advisory = parseAdvisoryNode(node);
-                if (advisory.ghsaId() == null || advisory.ghsaId().isBlank())
-                    throw new IllegalArgumentException("Missing advisory identity");
                 boolean affected = isVersionAffected(ghEcosystem, version, range);
                 ranges.computeIfAbsent(advisory.ghsaId(), unused -> new ArrayList<>()).add(range);
                 // Another affected interval can contain the fix that clears this advisory's full range set.
@@ -366,7 +374,7 @@ public class GitHubAdvisoryClient {
                 incomplete = true;
             }
         }
-        return new AdvisoryPage(result, candidates, incomplete, nextCursor, ranges);
+        return new AdvisoryPage(result, candidates, incomplete, nextCursor, ranges, withdrawalStates);
     }
 
     @SuppressWarnings("unchecked")

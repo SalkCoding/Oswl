@@ -54,7 +54,7 @@ class CargoAdvisoryComparisonTest {
                 null, null, null, candidate);
         List<GitHubAdvisoryClient.GitHubAdvisory> confirmed = ReflectionTestUtils.invokeMethod(
                 GitHubAdvisoryClient.class, "confirmedFixes", "RUST", installed,
-                List.of(finding), Map.of("GHSA-fixture", ranges));
+                List.of(finding), List.of(finding), Map.of("GHSA-fixture", ranges));
         assertThat(confirmed).hasSize(1);
         return confirmed.getFirst().fixVersion();
     }

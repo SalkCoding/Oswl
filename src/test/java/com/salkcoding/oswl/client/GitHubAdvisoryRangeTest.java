@@ -307,6 +307,48 @@ class GitHubAdvisoryRangeTest {
         server.verify();
     }
 
+    @ParameterizedTest
+    @CsvSource({"false,false,false", "false,true,false", "true,false,false", "true,true,false",
+            "false,false,true", "true,true,true"})
+    void contradictoryWithdrawalStatesRemainIncomplete(boolean paginated, boolean reversed, boolean bothWithdrawn) throws Exception {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
+                Duration.ofSeconds(1), Duration.ofSeconds(1));
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var response = mapper.readTree(page("GHSA-fixture", false, "end"));
+        var connection = (com.fasterxml.jackson.databind.node.ObjectNode) response.path("data").path("securityVulnerabilities");
+        var nodes = (com.fasterxml.jackson.databind.node.ArrayNode) connection.path("nodes");
+        var active = (com.fasterxml.jackson.databind.node.ObjectNode) nodes.get(0);
+        active.putObject("firstPatchedVersion").put("identifier", "2.0.0");
+        var withdrawn = active.deepCopy();
+        ((com.fasterxml.jackson.databind.node.ObjectNode) withdrawn.path("advisory"))
+                .put("withdrawnAt", "2026-01-01T00:00:00Z");
+        if (bothWithdrawn) ((com.fasterxml.jackson.databind.node.ObjectNode) active.path("advisory"))
+                .put("withdrawnAt", "2026-01-01T00:00:00Z");
+        nodes.removeAll().add(reversed ? withdrawn : active);
+        if (paginated) {
+            ((com.fasterxml.jackson.databind.node.ObjectNode) connection.path("pageInfo"))
+                    .put("hasNextPage", true).put("endCursor", "next");
+            server.expect(requestTo("https://api.github.com/graphql"))
+                    .andRespond(withSuccess(mapper.writeValueAsString(response), MediaType.APPLICATION_JSON));
+            nodes.removeAll();
+            ((com.fasterxml.jackson.databind.node.ObjectNode) connection.path("pageInfo")).put("hasNextPage", false);
+        }
+        nodes.add(reversed ? active : withdrawn);
+        server.expect(requestTo("https://api.github.com/graphql"))
+                .andRespond(withSuccess(mapper.writeValueAsString(response), MediaType.APPLICATION_JSON));
+        var result = new GitHubAdvisorySource(client).lookup("npm", "fixture", "1.0.0", List.of());
+        assertThat(result.lookupFailed()).isEqualTo(!bothWithdrawn);
+        if (bothWithdrawn) assertThat(result.findings()).isEmpty();
+        else assertThat(result.findings()).singleElement().satisfies(finding -> {
+            assertThat(finding.ghsaId()).isEqualTo("GHSA-fixture");
+            assertThat(finding.fixVersion()).isNull();
+        });
+        server.verify();
+    }
+
     private String page(String id, boolean more, String cursor) throws Exception {
         return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("data", Map.of("securityVulnerabilities",
                 Map.of("pageInfo", Map.of("hasNextPage", more, "endCursor", cursor), "nodes", List.of(Map.of(
