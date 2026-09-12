@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  * needed no comparator at all — OSV enumerates their {@code versions[]} directly).
  *
  * <p>Grammar handled, in the order apk itself defines it: {@code N(.N)*} numeric segments, an
- * optional single trailing letter, an optional {@code _suffix[num]} (one of alpha/beta/pre/rc/
+ * optional single trailing letter, zero or more {@code _suffix[num]} parts (one of alpha/beta/pre/rc/
  * cvs/svn/git/hg/p), and an optional {@code -rN} revision. Comparison order:
  * <ol>
  *   <li>numeric segments, with string ordering for leading-zero segments after the first</li>
@@ -32,9 +32,10 @@ final class ApkVersionComparator {
     private static final Pattern APK_VERSION = Pattern.compile(
             "^(?<nums>\\d+(?:\\.\\d+)*)"
                     + "(?<letter>[a-z])?"
-                    + "(?:_(?<suffix>alpha|beta|pre|rc|cvs|svn|git|hg|p)(?<suffixnum>\\d*)"
-                    + ")?"
+                    + "(?<suffixes>(?:_(?:alpha|beta|pre|rc|cvs|svn|git|hg|p)\\d*)*)"
                     + "(?:-r(?<rev>\\d+))?$");
+
+    private static final Pattern SUFFIX = Pattern.compile("_(alpha|beta|pre|rc|cvs|svn|git|hg|p)(\\d*)");
 
     /** Suffix rank — "no suffix" sits between rc and cvs, per apk's own ordering. */
     private static final Map<String, Integer> SUFFIX_RANK = Map.of(
@@ -62,13 +63,27 @@ final class ApkVersionComparator {
                 pb.letter == null ? -1 : pb.letter);
         if (letterCmp != 0) return letterCmp;
 
-        int suffixRankCmp = Integer.compare(pa.suffixRank, pb.suffixRank);
-        if (suffixRankCmp != 0) return suffixRankCmp;
+        return compareTail(pa.tail, pb.tail);
+    }
 
-        int suffixNumCmp = Integer.compare(pa.suffixNum, pb.suffixNum);
-        if (suffixNumCmp != 0) return suffixNumCmp;
+    private enum TailKind { SUFFIX, NUMBER, REVISION, END }
+    private record TailPart(TailKind kind, int value) { }
+    private static final TailPart END = new TailPart(TailKind.END, 0);
 
-        return Integer.compare(pa.revision, pb.revision);
+    private static int compareTail(List<TailPart> left, List<TailPart> right) {
+        for (int i = 0; i < Math.max(left.size(), right.size()); i++) {
+            TailPart a = i < left.size() ? left.get(i) : END;
+            TailPart b = i < right.size() ? right.get(i) : END;
+            if (a.kind == b.kind) {
+                int compared = Integer.compare(a.value, b.value);
+                if (compared != 0) return compared;
+            } else {
+                if (a.kind == TailKind.SUFFIX && a.value < NO_SUFFIX_RANK) return -1;
+                if (b.kind == TailKind.SUFFIX && b.value < NO_SUFFIX_RANK) return 1;
+                return Integer.compare(b.kind.ordinal(), a.kind.ordinal());
+            }
+        }
+        return 0;
     }
 
     private static int compareNums(List<String> a, List<String> b) {
@@ -83,7 +98,7 @@ final class ApkVersionComparator {
         return Integer.compare(a.size(), b.size());
     }
 
-    private record Parsed(List<String> nums, Character letter, int suffixRank, int suffixNum, int revision) {}
+    private record Parsed(List<String> nums, Character letter, List<TailPart> tail) {}
 
     private static Parsed parse(String version) {
         if (version == null || version.length() > 4096)
@@ -102,14 +117,15 @@ final class ApkVersionComparator {
         String letterGroup = m.group("letter");
         Character letter = letterGroup == null ? null : letterGroup.charAt(0);
 
-        String suffix = m.group("suffix");
-        int suffixRank = suffix == null ? NO_SUFFIX_RANK : SUFFIX_RANK.get(suffix);
-        String suffixNumGroup = m.group("suffixnum");
-        int suffixNum = (suffixNumGroup == null || suffixNumGroup.isEmpty()) ? -1 : Integer.parseInt(suffixNumGroup);
-
-        String revGroup = m.group("rev");
-        int revision = revGroup == null ? -1 : Integer.parseInt(revGroup);
-
-        return new Parsed(nums, letter, suffixRank, suffixNum, revision);
+        List<TailPart> tail = new ArrayList<>();
+        Matcher suffixes = SUFFIX.matcher(m.group("suffixes"));
+        while (suffixes.find()) {
+            tail.add(new TailPart(TailKind.SUFFIX, SUFFIX_RANK.get(suffixes.group(1))));
+            if (!suffixes.group(2).isEmpty())
+                tail.add(new TailPart(TailKind.NUMBER, Integer.parseInt(suffixes.group(2))));
+        }
+        String revision = m.group("rev");
+        if (revision != null) tail.add(new TailPart(TailKind.REVISION, Integer.parseInt(revision)));
+        return new Parsed(nums, letter, List.copyOf(tail));
     }
 }
