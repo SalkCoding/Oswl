@@ -4,6 +4,12 @@ OsWL provides an official CLI (`oswl`) and a REST API for submitting dependency 
 
 ---
 
+## Retrying an upload
+
+Each `oswl scan` invocation generates a fresh random idempotency key and prints it before uploading. If the upload response is lost, rerun the same input and credentials with `oswl scan ... --idempotency-key <printed-key>`. The server returns the original scan ID without restarting its analysis. A changed input with the same key returns 409; use a new key (or omit the option) for a new analysis. Do not reuse a key to restart a failed scan.
+
+There are no automatic upload retries. The server must implement the retry-key/input-digest contract (V42 schema); older servers can ignore the key and create duplicates. The key is not saved to the CLI configuration. Re-parsing changed manifests, changing array order or submitter email can cause a conflict, preserving the original result. Other scan flags and credentials are still required.
+
 ## Quick start (official CLI)
 
 ### 1. Install

@@ -99,7 +99,7 @@ The separate `aiStatus` field tracks background AI enrichment (`NOT_APPLICABLE`,
 
 `POST /api/scan` accepts an optional `idempotencyKey` (1–128 ASCII letters, digits, `.`, `_`, `:`, `-`). The key is scoped to the project and retained with the scan. The same key and semantic input return the original scan ID and current status without rerunning analysis, even if that scan failed. Changed input with an existing key returns HTTP 409. Use a new key for a new analysis; omitting it always creates a new scan. Authentication and project access are checked on every request.
 
-The versioned SHA-256 input digest includes the project version, submitter email, component identity, scope, manifest licenses and dependency paths. Passwords, raw JSON, whitespace and JSON property order are excluded. Array order, case, and null versus empty values are preserved conservatively. Keys are case-sensitive. Older scans retain null keys/digests; no historical evidence is invented. This API contract does not yet add retry keys to the CLI or imports, pin tool/configuration revisions, or make shared Library/CVE findings immutable.
+The versioned SHA-256 input digest includes the project version, submitter email, component identity, scope, manifest licenses and dependency paths. Passwords, raw JSON, whitespace and JSON property order are excluded. Array order, case, and null versus empty values are preserved conservatively. Keys are case-sensitive. Older scans retain null keys/digests; no historical evidence is invented. The CLI generates keys and supports explicit retransmission (see [CLI integration](CLI-Integration.md)); imports, tool/configuration revision pinning and immutable shared Library/CVE findings remain separate work.
 
 
 | Method | Path | Auth | Description |

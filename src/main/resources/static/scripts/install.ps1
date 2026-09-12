@@ -216,9 +216,15 @@ function Invoke-Scan {
         [string]$ApiKey     = "",
         [string]$Username   = "",
         [string]$Password   = "",
-        [string]$Server     = ""
+        [string]$Server     = "",
+        [string]$IdempotencyKey = ""
     )
 
+    if (-not $IdempotencyKey) { $IdempotencyKey = [Guid]::NewGuid().ToString("N") }
+    if ($IdempotencyKey -cnotmatch '\A[A-Za-z0-9._:-]{1,128}\z') {
+        Write-Host "[OsWL] Error: Invalid idempotency key (1-128 ASCII letters, digits, . _ : -)." -ForegroundColor Red
+        exit 1
+    }
     Load-OswlConfig
     if (-not $ApiKey) {
         $ApiKey = if ($env:OSWL_API_KEY) { $env:OSWL_API_KEY }
@@ -262,10 +268,12 @@ function Invoke-Scan {
     Write-Host "[OsWL] Sending to server: $Server"
 
     $payloadMap = [ordered]@{ version = $version; components = $parsed.components }
+    $payloadMap["idempotencyKey"] = $IdempotencyKey
     $payloadMap["submitterEmail"]    = $Username
     $payloadMap["submitterPassword"] = $Password
     $payload = $payloadMap | ConvertTo-Json -Depth 10
 
+    Write-Host "[OsWL] Retry key: $IdempotencyKey (reuse with --idempotency-key only for the same input)"
     try {
         $headers  = @{ "Authorization" = "Bearer $ApiKey"; "Content-Type" = "application/json" }
         $response = Invoke-RestMethod -Uri "$Server/api/scan" -Method POST `
@@ -296,6 +304,7 @@ Usage:
   oswl help                                             Show this help message
 
 Scan flags:
+  --idempotency-key <key>  Reuse a previous upload key for identical input (new random key by default).
   oswl scan [<project_dir>]
               --key|-k    <api_key>       API key linked to the target project
                                            (or env OSWL_API_KEY)
@@ -350,17 +359,24 @@ switch ($cmd) {
         Invoke-Auth -ApiKey $key -Server $server
     }
     "scan" {
-        $key = ""; $user = ""; $pass = ""; $server = ""; $dir = $PWD
+        $key = ""; $user = ""; $pass = ""; $server = ""; $dir = $PWD; $retryKey = ""
         for ($i = 1; $i -lt $cmdArgs.Count; $i++) {
             switch ($cmdArgs[$i]) {
                 { $_ -in "--key","-k" }          { $key    = $cmdArgs[++$i] }
+                "--idempotency-key" {
+                    if ($i + 1 -ge $cmdArgs.Count -or [string]::IsNullOrEmpty($cmdArgs[$i + 1])) {
+                        Write-Host "[OsWL] Error: --idempotency-key requires a non-empty key." -ForegroundColor Red
+                        exit 1
+                    }
+                    $retryKey = $cmdArgs[++$i]
+                }
                 { $_ -in "--username","-u" }     { $user   = $cmdArgs[++$i] }
                 { $_ -in "--password","-p" }     { $pass   = $cmdArgs[++$i] }
                 { $_ -in "--server","-s" }       { $server = $cmdArgs[++$i] }
                 default { if (-not $cmdArgs[$i].StartsWith("-")) { $dir = $cmdArgs[$i] } }
             }
         }
-        Invoke-Scan -ProjectDir $dir -ApiKey $key -Username $user -Password $pass -Server $server
+        Invoke-Scan -ProjectDir $dir -ApiKey $key -Username $user -Password $pass -Server $server -IdempotencyKey $retryKey
     }
     { $_ -in "help","--help","-h" }  { Show-Help }
     default {

@@ -395,6 +395,8 @@
 
 - 검증: 동일·변경 입력, 모든 스캔 상태의 재전송, 프로젝트별 키 분리, 동시 요청, 컴포넌트 입력 필드별 해시 차이 회귀 통과. 전체 4,442개 중 4,430개 통과·12개 건너뜀, `build verifyProdJar` 통과. PostgreSQL 세대 보존·V42 마이그레이션/유일성 검증 6개 통과.
 
+- CLI 연결: Bash·PowerShell은 매 실행 새 무작위 키를 생성하고 `--idempotency-key`로 동일 입력의 명시적 재전송을 지원한다. 응답 유실·새 키 분리·잘못된 키·409 종료를 실제 로컬 HTTP 업로드로 검증했다. 자동 재시도는 없으며 구버전 서버의 키 무시는 중복 제거를 보장하지 않는다. Git Bash와 PowerShell 5.1/7에서 검증했고 네이티브 macOS/Linux 실행은 미검증이다.
+
 ### 17. 소스·시크릿·IaC 등 분석기별 완전성 상태 — P0 · [코드 확인]
 
 - 현재·대상: [SecretIacScanService](src/main/java/com/salkcoding/oswl/service/secretscan/SecretIacScanService.java)의 반환/로그와 CLI manifest-only 제출. 공급원별 coverage 전체를 새로 만드는 작업은 아니다.

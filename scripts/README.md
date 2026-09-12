@@ -19,6 +19,10 @@ Run commands from the repository root unless a tool says otherwise. Scripts are 
 
 ## Local verification
 
+- CLI retry identity: `python -m unittest discover -s scripts/cli -p test_retry_identity.py -v` requires Bash, jq, curl and PowerShell (`pwsh` by default; override executables with `OSWL_TEST_BASH` / `OSWL_TEST_POWERSHELL`). It extracts the generated CLI without installing it, replaces only configuration/manifest collection with fixtures, and exercises real upload commands against loopback HTTP. It checks random key separation, lost-response retransmission with identical JSON, malformed keys and terminal conflicts. It does not test manifest packaging or a deployed server. Verified on Git Bash with PowerShell 5.1 and 7; native macOS/Linux remain unverified.
+
+  Local verification used jq 1.8.1 Windows AMD64 from the [official download page](https://jqlang.org/download/), SHA-256 `23cb60a1354eed6bcc8d9b9735e8c7b388cd1fdcb75726b93bc299ef22dd9334`, checked against the [official checksums](https://raw.githubusercontent.com/jqlang/jq/master/sig/v1.8.1/sha256sum.txt). The [versioned COPYING file](https://raw.githubusercontent.com/jqlang/jq/jq-1.8.1/COPYING) covers MIT and incorporated code notices (including ICU and BSD-style terms); preserve applicable notices with copies. The binary and COPYING were kept together under ignored `build/cli-verification/`, not added to OsWL distribution or offline bundles. This test does not introduce vulnerability data or expand redistribution permissions.
+
 - PostgreSQL dependency evidence migration verification: provide an isolated PostgreSQL database
   in `OSWL_VERIFY_POSTGRES_URL` (JDBC URL), with optional `OSWL_VERIFY_POSTGRES_USER`
   (default `postgres`) and `OSWL_VERIFY_POSTGRES_PASSWORD`, then run

@@ -105,7 +105,7 @@ cmd_auth() {
 cmd_scan() {
     load_config
 
-    local project_dir="" key="" server=""
+    local project_dir="" key="" server="" retry_key=""
     local username="${OSWL_USERNAME:-}" password="${OSWL_PASSWORD:-}"
 
     while [[ $# -gt 0 ]]; do
@@ -114,10 +114,19 @@ cmd_scan() {
             --server|-s)     server="$2";     shift 2 ;;
             -u|--username)   username="$2";   shift 2 ;;
             -p|--password)   password="$2";   shift 2 ;;
+            --idempotency-key) retry_key="${2:?Missing idempotency key}"; shift 2 ;;
             -*)              echo "[OsWL] Unknown option: $1" >&2; exit 1 ;;
             *)               project_dir="$1"; shift ;;
         esac
     done
+
+    if [[ -z "${retry_key}" ]]; then
+        retry_key=$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')
+    fi
+    if [[ ! "${retry_key}" =~ ^[A-Za-z0-9._:-]{1,128}$ ]]; then
+        echo "[OsWL] Error: Invalid idempotency key (1-128 ASCII letters, digits, . _ : -)." >&2
+        exit 1
+    fi
 
     # Flag overrides take precedence over saved config / env vars
     [[ -n "${key}"    ]] && OSWL_API_KEY="${key}"
@@ -194,9 +203,11 @@ cmd_scan() {
         --arg version "${version}" \
         --arg email "${username}" \
         --arg pass  "${password}" \
-        '{version: $version, components: .components, submitterEmail: $email, submitterPassword: $pass}')
+        --arg retry_key "${retry_key}" \
+        '{version: $version, components: .components, submitterEmail: $email, submitterPassword: $pass, idempotencyKey: $retry_key}')
 
     echo "[OsWL] Sending to server: ${OSWL_SERVER_URL}"
+    echo "[OsWL] Retry key: ${retry_key} (reuse with --idempotency-key only for the same input)"
 
     local response http_code
     response=$(curl -s -w "\n%{http_code}" \
@@ -304,6 +315,7 @@ Usage:
   oswl help                                             Show this help message
 
 Scan flags:
+  --idempotency-key <key> Reuse a previous upload key for identical input (new random key by default).
   --key|-k    <api_key>   API key for the target project  (required; or env OSWL_API_KEY)
   -u|--username <email>   Your OsWL account email         (required; or env OSWL_USERNAME)
   -p|--password <pass>    Your OsWL account password      (required; prompted if omitted; or env OSWL_PASSWORD)
