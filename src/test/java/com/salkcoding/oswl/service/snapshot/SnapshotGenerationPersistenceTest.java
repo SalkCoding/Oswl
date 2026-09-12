@@ -290,6 +290,16 @@ class SnapshotGenerationPersistenceTest {
                 }
                 statement.execute("CREATE TABLE scan_results(id BIGINT PRIMARY KEY, project_id BIGINT)");
                 statement.execute("INSERT INTO scan_results(id) VALUES (1)");
+                var reviewMigration = new org.springframework.core.io.ClassPathResource("db/migration/V45__archived_match_review_count.sql");
+                org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection, reviewMigration);
+                try (var rows = statement.executeQuery("SELECT archived_match_review_count FROM scan_results WHERE id=1")) {
+                    assertThat(rows.next()).isTrue(); assertThat(rows.getObject(1)).isNull();
+                }
+                statement.execute("UPDATE scan_results SET archived_match_review_count=2 WHERE id=1");
+                org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection, reviewMigration);
+                try (var rows = statement.executeQuery("SELECT archived_match_review_count FROM scan_results WHERE id=1")) {
+                    assertThat(rows.next()).isTrue(); assertThat(rows.getInt(1)).isEqualTo(2);
+                }
                 org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection,
                         new org.springframework.core.io.ClassPathResource("db/migration/V35__database_mutation_locks.sql"));
                 org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection,

@@ -15,13 +15,15 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ScanSummaryReader {
     private final LibraryRepository libraries;
-    public record Summary(int[] security, int[] licenses) {}
+    public record Summary(int[] security, int[] licenses, Integer matchReviewCount) {
+        public Summary(int[] security, int[] licenses) { this(security, licenses, null); }
+    }
 
     @Transactional(readOnly = true)
     public Map<Long, Summary> read(List<ScanResult> scans) {
         Map<Long, Summary> result = new HashMap<>();
         for (ScanResult scan : scans) result.put(scan.getId(), scan.getAssessmentJson() != null
-                ? preserved(scan) : scan.isArchived() ? archived(scan) : new Summary(new int[5], new int[4]));
+                ? preserved(scan) : scan.isArchived() ? archived(scan) : new Summary(new int[5], new int[4], 0));
         List<Long> live = scans.stream().filter(s -> !s.isArchived() && s.getAssessmentJson() == null).map(ScanResult::getId).toList();
         if (live.isEmpty()) return result;
         for (Object[] row : libraries.countSecurityByScanIds(live)) {
@@ -29,6 +31,11 @@ public class ScanSummaryReader {
                 case "CRITICAL" -> 0; case "HIGH" -> 1; case "MEDIUM" -> 2; case "LOW" -> 3; default -> 4;
             };
             result.get((Long) row[0]).security()[slot] += Math.toIntExact(((Number) row[2]).longValue());
+        }
+        for (Object[] row : libraries.countMatchReviewByScanIds(live)) {
+            Long scanId = (Long) row[0];
+            var current = result.get(scanId);
+            result.put(scanId, new Summary(current.security(), current.licenses(), Math.toIntExact(((Number) row[1]).longValue())));
         }
         for (Object[] row : libraries.countLicensesByScanIds(live)) {
             int slot = switch (String.valueOf(row[1])) {
@@ -39,9 +46,11 @@ public class ScanSummaryReader {
         return result;
     }
     private static Summary preserved(ScanResult scan) {
-        var summary = new Summary(new int[5], new int[4]);
+        var summary = new Summary(new int[5], new int[4], 0);
+        int candidates = 0;
         for (var library : ScanAssessmentService.read(scan.getAssessmentJson()).libraries()) {
             for (var finding : library.findings()) {
+                if (finding.requiresCpeReview()) { candidates++; continue; }
                 int slot = switch (String.valueOf(finding.severity())) {
                     case "CRITICAL" -> 0; case "HIGH" -> 1; case "MEDIUM" -> 2; case "LOW" -> 3; default -> 4;
                 };
@@ -52,14 +61,14 @@ public class ScanSummaryReader {
             };
             summary.licenses()[slot]++;
         }
-        return summary;
+        return new Summary(summary.security(), summary.licenses(), candidates);
     }
 
     private static Summary archived(ScanResult s) {
         return new Summary(new int[]{n(s.getArchivedSecurityCritical()), n(s.getArchivedSecurityHigh()),
                 n(s.getArchivedSecurityMedium()), n(s.getArchivedSecurityLow()), n(s.getArchivedSecurityUnscored())},
                 new int[]{n(s.getArchivedLicenseCritical()), n(s.getArchivedLicenseHigh()),
-                        n(s.getArchivedLicenseMedium()), n(s.getArchivedLicenseLow())});
+                        n(s.getArchivedLicenseMedium()), n(s.getArchivedLicenseLow())}, s.getArchivedMatchReviewCount());
     }
     private static int n(Integer value) { return value == null ? 0 : value; }
 }

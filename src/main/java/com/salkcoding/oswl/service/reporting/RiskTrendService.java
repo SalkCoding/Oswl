@@ -115,6 +115,7 @@ public class RiskTrendService {
         List<Integer> licPermitted   = new ArrayList<>();
 
         var summaries = summaryReader.read(scansAsc);
+        model.addAttribute("matchReviewHistoryUnknown", summaries.values().stream().anyMatch(value -> value.matchReviewCount() == null));
         for (ScanResult scan : scansAsc) {
             int[] sec = summaries.get(scan.getId()).security();
             int[] lic = summaries.get(scan.getId()).licenses();
@@ -131,6 +132,7 @@ public class RiskTrendService {
             licPermitted.add(lic[3]);
         }
 
+        model.addAttribute("matchReviewCount", summaries.get(latest.getId()).matchReviewCount());
         int[] latestSec = summaries.get(latest.getId()).security();
         int[] latestLic = summaries.get(latest.getId()).licenses();
         int currentSecIssues = latestSec[0] + latestSec[1] + latestSec[2] + latestSec[3] + latestSec[4];
@@ -167,6 +169,8 @@ public class RiskTrendService {
     }
 
     private void addEmptyChartData(Model model) {
+        model.addAttribute("matchReviewCount", 0);
+        model.addAttribute("matchReviewHistoryUnknown", false);
         model.addAttribute("projectVersion",         "-");
         model.addAttribute("insightVersion",        null);
         model.addAttribute("insightGeneratedAt",    null);

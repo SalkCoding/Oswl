@@ -118,7 +118,7 @@ public class ScanArchivingService {
         var summary = summaryReader.read(List.of(scan)).get(scan.getId());
         int[] security = summary.security();
         int[] license = summary.licenses();
-        scan.archive(Math.toIntExact(componentCount), security, license);
+        scan.archive(Math.toIntExact(componentCount), security, license, summary.matchReviewCount());
         scanResultRepository.save(scan);
 
         if (componentCount > 0) {

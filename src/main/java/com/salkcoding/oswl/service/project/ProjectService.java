@@ -322,6 +322,7 @@ public class ProjectService {
                     .lastScanned(lastScanned)
                     .securityCritical(sec[0]).securityHigh(sec[1])
                     .securityMedium(sec[2]).securityLow(sec[3]).securityUnscored(sec[4])
+                    .matchReviewCount(summary.matchReviewCount())
                     .licenseCritical(lic[0]).licenseHigh(lic[1])
                     .licenseMedium(lic[2]).licenseLow(lic[3])
                     .githubRepo(githubDisplayRepo)

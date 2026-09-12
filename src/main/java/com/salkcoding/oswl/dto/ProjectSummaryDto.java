@@ -40,6 +40,9 @@ public class ProjectSummaryDto {
     @Schema(description = "Number of Unscored CVEs (no CVSS score, severity = NONE)", example = "2")
     private final int securityUnscored;
 
+    @Schema(description = "CPE matching candidates excluded from severity counts; null when historic separation is unknown")
+    private final Integer matchReviewCount;
+
     @Schema(description = "Number of license VIOLATIONs (Critical)", example = "1")
     private final int licenseCritical;
 

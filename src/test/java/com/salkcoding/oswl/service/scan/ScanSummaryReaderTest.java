@@ -28,6 +28,7 @@ class ScanSummaryReaderTest {
     @Autowired ScanResultRepository scans;
     @Autowired ScanComponentRepository components;
     @Autowired LibraryRepository libraries;
+    @Autowired jakarta.persistence.EntityManager entityManager;
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"preserved", "legacy", "missing", "conflict"})
@@ -119,6 +120,38 @@ class ScanSummaryReaderTest {
         assertThat(old.getAssessmentJson()).isEqualTo(json);
         assertThat(old.isArchived()).isFalse();
         assertThat(components.countByScanResultId(old.getId())).isEqualTo(emptyInventory ? 0 : 1);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void cpeCandidatesDoNotBecomeConfirmedSummaryCounts(boolean preserved) throws Exception {
+        var project = projects.save(Project.builder().name("Candidate-summary-" + UUID.randomUUID()).build());
+        var library = Library.builder().name("native-" + UUID.randomUUID()).version("1").ecosystem("CONAN").build();
+        library.getCves().add(Cve.builder().library(library).cveId("CVE-2026-123450")
+                .sources(java.util.Set.of(CveSource.NVD)).severity(RiskLevel.CRITICAL).kevListed(true).build());
+        library.getCves().add(Cve.builder().library(library).cveId("CVE-2026-123451")
+                .matchConfidence(MatchConfidence.LOW).build());
+        library.getCves().add(Cve.builder().library(library).cveId("CVE-2026-123452")
+                .sources(java.util.Set.of(CveSource.NVD, CveSource.OSV)).severity(RiskLevel.HIGH).build());
+        library = libraries.saveAndFlush(library);
+        String json = preserved ? new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
+                new com.salkcoding.oswl.dto.scan.ScanAssessment(1, "fixture", List.of(ScanAssessmentService.fromLibrary(library)))) : null;
+        var old = scans.saveAndFlush(ScanResult.builder().project(project).version("1.0").status(ScanStatus.COMPLETED)
+                .assessmentJson(json).build());
+        components.save(ScanComponent.builder().scanResult(old).library(library).build());
+        components.saveAndFlush(ScanComponent.builder().scanResult(old).library(library).build());
+        scans.saveAndFlush(ScanResult.builder().project(project).version("2.0").status(ScanStatus.COMPLETED).build());
+        var summary = reader.read(List.of(old)).get(old.getId());
+        assertThat(summary.security()).containsExactly(0, 1, 0, 0, 0);
+        assertThat(summary.matchReviewCount()).isEqualTo(2);
+        assertThat(libraries.countPortfolioKev(List.of(old.getId()))).isEmpty();
+        assertThat(library.getCves()).hasSize(3);
+        assertThat(archive.archiveProject(project.getId(), 1).archivedNow()).isEqualTo(1);
+        entityManager.flush();
+        entityManager.clear();
+        var archived = reader.read(List.of(scans.findById(old.getId()).orElseThrow())).get(old.getId());
+        assertThat(archived.security()).containsExactly(summary.security());
+        assertThat(archived.matchReviewCount()).isEqualTo(2);
     }
 
     @Test void duplicateComponentsDoNotMultiplyCountsAndArchivePreservesTrend() {

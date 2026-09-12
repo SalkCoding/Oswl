@@ -41,6 +41,9 @@ public class OrgProjectRiskDto {
     @Schema(description = "Number of Unscored CVEs (no CVSS score, severity = NONE)", example = "2")
     private final int securityUnscored;
 
+    @Schema(description = "CPE matching candidates excluded from severity counts; null when historic separation is unknown")
+    private final Integer matchReviewCount;
+
     @Schema(description = "Number of license violations (RESTRICTED components)", example = "1")
     private final int licenseViolations;
 

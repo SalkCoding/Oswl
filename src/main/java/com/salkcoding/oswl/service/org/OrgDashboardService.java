@@ -97,11 +97,13 @@ public class OrgDashboardService {
         List<ScanResult> selectedScans = completedByProject.values().stream().flatMap(List::stream)
                 .filter(scan -> aggregateScanIds.contains(scan.getId())).toList();
         Map<Long, Posture> postureByScanId = loadPosture(selectedScans);
+        model.addAttribute("matchReviewHistoryUnknown", postureByScanId.values().stream().anyMatch(value -> value.matchReviewCount == null));
 
         // ── Org-wide posture totals + worst-project ranking ──────────────
         int secCritical = 0, secHigh = 0, secMedium = 0, secLow = 0, secUnscored = 0;
         int licViolations = 0, licWarnings = 0, licUnknown = 0, licPermitted = 0;
         int kevTotal = 0, kevUnaddressed = 0;
+        Integer matchReviewCount = 0;
         List<OrgProjectRiskDto> rows = new ArrayList<>();
 
         for (Project project : projects) {
@@ -116,6 +118,7 @@ public class OrgDashboardService {
             }
 
             Posture posture = postureByScanId.getOrDefault(latest.getId(), new Posture());
+            matchReviewCount = matchReviewCount == null || posture.matchReviewCount == null ? null : matchReviewCount + posture.matchReviewCount;
             int[] sec = posture.security;
             int[] lic = posture.licenses;
             int[] kev = posture.kev;
@@ -135,6 +138,7 @@ public class OrgDashboardService {
                     .scanned(true)
                     .securityCritical(sec[0]).securityHigh(sec[1])
                     .securityMedium(sec[2]).securityLow(sec[3]).securityUnscored(sec[4])
+                    .matchReviewCount(posture.matchReviewCount)
                     .licenseViolations(lic[0]).licenseWarnings(lic[1])
                     .kevUnaddressed(kev[1])
                     .build());
@@ -151,6 +155,7 @@ public class OrgDashboardService {
 
         model.addAttribute("totalProjects", projects.size());
         model.addAttribute("scannedProjects", latestScanByProject.size());
+        model.addAttribute("matchReviewCount", matchReviewCount);
         model.addAttribute("securityCritical", secCritical);
         model.addAttribute("securityHigh", secHigh);
         model.addAttribute("securityMedium", secMedium);
@@ -171,6 +176,7 @@ public class OrgDashboardService {
     }
 
     private static final class Posture {
+        Integer matchReviewCount;
         final int[] security = new int[5];
         final int[] licenses = new int[4];
         final int[] kev = new int[2];
@@ -181,6 +187,7 @@ public class OrgDashboardService {
         if (scans.isEmpty()) return result;
         summaryReader.read(scans).forEach((id, summary) -> {
             Posture posture = new Posture();
+            posture.matchReviewCount = summary.matchReviewCount();
             System.arraycopy(summary.security(), 0, posture.security, 0, 5);
             System.arraycopy(summary.licenses(), 0, posture.licenses, 0, 4);
             result.put(id, posture);

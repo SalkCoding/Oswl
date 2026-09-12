@@ -312,6 +312,7 @@
                         <th:block th:if="${project.scanStatus == 'COMPLETED'}">
                             <div class="w-full"
                                  th:replace="~{fragments/risk-graph :: riskGraph(#{riskTrend.chart.security}, ${project.securityCritical}, ${project.securityHigh}, ${project.securityMedium}, ${project.securityLow}, ${project.securityUnscored}, #{riskTrend.legend.unscored})}"></div>
+                <div th:replace="~{fragments/match-review-summary :: notice(${project.matchReviewCount})}"></div>
                             <div class="w-full"
                                  th:replace="~{fragments/risk-graph :: licenseRiskGraph(${project.licenseCritical}, ${project.licenseHigh}, ${project.licenseLow}, ${project.licenseMedium})}"></div>
                         </th:block>

@@ -109,7 +109,7 @@
 
 ## 3단계 — 공통 판정 엔진과 스캔 증거 수정
 
-### 10. 확정 영향·후보·미확인과 매칭 증거 모델 — P0 · [설계]
+### 10. 확정 영향·후보·미확인과 매칭 증거 모델 — P0 · [부분 구현]
 
 - **CSV 변경 누적 빌드:** Windows/Java 25에서 `build verifyProdJar` 성공. 최근 상세/인쇄 템플릿과 CSV 변경을 포함해 전체 4,193건 중 4,182건 통과·11건 skip·실패/오류 0. skip은 기존 환경 의존 9건과 기본 비활성 OSV live/PostgreSQL 각 1건이다. 운영 JAR local 전용 클래스/검증 fixture 제외 검사도 통과했다. 로그 `build/roadmap-csv-coverage-build.log`. 별도 uiTest는 이번 빌드에 포함되지 않으며 각 UI 변경의 앞선 실행 결과를 참조한다. CSV를 통한 실제 외부 소비자 호환·스프레드시트 앱 열기·운영 PostgreSQL 검증은 잔여다.
 
@@ -139,6 +139,9 @@
 - **패치 가능성 회귀:** 미조회/일부 출처 실패/정상 완료 × fix 있음/없음 6건 중 수정 전 4건이 잘못된 패치 가능성 분류로 실패했다. 기존 정상 patchability와 미채점 advisory 대조군은 완료 조회 근거를 갖도록 구성하고 원래 기대값을 유지했다. 관련 Library/상세/보안 센터 검증 통과. 로그 `build/patch-coverage-before.log`, `build/patch-coverage-after.log`. Chromium에서 미조회/부분 실패 × fix 유무와 기존 미채점/개별 fix/긴 근거 검사 9건이 통과했다(`build/patch-coverage-ui.log`). 펼친 개별 취약점에 수정 버전이 계속 표시됨을 세 언어로 확인했다. 새 외부 자료·라이브러리·DB migration 및 UI 템플릿/스타일 변경 없음. 커밋 제목 `fix: withhold patchability when lookup coverage is incomplete`.
 
 - **패치 가능성 전체 검증:** Windows/Java 25 `build verifyProdJar` 3분 13초 성공. 전체 4,597건 중 4,585건 통과·실패/오류 0·기존 skip 12건. 운영 JAR 로컬 클래스/fixture 제외 검사 통과. 로그 `build/patch-coverage-build.log`. 마지막 Chromium 재검증은 Alpine 초기화 완료를 기다린 뒤 펼침 상태와 수정 버전의 실제 가시성을 확인하도록 강화했으며, 미조회/부분 실패 × fix 유무 4건이 세 언어에서 통과했다(`build/patch-coverage-ui-visible.log`). 스크롤을 초기화한 최신 한국어 캡처에서 미완료 배지와 펼친 개별 수정 버전 표시를 확인했다.
+
+- **2026-09-13 요약의 CPE 후보 분리:** 실제 H2의 live/보존 판정에서 CPE 후보가 심각·미채점 합계에 들어가는 수정 전 2건 실패를 재현했다. 공통 요약의 심각도 합계와 조직 KEV SQL 집계에서 기존 requiresCpeReview와 같은 조건의 후보를 제외하고 별도 후보 수를 반환한다. NVD와 패키지 근거가 같은 finding에 함께 있으면 기존 분류를 유지한다. 중복 컴포넌트가 후보를 배수 집계하지 않으며, 개별 findings를 지우지 않는다. V45의 nullable 보관 후보 수에 새 보관 결과를 저장하고 보존 판정이 있는 스캔은 이를 재집계한다. 과거 보관 행의 null은 미상으로 남겨 기존 혼합 합계를 임의로 0/확정 합계로 고치지 않는다.
+- **후보 수 표시·한계:** 보안 센터/인쇄, 프로젝트 카드, 조직 대시보드/요약, 위험 추세에 기존 색상·간격의 짧은 안내를 연결했다. 구분 근거 없는 과거 집계/추세도 경고한다. 별도 후보 수가 0이어도 전체 안전의 증거가 아님을 표시한다. 상세 개별 행의 후보 표현, 조직 KEV의 과거 보존 판정 우선 사용 및 모든 출처의 식별 신뢰 모델은 별도 잔여다. 새 외부 자료·라이브러리 도입 없음. 배포 문서와 세 언어 안내를 갱신했다. 커밋 제목 `fix: separate cpe candidates from scan summary counts`. 전체 `build verifyProdJar` 3분 48초 성공: 4,627건 중 4,615건 통과·기존 skip 12건·실패/오류 0(`build/candidate-summary-build.log`). H2의 보관 후 flush/clear/reload 검사 통과(`build/candidate-summary-reload.log`). PostgreSQL 15.19의 V45 기존 null·값 저장·재실행 보존을 포함한 migration/persistence 8건 통과(`build/candidate-summary-postgres.log`), 전용 DB 삭제·서버 종료 확인. PostgreSQL에서 새 후보 집계 쿼리 자체를 실행한 검사는 아니며 해당 집계는 실제 H2로 검증했다. 실제 앱/H2/Chromium의 현재/과거 미상 × 세 언어 × 6개 화면 36조회가 통과했고 위험 추세·보안 센터·조직 요약 캡처를 직접 확인했다. 인쇄 포함 최종 재검증과 운영 JAR 통과(`build/candidate-summary-final-checked.log`), 전용 UI DB로 독립시킨 마지막 실행도 통과(`build/candidate-summary-ui-isolated.log`).
 
 ### 11. 범용 버전 비교기와 GHSA 비교 실패 처리 교체 — P0 · [코드 확인/진단]
 

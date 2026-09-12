@@ -22,6 +22,7 @@
         <h1 th:text="#{orgSummary.title}">Organization risk briefing</h1>
         <p class="mt-2 text-[13px]" th:text="#{orgSummary.generated(${generatedAt})}"></p>
     </header>
+    <div th:replace="~{fragments/match-review-summary :: notice(${matchReviewCount})}"></div>
     <section aria-labelledby="summary-actions">
         <h2 id="summary-actions" th:text="#{orgSummary.actions}">Decisions and follow-up</h2>
         <dl>

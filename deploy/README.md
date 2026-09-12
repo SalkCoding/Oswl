@@ -9,6 +9,8 @@ Run the commands below from the repository root.
 
 ## Build an image
 
+Before deploying separate matching-candidate summaries, apply [`V45__archived_match_review_count.sql`](../src/main/resources/db/migration/V45__archived_match_review_count.sql) after V44. It adds nullable `scan_results.archived_match_review_count`. Existing rows stay null because historic candidate separation cannot be reconstructed reliably. New archives store a separate count; keep the column on rollback. Older applications ignore it and may show mixed candidate totals, so mixed-version summary semantics are unsupported. No backfill is performed.
+
 Before deploying NVD applicability preservation, apply [`V44__nvd_applicability_evidence.sql`](../src/main/resources/db/migration/V44__nvd_applicability_evidence.sql) after V43. It adds a nullable TEXT column to `library_cves`. Existing rows remain null; do not invent configuration evidence for them. Retain the column on rollback. Older applications and offline exporters do not preserve the added field, so mixed-version round trips may lose it. Older strict scan-assessment readers can reject newly captured findings containing this field; do not serve these scans with an older application on rollback. This is uninterpreted source evidence, not a confirmed applicability decision.
 
 New preserved assessments also include `lookupTimesVerified`, recording whether fetch and lookup timestamps were present and non-future at capture. A previous assessment without this flag cannot establish gate coverage; run a new analysis instead of inferring historical verification from current cache data. This adds no DB column. Older strict JSON readers may reject the field, so mixed-version serving of new assessments is unsupported.

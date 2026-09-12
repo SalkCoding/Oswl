@@ -57,7 +57,11 @@
         <!-- Risk graphs (org-wide roll-up) -->
         <section class="bg-white rounded-[10px] border border-[var(--grayscale-20)] p-[24px] w-full">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-x-[24px] lg:gap-x-[60px] gap-y-[24px] w-full">
+                <div>
                 <div th:replace="~{fragments/risk-graph :: riskGraph(#{riskTrend.chart.security}, ${securityCritical}, ${securityHigh}, ${securityMedium}, ${securityLow}, ${securityUnscored}, #{riskTrend.legend.unscored})}"></div>
+                <div th:replace="~{fragments/match-review-summary :: notice(${matchReviewCount})}"></div>
+                <th:block th:if="${matchReviewCount != null and matchReviewHistoryUnknown == true}"><div th:replace="~{fragments/match-review-summary :: notice(${null})}"></div></th:block>
+                </div>
                 <div th:replace="~{fragments/risk-graph :: licenseRiskGraph(${licenseCritical}, ${licenseHigh}, ${licenseLow}, ${licenseMedium})}"></div>
             </div>
         </section>

@@ -161,6 +161,9 @@ public class ScanResult {
     @Column(name = "archived_security_unscored")
     private Integer archivedSecurityUnscored;
 
+    @Column(name = "archived_match_review_count")
+    private Integer archivedMatchReviewCount;
+
     @Column(name = "archived_license_critical")
     private Integer archivedLicenseCritical;
     @Column(name = "archived_license_high")
@@ -175,6 +178,11 @@ public class ScanResult {
      * this method only stamps the summary, it does not touch the component rows itself.
      */
     public void archive(int componentCount, int[] security, int[] license) {
+        archive(componentCount, security, license, null);
+    }
+
+    public void archive(int componentCount, int[] security, int[] license, Integer matchReviewCount) {
+        this.archivedMatchReviewCount = matchReviewCount;
         this.archived = true;
         this.archivedAt = LocalDateTime.now();
         this.archivedComponentCount = componentCount;

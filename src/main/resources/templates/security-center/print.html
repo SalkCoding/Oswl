@@ -252,6 +252,7 @@
         <div class="risk-overview">
             <div class="risk-block">
                 <div class="risk-block-label" th:text="#{securityCenter.print.section.securityRisk}">Security Risk</div>
+                <div th:replace="~{fragments/match-review-summary :: notice(${matchReviewCount})}"></div>
                 <div th:with="total=${securityCritical + securityHigh + securityMedium + securityLow + securityUnscored}">
                     <div class="risk-bar" th:if="${total > 0}">
                         <div class="risk-bar-seg critical" th:if="${securityCritical > 0}" th:style="'flex:' + ${securityCritical}"></div>
