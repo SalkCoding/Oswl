@@ -41,10 +41,7 @@ public record ScanAssessment(int formatVersion, String capturedAt, List<LibraryA
             if (!fixVersionConflictCandidates.isEmpty()) fixVersion = null;
         }
         public boolean requiresCpeReview() {
-            boolean packageEvidence = sources.contains(CveSource.OSV) || sources.contains(CveSource.DEPS_DEV)
-                    || sources.contains(CveSource.GITHUB_ADVISORY);
-            return !packageEvidence && (sources.contains(CveSource.NVD) || sources.contains(CveSource.CPE)
-                    || matchConfidence != null);
+            return com.salkcoding.oswl.util.VulnerabilityMatchEvidence.requiresCpeReview(sources, matchConfidence);
         }
     }
 }

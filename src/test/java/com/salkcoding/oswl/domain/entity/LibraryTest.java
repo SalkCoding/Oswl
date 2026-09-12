@@ -70,6 +70,48 @@ class LibraryTest {
         assertThat(library.resolvePrTargetVersion()).isEqualTo("2.0.0");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"NVD", "CPE", "CONFIDENCE", "NO_FIX", "MIXED"})
+    void cpeReviewWithholdsPatchabilityAndCachedRecommendation(String state) {
+        var sources = state.equals("CPE") ? java.util.Set.of(com.salkcoding.oswl.domain.enums.CveSource.CPE)
+                : state.equals("CONFIDENCE") ? java.util.Set.<com.salkcoding.oswl.domain.enums.CveSource>of()
+                : java.util.Set.of(com.salkcoding.oswl.domain.enums.CveSource.NVD);
+        var candidate = Cve.builder().cveId("CVE-2026-123450").severity(RiskLevel.HIGH).sources(sources)
+                .matchConfidence(com.salkcoding.oswl.domain.enums.MatchConfidence.HIGH)
+                .fixVersion(state.equals("NO_FIX") ? null : "2.0.0").build();
+        var findings = new java.util.ArrayList<Cve>();
+        findings.add(candidate);
+        if (state.equals("MIXED")) findings.add(Cve.builder().cveId("CVE-2026-123451")
+                .severity(RiskLevel.HIGH).sources(java.util.Set.of(com.salkcoding.oswl.domain.enums.CveSource.OSV))
+                .fixVersion("2.0.0").build());
+        var library = Library.builder().version("1.0.0").latestVersion("9.0.0").isLatestVersion(false).cves(findings).build();
+        library.markFetched();
+        library.recordLookupOutcomes(java.util.Map.of("OSV", "RESOLVED"));
+        library.recordOsvFixAssessment("2.0.0", "SOURCE_FIXED_EVENT", java.util.Map.of("fixture", "2026-01-01T00:00:00Z"),
+                java.util.Set.of("CVE-2026-123450", "CVE-2026-123451"), java.time.Instant.now().plusSeconds(3600));
+        assertThat(library.computePatchability()).isEqualTo(Patchability.UNKNOWN);
+        assertThat(library.bestFixVersion()).isNull();
+        assertThat(library.resolvePrTargetVersion()).isNull();
+        assertThat(candidate.getFixVersion()).isEqualTo(state.equals("NO_FIX") ? null : "2.0.0");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(value = com.salkcoding.oswl.domain.enums.CveSource.class,
+            names = {"OSV", "DEPS_DEV", "GITHUB_ADVISORY"})
+    void packageEvidenceKeepsVerifiedCommonRecommendation(com.salkcoding.oswl.domain.enums.CveSource source) {
+        var finding = Cve.builder().cveId("CVE-2026-123450").severity(RiskLevel.HIGH).fixVersion("2.0.0")
+                .sources(java.util.Set.of(source, com.salkcoding.oswl.domain.enums.CveSource.NVD))
+                .matchConfidence(com.salkcoding.oswl.domain.enums.MatchConfidence.LOW).build();
+        var library = Library.builder().version("1.0.0").cves(List.of(finding)).build();
+        library.markFetched();
+        library.recordLookupOutcomes(java.util.Map.of("OSV", "RESOLVED"));
+        library.recordOsvFixAssessment("2.0.0", "SOURCE_FIXED_EVENT", java.util.Map.of("fixture", "2026-01-01T00:00:00Z"),
+                java.util.Set.of("CVE-2026-123450"), java.time.Instant.now().plusSeconds(3600));
+        assertThat(library.computePatchability()).isEqualTo(Patchability.PATCHABLE);
+        assertThat(library.bestFixVersion()).isEqualTo("2.0.0");
+        assertThat(library.resolvePrTargetVersion()).isEqualTo("2.0.0");
+    }
+
     // ── highestSeverity ───────────────────────────────────────────────────
 
     @Nested

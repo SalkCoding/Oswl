@@ -11,6 +11,8 @@ A missing severity does not disable independent KEV or EPSS gate rules. A findin
 
 NVD/CPE-only findings remain matching candidates, even with HIGH confidence. The gate emits `MATCH_REVIEW` and incomplete `COVERAGE` instead of treating them as confirmed CVE violations. Ignoring a component, severity thresholds, and onlyNew/onlyReachable filters do not bypass this review. A candidate in a baseline cannot hide a later package-confirmed finding. Findings with OSV, deps.dev, or GitHub Advisory provenance retain package-based evaluation. Full CPE configuration/environment evaluation and a review-resolution workflow are still pending; records without source or confidence metadata retain legacy behavior.
 
+Shared patch recommendations also withhold a version while any CPE candidate needs review. Patchability is UNKNOWN, including when a candidate carries a fix string or a cached common-fix record contains the same ID. The raw candidate remains stored; a latest release is not used as a security-fix fallback. Package-provider evidence on the same finding retains the existing common-fix checks. The final PR target verifier keeps its stricter NVD/CPE identity guard.
+
 The printable compliance report applies the same candidate distinction: CPE candidates have a separate review table and are excluded from confirmed severity/KEV counts and fix-version advice. They remain visible even if the component is reviewed or deferred; untriaged candidates count as risk components, including candidates without a severity. This does not establish complete lookup coverage or migrate other dashboards to the same distinction.
 
 

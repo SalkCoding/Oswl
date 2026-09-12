@@ -387,6 +387,11 @@
 - **보고서 검증 범위:** 자체 합성 후보/혼합 출처 자료를 사용한다. 수정 전 두 경로의 집계 회귀가 실패했고, 수정 후 후보 단독/패키지 근거 혼합과 legacy/보존 조합 및 3개 언어의 실제 Thymeleaf 렌더링을 검증한다. localhost에서 렌더링한 한국어 화면의 후보 표와 확정 KEV 표 분리를 확인했다. 실제 로그인·컨트롤러·데이터 수집 전체 흐름이나 PDF 인쇄 검증을 대체하지 않는다. 새 외부 데이터·라이브러리 반입은 없으며 기존 출처 권한의 전체 감사는 잔여다. 다른 대시보드의 후보 구분, 환경 configuration 평가와 검토 해소 절차는 계속 미완료다.
 - **보고서 최종 검증:** `build verifyProdJar` 성공, 총 4,491건 중 4,479건 성공·기존 skip 12건·실패/오류 0 (`build/roadmap-cpe-report-build.log`). 이후 테스트의 시스템 언어 fallback을 실제 설정과 동일하게 끄고 언어별 제목 assertion 및 미채점 후보 사례를 강화해 보고서 4건 재통과 (`build/roadmap-cpe-report-final-render.log`). 한국어·일본어 혼합 자료와 영어 후보 단독의 브라우저 화면을 확인했다. 전체 빌드 이후 운영 코드는 변경하지 않았다. 커밋 제목 `fix: distinguish cpe candidates in compliance reports`.
 
+
+- **2026-09-12 공통 패치 모델의 CPE 후보 보류:** 후보 검토가 남아 있으면 `computePatchability`를 UNKNOWN, `bestFixVersion`/PR 추천을 null로 유지한다. 후보의 fix 문자열 또는 저장 공통 후보의 동일 ID만으로 추천하지 않는다. 후보와 확정 발견이 섞여 있어도 미확인 범위를 유지하고 원래 발견/수정 문자열은 삭제하지 않는다. 같은 발견에 패키지 공급자 출처가 있는 경우는 기존 공통 수정 판정을 유지한다. 엔티티와 보존 판정 DTO가 같은 순수 후보 판정을 사용하도록 연결했다. 최종 PR 검증기의 더 엄격한 NVD/CPE 식별 가드는 변경하지 않았다.
+- **패치 모델 회귀 범위:** 자체 합성 NVD/CPE·신뢰도만 있음·수정 없음·후보/확정 혼합 5건이 수정 전 패치 가능성 assertion에서 실패했다. 수정 후 캐시 추천과 최신 버전 대체 보류, 원본 보존까지 확인하고 OSV/deps.dev/GitHub Advisory 혼합 출처 정상 대조군 3건을 추가했다. 로그 `build/roadmap-cpe-fix-before.log`, `build/roadmap-cpe-fix-after.log`. 공통 모델 호출자인 상세/보안 센터/CSV에 적용되지만 이번에는 새 브라우저 검증을 수행하지 않았다. UI 템플릿·문구·레이아웃 변경 및 새 외부 자료/라이브러리 반입은 없다. 모든 데이터 출처 권한 감사와 CPE 환경 판정·검토 해소는 미완료다.
+- **패치 모델 전체 검증:** Windows/Java 25의 `build verifyProdJar` 통과. 총 4,499건 중 4,487건 성공·기존 skip 12건·실패/오류 0. 운영 JAR에서 local 전용 클래스/fixture 제외 확인. 로그 `build/roadmap-cpe-fix-build.log`. 커밋 제목 `fix: withhold patch recommendations for cpe candidates`.
+
 ### 15. 공통 resolved inventory와 workspace 단위 coverage — P0 · [코드 확인/설계]
 
 - 현재·대상: [DependencyManifestParserService](src/main/java/com/salkcoding/oswl/service/ingest/DependencyManifestParserService.java), [파서 지도](.agents/features/manifests.md). 한 workspace의 lockfile 성공을 다른 module까지 확대할 수 있는 경로를 검증한다.
