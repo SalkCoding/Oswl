@@ -219,12 +219,14 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
                  OR (:notReachableF = TRUE AND sc.reachability = com.salkcoding.oswl.domain.enums.Reachability.NOT_REACHABLE)
                  OR (:unknownReachF = TRUE AND sc.reachability = com.salkcoding.oswl.domain.enums.Reachability.UNKNOWN) )
               AND ( (:secCriticalF = FALSE AND :secHighF = FALSE AND :secMediumF = FALSE AND :secLowF = FALSE AND :secUnknownF = FALSE)
-                 OR EXISTS (SELECT 1 FROM Cve cv WHERE cv.library = l AND (
-                        (:secCriticalF = TRUE AND cv.severity = com.salkcoding.oswl.domain.enums.RiskLevel.CRITICAL) OR
-                        (:secHighF = TRUE AND cv.severity = com.salkcoding.oswl.domain.enums.RiskLevel.HIGH) OR
-                        (:secMediumF = TRUE AND cv.severity = com.salkcoding.oswl.domain.enums.RiskLevel.MEDIUM) OR
-                        (:secLowF = TRUE AND cv.severity = com.salkcoding.oswl.domain.enums.RiskLevel.LOW) OR
-                        (:secUnknownF = TRUE AND cv.severity = com.salkcoding.oswl.domain.enums.RiskLevel.NONE)
+                 OR EXISTS (SELECT 1 FROM Cve c WHERE c.library = l AND NOT """
+            + com.salkcoding.oswl.repository.vulnerability.LibraryRepository.CPE_REVIEW + """
+                 AND (
+                        (:secCriticalF = TRUE AND c.severity = com.salkcoding.oswl.domain.enums.RiskLevel.CRITICAL) OR
+                        (:secHighF = TRUE AND c.severity = com.salkcoding.oswl.domain.enums.RiskLevel.HIGH) OR
+                        (:secMediumF = TRUE AND c.severity = com.salkcoding.oswl.domain.enums.RiskLevel.MEDIUM) OR
+                        (:secLowF = TRUE AND c.severity = com.salkcoding.oswl.domain.enums.RiskLevel.LOW) OR
+                        (:secUnknownF = TRUE AND (c.severity IS NULL OR c.severity = com.salkcoding.oswl.domain.enums.RiskLevel.NONE))
                  )) )
               AND ( (:licRestrictedF = FALSE AND :licCautionF = FALSE AND :licUnknownF = FALSE AND :licPermittedF = FALSE)
                  OR (:licRestrictedF = TRUE AND l.licenseStatus = com.salkcoding.oswl.domain.enums.LicenseStatus.RESTRICTED)

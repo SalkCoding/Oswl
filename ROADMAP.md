@@ -111,6 +111,9 @@
 
 ### 10. 확정 영향·후보·미확인과 매칭 증거 모델 — P0 · [부분 구현]
 
+- **2026-09-13 심각도 검색 기준 통일:** 서버의 심각도 필터가 CPE 후보를 포함하고 null 심각도를 미평가에서 누락하던 문제를 수정했다. 요약과 같은 CPE_REVIEW 조건을 사용하며 패키지 출처가 있는 발견은 유지한다. 필터 없음은 후보를 계속 표시한다. 실제 DB의 CRITICAL/HIGH/MEDIUM/LOW/NONE/null 6조건에서 수정 전 모두 실패했고, 수정 후 ScanSummaryReader 검사 16건을 H2와 PostgreSQL에서 각각 통과했다. 서비스·컨트롤러 관련 검사와 bootJar/verifyProdJar도 통과했다. 실제 Chromium의 세 언어 표에서 필터 클릭 후 후보 행 제외와 빈 결과 표시를 확인했다. 위험순 정렬·패치 가능 여부 필터의 의미 통일은 여전히 잔여이며 전체 항목을 완료 표시하지 않는다. 새 외부 자료·라이브러리·DB migration 없음. 검증 전용 PostgreSQL DB는 연결 0 확인 후 삭제하고 서버를 종료했다. 로그 `build/candidate-filter-before.log`, `build/candidate-filter-after.log`, `build/candidate-filter-postgres-ui.log`; H2/PostgreSQL XML `build/candidate-filter-h2.xml`, `build/candidate-filter-postgres.xml`. 전체 build는 재실행하지 않았다. 커밋 제목 `fix: align severity filters with candidate exclusion`.
+
+
 - **2026-09-13 컴포넌트 후보 집계 분리:** 표·상세 헤더·인쇄 표·CSV도 CPE 매칭 검토 후보를 심각도 합계에서 제외하고 후보 수를 별도로 표시한다. 같은 발견에 OSV 등 패키지 근거가 있으면 기존 분류를 유지한다. null 심각도와 NONE의 미평가 집계를 통일했고, 후보만 있는 항목은 취약점 없음/최신 버전 분기로 떨어지지 않게 했다. 원래 CVE 상세와 개별 수정 정보는 유지한다. CSV 끝에 후보 수 열을 추가했으며 세 언어 문서에 열 개수 호환성과 공유 캐시/과거 보존 요약의 차이를 명시했다. 관련 행 회귀는 수정 전 실패했다. 전체 매칭 모델, 필터·정렬의 후보 의미 및 과거 상세의 독립 판정 전환은 잔여다. 새 외부 자료·라이브러리·DB migration 없음. 커밋 제목 `fix: separate cpe candidates in component views and csv`. 관련 서비스·엔티티 검사 103건, 번역 일관성 3건, 브라우저 검사 13건 모두 통과했다. 후보 화면 검사는 세 언어의 표·상세·인쇄 및 기존 요약 45개 페이지 조합을 확인하며, 화면 밖 행의 content-visibility 최적화 때문에 행을 스크롤하여 별도 캡처했다. 상세·표 행·인쇄 이미지를 직접 확인했다. bootJar/verifyProdJar 통과, 전체 build는 이번 범위에서 재실행하지 않았다. 로그 `build/component-candidate-checked.log`(초기 브라우저 대기 실패 포함), `build/component-candidate-ui-final.log`, `build/component-candidate-final.log`; 이미지 `build/reports/candidate-summary-ui/`.
 
 

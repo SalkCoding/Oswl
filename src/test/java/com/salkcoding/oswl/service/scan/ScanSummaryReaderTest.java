@@ -37,6 +37,34 @@ class ScanSummaryReaderTest {
     @Autowired jakarta.persistence.EntityManager entityManager;
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "NONE", "missing"})
+    void severityFiltersExcludeCandidatesAndIncludeMissingSeverity(String level) {
+        var project = projects.save(Project.builder().name("Filter-" + UUID.randomUUID()).build());
+        var scan = scans.save(ScanResult.builder().project(project).status(ScanStatus.COMPLETED).build());
+        RiskLevel severity = level.equals("missing") ? null : RiskLevel.valueOf(level);
+        java.util.List<Long> expected = new java.util.ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            var lib = Library.builder().name("filter-" + UUID.randomUUID()).version("1").ecosystem("NPM").build();
+            var sources = i == 0 ? java.util.Set.of(CveSource.NVD) : i == 1
+                    ? java.util.Set.of(CveSource.NVD, CveSource.OSV) : java.util.Set.of(CveSource.GITHUB_ADVISORY);
+            lib.getCves().add(Cve.builder().library(lib).cveId("CVE-2026-123450").severity(severity).sources(sources).build());
+            libraries.save(lib);
+            var component = components.save(ScanComponent.builder().scanResult(scan).library(lib).build());
+            if (i > 0) expected.add(component.getId());
+        }
+        entityManager.flush();
+        entityManager.clear();
+        var result = components.searchForSecurityCenter(scan.getId(), null,
+                false, false, false, false, false, false, false, false, false,
+                level.equals("CRITICAL"), level.equals("HIGH"), level.equals("MEDIUM"), level.equals("LOW"),
+                level.equals("NONE") || level.equals("missing"),
+                false, false, false, false, false, false, false, false, false,
+                org.springframework.data.domain.PageRequest.of(0, 10));
+        assertThat(result.getContent()).extracting(ScanComponent::getId).containsExactlyInAnyOrderElementsOf(expected);
+        assertThat(result.getTotalElements()).isEqualTo(2);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"preserved", "legacy", "missing", "conflict"})
     void archiveExportUsesTheSelectedScansEvidence(String state) throws Exception {
         var project = projects.save(Project.builder().name("Export-" + UUID.randomUUID()).build());

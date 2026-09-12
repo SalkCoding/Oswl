@@ -60,6 +60,12 @@ class CandidateSummaryUiTest extends UiTestBase {
                     com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat(row).containsText("candidate-summary");
                     row.screenshot(new com.microsoft.playwright.Locator.ScreenshotOptions()
                             .setPath(output.resolve("row-"+lang+".png")));
+                    page.locator("label").filter(new com.microsoft.playwright.Locator.FilterOptions()
+                            .setHas(page.locator("input[x-model='filters.secCritical']"))).click();
+                    com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat(page.locator(".component-row")).hasCount(0);
+                    com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat(page.getByText(
+                            messages.getMessage("securityCenter.table.noResults", null, Locale.forLanguageTag(lang)),
+                            new Page.GetByTextOptions().setExact(true))).isVisible();
                 }
                 page.evaluate("window.scrollTo(0,0)");
                 page.screenshot(new Page.ScreenshotOptions().setPath(output.resolve("component-"+lang+"-"+route.replace('/', '_')+".png")).setFullPage(true));

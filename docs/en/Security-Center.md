@@ -1,5 +1,7 @@
 # Security Center
 
+Severity filters use the same candidate exclusion as the displayed counts. The unscored filter includes both missing severity and NONE. Candidates remain visible when no severity filter is selected. Risk sorting and patchability filtering have separate rules and are not proof of matching or complete coverage.
+
 Component rows, detail headers, print rows and CSV severity counts also exclude CPE candidates and display a separate candidate count. Candidate-only components retain unknown patchability and do not show a no-findings badge. Null severity and NONE findings share the unscored bucket. CSV appends `CPE Match Review Candidates` after the existing columns; consumers that require an exact column count must accept the added column. These component views still read the shared library cache and may differ from preserved historical summaries.
 
 Scan summary severity totals and the organization KEV aggregate exclude CPE findings that require matching review. A separate candidate count appears in the security center, project cards, organization views and risk trends. Package evidence on the same finding retains its existing classification. V45 preserves the separate count on new archives; older archives without a preserved assessment or this count retain their original totals with an unknown-separation notice. They are not silently reclassified or set to zero. Detail-row classifications and shared-cache versus historical-data distinctions remain separate from these summary totals.
