@@ -29,12 +29,9 @@ import java.util.regex.Pattern;
  */
 final class ApkVersionComparator {
 
-    // The underscore before the suffix word is optional: real OSV advisory data for Alpine
-    // renders e.g. "3.3.3p1-r3" without it (letter directly followed by the suffix's own
-    // number), not apk-tools' own canonical "_p1" form — both must parse to the same suffix.
     private static final Pattern APK_VERSION = Pattern.compile(
             "^(?<nums>\\d+(?:\\.\\d+)*)"
-                    + "(?:_?(?<suffix>alpha|beta|pre|rc|cvs|svn|git|hg|p)(?<suffixnum>\\d*)"
+                    + "(?:_(?<suffix>alpha|beta|pre|rc|cvs|svn|git|hg|p)(?<suffixnum>\\d*)"
                     + "|(?<letter>[a-z]))?"
                     + "(?:-r(?<rev>\\d+))?$");
 
@@ -88,9 +85,9 @@ final class ApkVersionComparator {
     private record Parsed(List<String> nums, Character letter, int suffixRank, int suffixNum, int revision) {}
 
     private static Parsed parse(String version) {
-        String v = version.strip();
-        if (v.startsWith("v") || v.startsWith("V")) v = v.substring(1);
-        Matcher m = APK_VERSION.matcher(v);
+        if (version == null || version.length() > 4096)
+            throw new IllegalArgumentException("Missing or unsupported apk version");
+        Matcher m = APK_VERSION.matcher(version);
         if (!m.matches()) {
             throw new IllegalArgumentException("Unparseable apk version: " + version);
         }

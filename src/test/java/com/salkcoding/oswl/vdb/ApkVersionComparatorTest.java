@@ -6,9 +6,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ApkVersionComparatorTest {
     @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"v1.0", "V1.0", "1.0p1", "1.0rc1", "1.0alpha", " 1.0", "1.0 "})
+    void unsupportedSpellingsAreNotRewrittenToAnotherVersion(String value) {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> ApkVersionComparator.compare(value, "2.0"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThat(OsvQueryIdentity.isConcrete("Alpine:v3.18", "example", value)).isFalse();
+    }
+
+    @ParameterizedTest
     @CsvSource({"1.01,1.1,-1", "1.02,1.010,1", "1.0,1.00,-1", "01.2,1.2,0", "1.2,1.10,-1", "1.02,1.02,0",
             "1,1.0,-1", "1.0,1.0.0,-1", "1.0,1.0-r0,-1", "1.0_p,1.0_p0,-1",
-            "1.0_rc,1.0_rc0,-1", "1.0-r0,1.0-r00,0", "1.0_p0,1.0_p00,0"})
+            "1.0_rc,1.0_rc0,-1", "1.0-r0,1.0-r00,0", "1.0_p0,1.0_p00,0", "1.0p,1.0q,-1", "1.0p,1.0_p,1"})
     void numericSpellingAndPresenceRetainTheirOrdering(String left, String right, int sign) {
         assertThat(Integer.signum(ApkVersionComparator.compare(left, right))).isEqualTo(sign);
         assertThat(Integer.signum(ApkVersionComparator.compare(right, left))).isEqualTo(-sign);

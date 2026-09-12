@@ -227,3 +227,5 @@ OSV bulk 수집도 조회와 같은 식별자 검증을 사용해 npm/Cargo·Go�
 APK 숫자 구간의 원래 표기를 보존해 첫 구간 이후 선행 0이 있는 경우의 순서를 반영합니다. [apk-tools 버전 구현](https://raw.githubusercontent.com/alpinelinux/apk-tools/master/src/version.c)과 [문자열 정렬 구현](https://raw.githubusercontent.com/alpinelinux/apk-tools/master/src/blob.c)에서 확인한 동작을 기준으로 합니다. 비교기는 Alpine:과 내부 ALPINE: 표기를 모두 인식하며 패키지·배포판 버전 매칭은 별도로 유지합니다. 합성 테스트로 비교·취약 범위·bulk 수정 후보 선택을 검증했습니다. GPL-2.0-only 상위 소스는 동작 확인에만 사용하고 복제·번들에 포함하지 않았으며 native apk 실행이나 전체 문법 동등성을 검증한 것은 아닙니다.
 
 APK 비교는 숫자 구간·suffix 번호·revision의 생략과 명시적인 0도 구분합니다. 예를 들어 1은 1.0보다, 1.0은 1.0-r0보다 앞섭니다. 명시된 revision 번호 0과 00은 수치상 같은 값으로 유지합니다. 위에 연결한 상위 구현의 토큰 순서를 기준으로 직접 비교와 공지 범위·수정 후보 선택을 검증했습니다. native APK와의 전체 동등성은 아직 미검증입니다.
+
+APK 파서는 v/V 접두사나 앞뒤 공백을 제거하지 않으며 suffix에는 underscore가 필요합니다. 1.0p1·1.0rc1을 1.0_p1·1.0_rc1로 조용히 바꾸지 않습니다. 한 글자 접미사는 정상 문법으로 유지하되 suffix와 구분합니다. 공급자 자료의 미지원 표기는 같은 패키지 버전의 별칭으로 확정하지 않고 불확실하게 남깁니다. 위 상위 문법을 기준으로 하며 전체 문법 지원은 아직 미완료입니다.

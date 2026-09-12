@@ -68,7 +68,7 @@ class OsvLiveRangeTest {
     @CsvSource(value = {"npm;*;false", "crates.io;latest;false", "Go;master;false", "PyPI;>=1;false",
             "Maven;[1,2);false", "npm;1.0.0;true", "crates.io;1.0.0;true", "Go;v1.0.0;true",
             "PyPI;1.0.post1;true", "Maven;1.0.Final;true", "Alpine:v3.18;*;false",
-            "Alpine:v3.18;latest;false", "Alpine:v3.18;1.0-r0;true", "Alpine:v3.18;1.0_rc1-r2;true"}, delimiter = ';')
+            "Alpine:v3.18;latest;false", "Alpine:v3.18;1.0-r0;true", "Alpine:v3.18;1.0_rc1-r2;true", "Alpine:v3.18;v1.0;false", "Alpine:v3.18;1.0p1;false"}, delimiter = ';')
     void emptyLookupStillRequiresAConcreteInstalledVersion(String ecosystem, String version, boolean resolved) {
         var builder = RestClient.builder().baseUrl("https://api.osv.dev");
         var server = MockRestServiceServer.bindTo(builder).build();
