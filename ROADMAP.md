@@ -434,6 +434,10 @@
 
 - 검증: 수정 전 과거 스캔의 신규 시크릿 게이트가 통과하는 실패 테스트로 재현했다. 수정 후 해당 통합 검증과 시각·ID 경계 검증을 포함해 전체 4,447개 중 4,435개 통과·12개 건너뜀, `build verifyProdJar` 통과.
 
+- 미채점 취약점 게이트 수정: 심각도 null 때문에 KEV·EPSS까지 건너뛰던 통과 오류를 legacy·보존 판정 양쪽에서 재현·수정했다. 심각도를 추정하지 않고 `UNSCORED`로 보고하며 EPSS 경계값을 검증한다.
+
+- 미채점 게이트 검증: 수정 전 4개 회귀 실패로 잘못된 통과를 재현했다. 수정 후 경계값을 포함한 전체 4,459개 중 4,447개 통과·12개 건너뜀, `build verifyProdJar` 통과.
+
 ### 20. npm·Yarn·pnpm의 실제 패키지와 설치 트리 — P1 · [지원 범위별 필수]
 
 - 현재·대상: [NpmManifestParser](src/main/java/com/salkcoding/oswl/service/ingest/parser/NpmManifestParser.java), lockfile·workspace 해석.

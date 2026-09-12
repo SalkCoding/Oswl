@@ -123,6 +123,40 @@ class GateCoverageTest {
         assertThat(service.evaluate(1L,GatePolicyService.GateOptions.defaults()).coverage().detailsAvailable()).isFalse();
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,true", "true,true", "false,false", "true,false"})
+    void unscoredFindingStillHonorsIndependentKevAndEpssRules(boolean preserved, boolean kev) throws Exception {
+        var library = evidenceLibrary();
+        library.getCves().add(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder()
+                .cveId("CVE-2026-123450").kevListed(kev ? true : null).epssScore(kev ? null : 0.9).build());
+        if (preserved) preserve(scan,library);
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        var result = service.evaluate(1L,new GatePolicyService.GateOptions(null,"HIGH",kev,kev ? -1.0 : 0.5,false,false,false,false));
+        assertThat(result.passed()).isFalse();
+        assertThat(result.violations()).singleElement().satisfies(v -> {
+            assertThat(v.type()).isEqualTo("CVE");
+            assertThat(v.severity()).isEqualTo("UNSCORED");
+            assertThat(v.reason()).contains(kev ? "CISA KEV listed" : "EPSS");
+        });
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"0.5,false", "0.499,true"})
+    void unscoredEpssUsesTheConfiguredBoundaryWithoutInventingSeverity(double score, boolean passed) throws Exception {
+        var library = evidenceLibrary();
+        library.getCves().add(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder()
+                .cveId("CVE-2026-123450").epssScore(score).build());
+        preserve(scan,library);
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        var result = service.evaluate(1L,new GatePolicyService.GateOptions(null,"HIGH",false,0.5,false,false,false,false));
+        assertThat(result.passed()).isEqualTo(passed);
+        assertThat(result.evaluatedCount()).isEqualTo(1);
+        if (!passed) assertThat(result.violations()).singleElement().satisfies(v -> {
+            assertThat(v.severity()).isEqualTo("UNSCORED");
+            assertThat(v.reason()).doesNotContain("severity");
+        });
+    }
+
     @Test void missingLookupCannotPassEvenWhenIgnoredOrFiltered() {
         Library library = Library.builder().id(3L).name("unsupported").version("1").build();
         when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder()

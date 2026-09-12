@@ -199,7 +199,6 @@ public class GatePolicyService {
 
             if (reachabilityGatePasses) {
                 for (ScanAssessment.Finding cve : lib.findings()) {
-                    if (cve.severity() == null) continue;
                     String vulnId = cve.cveId() != null ? cve.cveId() : cve.ghsaId();
                     if (vulnId == null) continue;
                     boolean isNew = !baselineVulnKeys.contains(coord + "|" + vulnId);
@@ -209,7 +208,7 @@ public class GatePolicyService {
                     if (isNew) newVulnCount++;
 
                     List<String> reasons = new ArrayList<>();
-                    boolean sevFail = cve.severity().ordinal() <= failOnSeverity.ordinal()
+                    boolean sevFail = cve.severity() != null && cve.severity().ordinal() <= failOnSeverity.ordinal()
                             && cve.severity() != RiskLevel.NONE;
                     if (sevFail) reasons.add("severity " + cve.severity() + " ≥ " + failOnSeverity.name());
                     if (failOnKev && Boolean.TRUE.equals(cve.kevListed())) reasons.add("CISA KEV listed");
@@ -218,7 +217,7 @@ public class GatePolicyService {
                     }
                     if (!reasons.isEmpty()) {
                         violations.add(new Violation(
-                                "CVE", vulnId, coord, cve.severity().name(),
+                                "CVE", vulnId, coord, cve.severity() == null ? "UNSCORED" : cve.severity().name(),
                                 cve.epssScore(), Boolean.TRUE.equals(cve.kevListed()),
                                 String.join("; ", reasons), isNew));
                     }
