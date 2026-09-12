@@ -235,3 +235,5 @@ The APK parser accepts a trailing letter followed by an underscore suffix and op
 Multiple APK suffixes are preserved in order, including absent suffix numbers and the transition to a revision or version end. Pre-release suffixes sort before the corresponding version end; patch suffixes sort after it. Tests cover direct ordering, advisory membership, bulk fix candidates, and online/offline lookup with a multiple-suffix version. Native equivalence remains unverified.
 
 APK ~hash parts are preserved and compared as hexadecimal text, including case and prefix length, before the optional revision. Empty, non-hexadecimal, repeated or misplaced hash parts are rejected. This ordering applies to APK ecosystem ranges only: OSV GIT ranges still require ancestry evidence and remain unknown without it.
+
+APK numeric components, suffix numbers and revisions support unsigned 64-bit values. Comparison preserves leading-zero rules and handles values above the signed 64-bit boundary without reversing their order. Values above 18446744073709551615 remain unsupported instead of being truncated or wrapped. Native overflow behavior is not claimed to be equivalent.

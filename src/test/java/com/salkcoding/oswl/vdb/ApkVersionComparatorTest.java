@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ApkVersionComparatorTest {
     @ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"v1.0", "V1.0", "1.0p1", "1.0rc1", "1.0alpha", " 1.0", "1.0 ", "1.0~", "1.0~xyz", "1.0~ab~cd", "1.0-r0~ab"})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"v1.0", "V1.0", "1.0p1", "1.0rc1", "1.0alpha", " 1.0", "1.0 ", "1.0~", "1.0~xyz", "1.0~ab~cd", "1.0-r0~ab", "18446744073709551616", "1.0-r18446744073709551616", "1.0_p18446744073709551616"})
     void unsupportedSpellingsAreNotRewrittenToAnotherVersion(String value) {
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> ApkVersionComparator.compare(value, "2.0"))
                 .isInstanceOf(IllegalArgumentException.class);
@@ -32,7 +32,9 @@ class ApkVersionComparatorTest {
             "1.0a_rc1_p2-r1,1.0a_rc1_p2-r2,-1", "1.0_p1_alpha,1.0_p1-r0,-1",
             "1.0_p1_p,1.0_p1-r0,1", "1.0~a,1.0~b,-1", "1.0~a,1.0~aa,-1",
             "1.0~a,1.0,1", "1.0~a,1.0-r0,1", "1.0_p1~ab-r1,1.0_p1~ab-r2,-1",
-            "1.0~A,1.0~a,-1"})
+            "1.0~A,1.0~a,-1", "2147483648,2147483649,-1", "1.2147483648,1.2147483649,-1",
+            "9223372036854775808,9223372036854775807,1", "18446744073709551615,9223372036854775808,1",
+            "1.0-r2147483648,1.0-r2147483649,-1", "1.0_p9223372036854775808,1.0_p9223372036854775807,1"})
     void numericSpellingAndPresenceRetainTheirOrdering(String left, String right, int sign) {
         assertThat(Integer.signum(ApkVersionComparator.compare(left, right))).isEqualTo(sign);
         assertThat(Integer.signum(ApkVersionComparator.compare(right, left))).isEqualTo(-sign);
@@ -44,7 +46,8 @@ class ApkVersionComparatorTest {
             "1.0a_p1,1.0a,false", "1.0a_p1-r1,1.0a_p1-r2,true",
             "1.0_alpha1_p1,1.0_alpha2,true", "1.0_alpha_p1,1.0_alpha0,false",
             "1.0_p_alpha,1.0_p,true", "1.0a_rc1_p2-r1,1.0a_rc1_p2-r2,true", "1.0~a,1.0~b,true",
-            "1.0~b,1.0~a,false", "1.0_p1~ab-r1,1.0_p1~ab-r2,true"})
+            "1.0~b,1.0~a,false", "1.0_p1~ab-r1,1.0_p1~ab-r2,true", "2147483648,2147483649,true",
+            "1.0-r9223372036854775807,1.0-r9223372036854775808,true"})
     void numericSpellingAndPresenceReachRangeAndBulkFixDecisions(String installed, String fixed, boolean affected) throws Exception {
         String original = """
                 {"id":"OSV-fixture","modified":"2026-01-01T00:00:00Z","affected":[{

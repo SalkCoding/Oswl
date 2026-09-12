@@ -68,8 +68,8 @@ final class ApkVersionComparator {
     }
 
     private enum TailKind { SUFFIX, NUMBER, HASH, REVISION, END }
-    private record TailPart(TailKind kind, int value, String text) {
-        TailPart(TailKind kind, int value) { this(kind, value, null); }
+    private record TailPart(TailKind kind, long value, String text) {
+        TailPart(TailKind kind, long value) { this(kind, value, null); }
     }
     private static final TailPart END = new TailPart(TailKind.END, 0);
 
@@ -78,7 +78,7 @@ final class ApkVersionComparator {
             TailPart a = i < left.size() ? left.get(i) : END;
             TailPart b = i < right.size() ? right.get(i) : END;
             if (a.kind == b.kind) {
-                int compared = a.kind == TailKind.HASH ? a.text.compareTo(b.text) : Integer.compare(a.value, b.value);
+                int compared = a.kind == TailKind.HASH ? a.text.compareTo(b.text) : Long.compareUnsigned(a.value, b.value);
                 if (compared != 0) return compared;
             } else {
                 if (a.kind == TailKind.SUFFIX && a.value < NO_SUFFIX_RANK) return -1;
@@ -95,7 +95,7 @@ final class ApkVersionComparator {
             String va = a.get(i);
             String vb = b.get(i);
             int cmp = i > 0 && (va.startsWith("0") || vb.startsWith("0"))
-                    ? va.compareTo(vb) : Integer.compare(Integer.parseInt(va), Integer.parseInt(vb));
+                    ? va.compareTo(vb) : Long.compareUnsigned(Long.parseUnsignedLong(va), Long.parseUnsignedLong(vb));
             if (cmp != 0) return cmp;
         }
         return Integer.compare(a.size(), b.size());
@@ -113,7 +113,7 @@ final class ApkVersionComparator {
 
         List<String> nums = new ArrayList<>();
         for (String seg : m.group("nums").split("\\.")) {
-            Integer.parseInt(seg);
+            Long.parseUnsignedLong(seg);
             nums.add(seg);
         }
 
@@ -125,12 +125,12 @@ final class ApkVersionComparator {
         while (suffixes.find()) {
             tail.add(new TailPart(TailKind.SUFFIX, SUFFIX_RANK.get(suffixes.group(1))));
             if (!suffixes.group(2).isEmpty())
-                tail.add(new TailPart(TailKind.NUMBER, Integer.parseInt(suffixes.group(2))));
+                tail.add(new TailPart(TailKind.NUMBER, Long.parseUnsignedLong(suffixes.group(2))));
         }
         String hash = m.group("hash");
         if (hash != null) tail.add(new TailPart(TailKind.HASH, 0, hash));
         String revision = m.group("rev");
-        if (revision != null) tail.add(new TailPart(TailKind.REVISION, Integer.parseInt(revision)));
+        if (revision != null) tail.add(new TailPart(TailKind.REVISION, Long.parseUnsignedLong(revision)));
         return new Parsed(nums, letter, List.copyOf(tail));
     }
 }
