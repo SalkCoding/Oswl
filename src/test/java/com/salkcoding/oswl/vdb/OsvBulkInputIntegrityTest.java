@@ -65,6 +65,80 @@ class OsvBulkInputIntegrityTest {
         assertThatThrownBy(this::fetch).isInstanceOf(IOException.class);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"after-first-record", "before-directory", "inside-directory", "missing-end"})
+    void truncatedArchiveCannotConfirmAnOmittedPackageClean(String truncation) throws Exception {
+        byte[] complete = zipRecords(List.of(VALID.replace("example", "other").replace("OSV-fixture", "OSV-other"), VALID));
+        int directoryOffset = signature(complete, 0x02014b50, 0);
+        int cut = switch (truncation) {
+            case "after-first-record" -> signature(complete, 0x04034b50, 4);
+            case "before-directory" -> directoryOffset;
+            case "inside-directory" -> directoryOffset + 10;
+            default -> complete.length - 22;
+        };
+        cache(java.util.Arrays.copyOf(complete, cut), true);
+        assertThatThrownBy(this::fetch).isInstanceOf(IOException.class);
+        Path wanted = directory.resolve("wanted.jsonl");
+        Files.writeString(wanted, "{\"ecosystem\":\"npm\",\"name\":\"example\",\"version\":\"1.0.0\"}\n");
+        Path output = directory.resolve("bundle.zip");
+        Files.write(output, complete);
+        assertThat(new VdbBuilderCli().run(new String[] {"build", "--sources", "osv", "--wanted", wanted.toString(),
+                "--offline-sources", directory.toString(), "--out", output.toString()})).isEqualTo(1);
+        assertThat(Files.readAllBytes(output)).isEqualTo(complete);
+    }
+
+    private static int signature(byte[] bytes, int signature, int start) {
+        var buffer = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        for (int i = start; i <= bytes.length - 4; i++) if (buffer.getInt(i) == signature) return i;
+        throw new AssertionError("Missing fixture ZIP signature");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"crc", "size", "stored-content"})
+    void inconsistentEntryMetadataCannotEstablishCoverage(String corruption) throws Exception {
+        byte[] bytes = storedZip();
+        int central = signature(bytes, 0x02014b50, 0);
+        var buffer = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        switch (corruption) {
+            case "crc" -> buffer.putInt(central + 16, buffer.getInt(central + 16) ^ 1);
+            case "size" -> buffer.putInt(central + 24, buffer.getInt(central + 24) + 1);
+            default -> {
+                int body = 30 + Short.toUnsignedInt(buffer.getShort(26)) + Short.toUnsignedInt(buffer.getShort(28));
+                bytes[body + VALID.indexOf("example")] = 'z';
+            }
+        }
+        cache(bytes, true);
+        assertThatThrownBy(this::fetch).isInstanceOf(IOException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void completeArchiveRetainsTheMatchingFindingAfterAnUnrelatedRecord(boolean stored) throws Exception {
+        cache(stored ? storedZip() : zipRecords(List.of(
+                VALID.replace("example", "other").replace("OSV-fixture", "OSV-other"), VALID)), true);
+        var result = fetch();
+        assertThat(result.unresolvedKeys()).isEmpty();
+        assertThat(result.vulnsByComponentKey().values()).singleElement().satisfies(vulns ->
+                assertThat(vulns).singleElement().extracting(v -> v.osvId()).isEqualTo("OSV-fixture"));
+    }
+
+    private byte[] storedZip() throws IOException {
+        byte[] content = VALID.getBytes(StandardCharsets.UTF_8);
+        var crc = new java.util.zip.CRC32();
+        crc.update(content);
+        var bytes = new ByteArrayOutputStream();
+        try (var zip = new ZipOutputStream(bytes)) {
+            var entry = new ZipEntry("fixture.json");
+            entry.setMethod(ZipEntry.STORED);
+            entry.setSize(content.length);
+            entry.setCrc(crc.getValue());
+            zip.putNextEntry(entry);
+            zip.write(content);
+            zip.closeEntry();
+        }
+        return bytes.toByteArray();
+    }
+
     @Test void missingSourceDateMustNotBeReplacedWithToday() throws Exception {
         cache(zip(VALID), false);
         assertThatThrownBy(this::fetch).isInstanceOf(IOException.class).hasMessageContaining("Last-Modified");

@@ -6,8 +6,9 @@ import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln;
 import com.salkcoding.oswl.service.vulnerability.VulnerabilityEnrichmentService;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -16,7 +17,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
+import java.util.zip.ZipFile;
+import java.util.zip.CRC32;
 
 /**
  * OSV bulk vulnerability dumps (per-ecosystem {@code all.zip} on the public GCS bucket), re-indexed
@@ -151,26 +153,47 @@ final class OsvBulkSource {
 
             int entriesScanned = 0;
             Map<String, String> originalDigests = new LinkedHashMap<>();
-            try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
-                ZipEntry entry;
-                while ((entry = zis.getNextEntry()) != null) {
-                    if (entry.isDirectory() || !entry.getName().endsWith(".json")) continue;
-                    entriesScanned++;
-                    if (entriesScanned % 20000 == 0) {
-                        System.err.println("[oswl-vdb] OSV " + bucket + ": scanned " + entriesScanned + " entries");
-                    }
-                    byte[] content = zis.readAllBytes();
-                    JsonNode original = readOriginal(content);
-                    String digest = OsvOriginalDigest.of(original);
-                    String previous = originalDigests.putIfAbsent(original.path("id").asText(), digest);
-                    if (previous != null) {
-                        if (!previous.equals(digest)) {
-                            throw new IOException("Conflicting OSV originals share an advisory ID; source coverage is unknown");
+            // A streaming local-header reader accepts a download cut exactly between records.
+            // Require the central directory before treating absent packages as checked.
+            Path archive = Files.createTempFile("oswl-osv-source-", ".zip");
+            try {
+                Files.write(archive, zipBytes);
+                try (ZipFile zip = new ZipFile(archive.toFile())) {
+                    var entries = zip.entries();
+                    Set<String> entryNames = new LinkedHashSet<>();
+                    while (entries.hasMoreElements()) {
+                        ZipEntry entry = entries.nextElement();
+                        if (entry.isDirectory() || !entry.getName().endsWith(".json")) continue;
+                        if (!entryNames.add(entry.getName())) {
+                            throw new IOException("Duplicate OSV archive entry name; source coverage is unknown");
                         }
-                        continue;
+                        entriesScanned++;
+                        if (entriesScanned % 20000 == 0) {
+                            System.err.println("[oswl-vdb] OSV " + bucket + ": scanned " + entriesScanned + " entries");
+                        }
+                        byte[] content;
+                        try (var input = zip.getInputStream(entry)) {
+                            content = input.readAllBytes();
+                        }
+                        CRC32 crc = new CRC32();
+                        crc.update(content);
+                        if (content.length != entry.getSize() || crc.getValue() != entry.getCrc()) {
+                            throw new IOException("OSV archive entry integrity mismatch; source coverage is unknown");
+                        }
+                        JsonNode original = readOriginal(content);
+                        String digest = OsvOriginalDigest.of(original);
+                        String previous = originalDigests.putIfAbsent(original.path("id").asText(), digest);
+                        if (previous != null) {
+                            if (!previous.equals(digest)) {
+                                throw new IOException("Conflicting OSV originals share an advisory ID; source coverage is unknown");
+                            }
+                            continue;
+                        }
+                        processOriginal(original, ecosystem, namesWanted, result, unresolvedKeys, aliases);
                     }
-                    processOriginal(original, ecosystem, namesWanted, result, unresolvedKeys, aliases);
                 }
+            } finally {
+                Files.deleteIfExists(archive);
             }
             if (entriesScanned == 0) {
                 throw new IOException("OSV " + bucket + "/all.zip contains no advisory records; coverage is unknown");

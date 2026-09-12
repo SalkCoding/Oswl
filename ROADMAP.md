@@ -178,6 +178,10 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
 
+- **벌크 ZIP 검증 결과:** Windows/Java 25에서 `test --tests '*Osv*Test' --tests '*Vdb*Test'` 및 `build verifyProdJar` 성공. 전체 4,368건 중 4,356건 통과·환경 의존/선택 실행 skip 12건·실패/오류 0. 잘린 ZIP 4종의 수정 전 실패와 수정 후 CLI 기존 번들 보존, CRC·크기·비압축 내용 손상 3종, 정상 압축/비압축 입력 2종을 추가 검증했다. 실행 후 임시 ZIP 잔존이 없음을 확인했다. 로그 `build/roadmap-osv-archive-before.log`, `build/roadmap-osv-archive-checked.log`, `build/roadmap-osv-archive-build.log`. UI·DB 스키마 변경이 없어 브라우저/운영 DB 검증은 재실행하지 않았다. 세 언어 관리 문서·diff 확인을 완료했으며 실제 대규모 공급자 ZIP의 성능 측정과 원천별 데이터 권한 검증 완료를 주장하지 않는다.
+
+- **2026-09-12 잘린 벌크 ZIP의 조회 성공 방지:** 로컬 ZIP 헤더만 순차적으로 읽으면 첫 원문 뒤에서 끊긴 다운로드도 정상 종료되어 뒤쪽 패키지를 취약점 없음으로 처리할 수 있었다. 서로 다른 두 원문으로 레코드 사이·중앙 디렉터리 전·중간·종료 레코드 누락의 4종 실패를 재현했다. OSV 벌크 수집을 중앙 디렉터리를 확인하는 JDK `ZipFile`로 변경하고 각 원문의 실제 크기·CRC 및 중복 파일명을 검증한다. 실패는 기존 CLI 출력 번들을 보존하며 온라인 다운로드·캐시·offline-sources가 동일 검사를 거친다. 압축 원본 하나 크기의 임시 디스크 공간을 사용하고 성공·실패 시 임시 사본을 삭제한다. 이 검사는 전송/파일 손상을 검출하지만 공급자 자체의 데이터 누락·진위·권한을 인증하지 않는다. 새 외부 자료·라이브러리 없이 자체 생성 ZIP으로 검증했다. 커밋 제목 `fix: reject incomplete osv bulk archives`.
+
 - **원문 재내보내기 검증 결과:** Windows/Java 25에서 관련 snapshot·OSV·판정 저장 회귀 검사와 `build verifyProdJar` 성공. 전체 4,359건 중 4,347건 통과·환경 의존/선택 실행 skip 12건·실패/오류 0. 정상 재반입, 내용 변경·누락·추가·이전 판정·조회 실패 및 행 크기 경계 7종을 검증했다. 로그 `build/roadmap-original-export-before.log`(수정 전 재현), `build/roadmap-original-export-versioned.log`(관련 회귀), `build/roadmap-original-export-build.log`(전체 검증). 세 언어 문서와 diff를 확인했다. UI 변경이 없어 브라우저 검사는 재실행하지 않았으며 실제 운영 DB·외부 VCS 쓰기·새 외부 자료 도입은 없다. 이 검증은 전체 13번 또는 전체 로드맵 완료를 뜻하지 않는다.
 
 - **2026-09-12 내용에 연결된 원문 재내보내기:** 온라인·오프라인에서 판정에 사용한 원문의 SHA-256 내용 지문을 `OsvResult`와 기존 공통 판정 JSON에 함께 보존한다. 벌크 중복 검사와 같은 지문 함수를 사용하여 객체 키 순서/공백은 무시하고 내용·배열 순서는 반영한다. 스캔 export는 컴포넌트 키별로 저장 원문을 일괄 조회하고, 전체 원문 ID·modified·지문·OSV 조회 완료 및 저장 취약점의 포함 여부·충돌 부재를 대조한다. 모두 일치하면 현재 비영향 제약까지 원문·credits·references를 유지한다. 지문 없는 이전 판정이나 누락·추가·같은 수정 시각의 내용 변경·조회 실패에서는 원문을 잘못 붙이지 않고 기존 요약 경로를 유지한다. 정상 원문이 사라지는 수정 전 실패를 재현했다. 원문 지문은 진위·권한 인증이 아니며 새 외부 원문을 자동 수집하지 않는다. 이번 검사는 자체 합성 원문만 사용했다. 커밋 제목 `feat: bind exported osv originals to assessed content`.
