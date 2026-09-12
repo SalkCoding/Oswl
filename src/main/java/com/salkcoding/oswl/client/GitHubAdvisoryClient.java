@@ -226,6 +226,7 @@ public class GitHubAdvisoryClient {
 
     private List<GitHubAdvisory> query(String ghEcosystem, String name, String version) throws Exception {
         List<GitHubAdvisory> findings = new ArrayList<>();
+        List<GitHubAdvisory> candidates = new ArrayList<>();
         Map<String, List<String>> ranges = new LinkedHashMap<>();
         java.util.Set<String> cursors = new java.util.HashSet<>();
         String cursor = null;
@@ -243,11 +244,12 @@ public class GitHubAdvisoryClient {
                 throw partial;
             }
             findings.addAll(fetched.findings());
+            candidates.addAll(fetched.candidates());
             fetched.ranges().forEach((id, values) -> ranges.computeIfAbsent(id, unused -> new ArrayList<>()).addAll(values));
             incomplete |= fetched.incomplete();
             if (fetched.nextCursor() == null) {
                 if (incomplete) throw new IncompleteLookupException(findings);
-                return confirmedFixes(ghEcosystem, version, findings, ranges);
+                return confirmedFixes(ghEcosystem, version, findings, candidates, ranges);
             }
             if (!cursors.add(fetched.nextCursor())) throw new IncompleteLookupException(findings);
             cursor = fetched.nextCursor();
@@ -261,7 +263,7 @@ public class GitHubAdvisoryClient {
     }
 
     private static List<GitHubAdvisory> confirmedFixes(String ecosystem, String installed,
-            List<GitHubAdvisory> findings, Map<String, List<String>> ranges) {
+            List<GitHubAdvisory> findings, List<GitHubAdvisory> candidates, Map<String, List<String>> ranges) {
         java.util.Comparator<String> comparator = switch (ecosystem) {
             case "NUGET" -> com.salkcoding.oswl.vdb.NuGetVersionComparator::compare;
             case "NPM", "RUST" -> SemVerVersionComparator::compare;
@@ -272,7 +274,7 @@ public class GitHubAdvisoryClient {
         };
         Map<String, String> chosen = new LinkedHashMap<>();
         if (comparator != null) {
-            for (GitHubAdvisory finding : findings) {
+            for (GitHubAdvisory finding : candidates) {
                 String candidate = finding.fixVersion();
                 if (candidate == null || candidate.isBlank()) continue;
                 try {
@@ -290,7 +292,7 @@ public class GitHubAdvisoryClient {
         return findings.stream().map(finding -> withFix(finding, chosen.get(finding.ghsaId()))).toList();
     }
 
-    private record AdvisoryPage(List<GitHubAdvisory> findings, boolean incomplete, String nextCursor,
+    private record AdvisoryPage(List<GitHubAdvisory> findings, List<GitHubAdvisory> candidates, boolean incomplete, String nextCursor,
                                 Map<String, List<String>> ranges) { }
 
     @SuppressWarnings("unchecked")
@@ -332,6 +334,7 @@ public class GitHubAdvisoryClient {
         if (!(nodes instanceof List<?> nodeList)) throw new IllegalStateException("Missing advisory nodes");
 
         List<GitHubAdvisory> result = new ArrayList<>();
+        List<GitHubAdvisory> candidates = new ArrayList<>();
         Map<String, List<String>> ranges = new LinkedHashMap<>();
         for (Object nodeObj : nodeList) {
             try {
@@ -355,13 +358,15 @@ public class GitHubAdvisoryClient {
                     throw new IllegalArgumentException("Missing advisory identity");
                 boolean affected = isVersionAffected(ghEcosystem, version, range);
                 ranges.computeIfAbsent(advisory.ghsaId(), unused -> new ArrayList<>()).add(range);
+                // Another affected interval can contain the fix that clears this advisory's full range set.
+                candidates.add(advisory);
                 if (!affected) continue;
                 result.add(advisory);
             } catch (IllegalArgumentException | ClassCastException | java.time.DateTimeException invalid) {
                 incomplete = true;
             }
         }
-        return new AdvisoryPage(result, incomplete, nextCursor, ranges);
+        return new AdvisoryPage(result, candidates, incomplete, nextCursor, ranges);
     }
 
     @SuppressWarnings("unchecked")

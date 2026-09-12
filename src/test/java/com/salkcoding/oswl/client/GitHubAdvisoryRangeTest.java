@@ -78,6 +78,45 @@ class GitHubAdvisoryRangeTest {
         server.verify();
     }
 
+    @ParameterizedTest
+    @CsvSource(value = {"false,false,3.0.0,3.0.0", "true,false,3.0.0,3.0.0",
+            "false,true,3.0.0,3.0.0", "true,true,3.0.0,3.0.0",
+            "false,false,2.5.0,null", "true,true,2.5.0,null", "false,true,invalid,null",
+            "true,false,1.0.0,null"}, nullValues = "null")
+    void fixCandidatesFromOtherRangesSurvivePageAndNodeOrder(boolean paginated, boolean reversed, String candidate, String expected) throws Exception {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
+                Duration.ofSeconds(1), Duration.ofSeconds(1));
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var response = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(page("GHSA-fixture", false, "end"));
+        var connection = (com.fasterxml.jackson.databind.node.ObjectNode) response.path("data").path("securityVulnerabilities");
+        var nodes = (com.fasterxml.jackson.databind.node.ArrayNode) connection.path("nodes");
+        var affected = (com.fasterxml.jackson.databind.node.ObjectNode) nodes.get(0);
+        affected.putObject("firstPatchedVersion").put("identifier", "2.0.0");
+        var other = affected.deepCopy();
+        other.put("vulnerableVersionRange", ">= 2.0.0, < 3.0.0");
+        other.putObject("firstPatchedVersion").put("identifier", candidate);
+        nodes.removeAll().add(reversed ? other : affected);
+        if (paginated) {
+            ((com.fasterxml.jackson.databind.node.ObjectNode) connection.path("pageInfo"))
+                    .put("hasNextPage", true).put("endCursor", "next");
+            server.expect(requestTo("https://api.github.com/graphql"))
+                    .andRespond(withSuccess(mapper.writeValueAsString(response), MediaType.APPLICATION_JSON));
+            nodes.removeAll();
+            ((com.fasterxml.jackson.databind.node.ObjectNode) connection.path("pageInfo")).put("hasNextPage", false);
+        }
+        nodes.add(reversed ? affected : other);
+        server.expect(requestTo("https://api.github.com/graphql"))
+                .andRespond(withSuccess(mapper.writeValueAsString(response), MediaType.APPLICATION_JSON));
+        var result = new GitHubAdvisorySource(client).lookup("npm", "fixture", "1.0.0", List.of());
+        assertThat(result.lookupFailed()).isFalse();
+        assertThat(result.findings()).hasSize(1);
+        assertThat(result.findings().getFirst().fixVersion()).isEqualTo(expected);
+        server.verify();
+    }
+
     @org.junit.jupiter.api.Test
     void laterPageCanInvalidateAnEarlierFixCandidate() throws Exception {
         var builder = RestClient.builder();
@@ -101,7 +140,7 @@ class GitHubAdvisoryRangeTest {
 
     @ParameterizedTest
     @CsvSource(value = {"0.9.0;false;false;null", "1.0.0;false;false;null", "1.5.0;false;false;null",
-            "2.0.0;false;false;2.0.0", "2.0.0;true;false;null", "2.0.0;false;true;null"}, delimiter = ';', nullValues = "null")
+            "2.0.0;false;false;2.0.0", "2.0.0;true;false;null", "2.0.0;false;true;3.0.0"}, delimiter = ';', nullValues = "null")
     void fixCandidatesNeedCompleteNonAffectedEvidence(String candidate, boolean partial, boolean conflict, String expected) throws Exception {
         var builder = RestClient.builder();
         var server = MockRestServiceServer.bindTo(builder).build();
