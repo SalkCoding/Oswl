@@ -277,8 +277,8 @@ public class DepsDevClient {
             keys.add(k);
             if (k != null) distinctKeys.add(k);
         }
-        Map<String, SnapshotVersion> found = snapshotService.findVersions(distinctKeys);
-        boolean stale = snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_DEPSDEV_VERSION);
+        var snapshot = snapshotService.readVersionSnapshot(distinctKeys);
+        Map<String, SnapshotVersion> found = snapshot == null ? Map.of() : snapshot.findings();
 
         List<VersionInfo> results = new ArrayList<>(components.size());
         int hits = 0;
@@ -288,6 +288,7 @@ public class DepsDevClient {
                 results.add(unresolved());
             } else {
                 hits++;
+                boolean stale = snapshot.stale() || snapshot.unresolvedKeys().contains(key);
                 results.add(new VersionInfo(sv.licenses(), sv.advisoryKeys(), !stale && sv.isDefault(),
                         stale ? null : sv.deprecated(), stale ? null : sv.latestVersion(), !stale,
                         stale ? null : sv.scorecardScore()));
@@ -299,8 +300,9 @@ public class DepsDevClient {
 
     /** Retain stored advisory evidence, distinguishing it from a recent dated lookup. */
     private List<AdvisoryInfo> getAdvisoriesFromSnapshot(List<String> ghsaIds) {
-        Map<String, SnapshotAdvisory> found = snapshotService.findAdvisories(new LinkedHashSet<>(ghsaIds));
-        boolean current = !snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_DEPSDEV_ADVISORY);
+        var snapshot = snapshotService.readAdvisorySnapshot(new LinkedHashSet<>(ghsaIds));
+        Map<String, SnapshotAdvisory> found = snapshot == null ? Map.of() : snapshot.findings();
+        boolean current = snapshot != null && !snapshot.stale();
         List<AdvisoryInfo> results = new ArrayList<>(ghsaIds.size());
         int hits = 0;
         for (String id : ghsaIds) {

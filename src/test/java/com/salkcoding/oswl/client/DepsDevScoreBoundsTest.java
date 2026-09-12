@@ -32,6 +32,7 @@ class DepsDevScoreBoundsTest {
                         MediaType.APPLICATION_JSON));
         var store = mock(AirgappedSnapshotService.class);
         Double storedScore = input.equals("null") ? null : Double.valueOf(input);
+        when(store.readAdvisorySnapshot(anyCollection())).thenCallRealMethod();
         when(store.findAdvisories(anyCollection())).thenReturn(Map.of(id,
                 new AirgappedSnapshotService.SnapshotAdvisory(id, "Evidence", List.of("CVE-2026-0001"), storedScore, null)));
         for (var client : List.of(online, new DepsDevClient(store, true))) {
@@ -48,6 +49,7 @@ class DepsDevScoreBoundsTest {
     @org.junit.jupiter.params.provider.ValueSource(doubles = {Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY})
     void nonFiniteStoredScoresCannotBecomeCurrentAssessments(double input) {
         var store = mock(AirgappedSnapshotService.class);
+        when(store.readAdvisorySnapshot(anyCollection())).thenCallRealMethod();
         when(store.findAdvisories(anyCollection())).thenReturn(Map.of("GHSA-fixture",
                 new AirgappedSnapshotService.SnapshotAdvisory("GHSA-fixture", "Evidence", List.of(), input, null)));
         assertThat(new DepsDevClient(store, true).getAdvisoriesBatch(List.of("GHSA-fixture"))

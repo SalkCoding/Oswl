@@ -717,6 +717,10 @@
 
 ### 37. staging 활성화·세대 고정·실패 복구 — P0 · [설계]
 
+- **deps.dev 일관성 검증:** Windows/Java 25에서 수정 전 동시 반입 4종 실패, 수정 후 관련 기존 검사 227건 통과·실패/오류/skip 0. H2·실제 PostgreSQL 15.19의 `SnapshotReadConsistencyTest` 각각 16건 통과. `build verifyProdJar` 전체 4,404건 중 4,392건 통과·환경 의존/선택 실행 skip 12건·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/roadmap-deps-snapshot-before.log`, `build/roadmap-deps-snapshot-after.log`, `build/roadmap-deps-snapshot-postgres.log`, `build/roadmap-deps-snapshot-build.log`; PostgreSQL 결과 `build/pg-verification/deps-snapshot-result.xml`. 전용 임시 DB 연결 종료·삭제·서버 종료를 확인했다. 세 언어 관리 문서와 diff를 확인했으며 신규 외부 자료가 없어 새 이용권 검토/도입은 없다. UI·스키마 변경이 없어 브라우저/마이그레이션 검사는 재실행하지 않았다. 원격 push는 하지 않는다.
+
+- **2026-09-12 deps.dev 조회 일관성:** 버전/공지 본문 조회 뒤 동시 반입이 날짜·미확인 키를 갱신하면 이전 근거가 resolved/current로 처리되는 4종 실패를 재현했다. 버전 본문·미확인 키·날짜 및 공지 본문·날짜를 각각 독립 SERIALIZABLE 트랜잭션에서 읽는다. 버전의 미완료 근거는 라이선스·공지 ID를 보존하고 기본/폐기/최신 버전/scorecard 상태를 보류한다. 조회 결과의 상태를 보강·수정 대상 검증까지 사용한다. 커밋 제목 `fix: read deps dev status with offline evidence`. 자체 합성 입력이며 신규 외부 데이터·라이브러리·스키마·UI 변경은 없다. 전체 스캔의 세대 고정 및 실제 규모의 부하·복구 검증은 잔여다.
+
 - **공급자 일관성 누적 빌드:** Windows/Java 25에서 `build verifyProdJar` 성공. 전체 4,400건 중 4,388건 통과·환경 의존/선택 실행 skip 12건·실패/오류 0, 로그 `build/roadmap-provider-snapshot-build.log`. 운영 JAR의 local 전용 클래스 제외 검사도 통과했다. 기존 테스트는 명시적인 완료 상태를 전달하도록 이행하고 기존 판정 기대값을 유지했다. 세 언어 관리 문서와 diff를 확인했으며 UI·스키마 변경이 없어 브라우저/마이그레이션 검사는 재실행하지 않았다. 원격 push는 하지 않는다.
 
 - **2026-09-12 GitHub Advisory·NVD 조회 일관성:** 두 공급자에서도 본문 조회 후 동시 반입이 미확인 키·출처 날짜를 갱신하면 이전 빈 결과를 완료 상태로 처리하는 6종 실패를 재현했다. 공급자별 독립 SERIALIZABLE 읽기로 본문·상태를 결합하고 `SnapshotLookup`으로 보강 단계와 GitHub 수정 대상 검증까지 전달한다. 이후 전역 날짜를 재조회하지 않는다. 미완료 GitHub 결과는 취약점·충돌 후보를 유지하고 수정 버전을 보류한다. 누락 키와 확인된 빈 결과, NuGet 입력 검증, NVD 식별자·CPE 갱신 조건은 유지한다. 커밋 제목 `fix: keep offline provider findings and coverage together`.

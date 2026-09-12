@@ -289,6 +289,22 @@ public class AirgappedSnapshotService {
                 isSourceStaleOrUndated(SOURCE_GITHUB_ADVISORY), sourceEvidenceValidUntil(SOURCE_GITHUB_ADVISORY));
     }
 
+    public record VersionSnapshotView(Map<String, SnapshotVersion> findings, Set<String> unresolvedKeys, boolean stale) {}
+    public record AdvisorySnapshotView(Map<String, SnapshotAdvisory> findings, boolean stale) {}
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.SERIALIZABLE,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public VersionSnapshotView readVersionSnapshot(Collection<String> componentKeys) {
+        return new VersionSnapshotView(findVersions(componentKeys), findUnresolvedKeys(componentKeys),
+                isSourceStaleOrUndated(SOURCE_DEPSDEV_VERSION));
+    }
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.SERIALIZABLE,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public AdvisorySnapshotView readAdvisorySnapshot(Collection<String> ghsaIds) {
+        return new AdvisorySnapshotView(findAdvisories(ghsaIds), isSourceStaleOrUndated(SOURCE_DEPSDEV_ADVISORY));
+    }
+
     /** deps.dev version info per component key; absent keys mean "unresolved". */
     @Transactional(readOnly = true)
     public Map<String, SnapshotVersion> findVersions(Collection<String> componentKeys) {

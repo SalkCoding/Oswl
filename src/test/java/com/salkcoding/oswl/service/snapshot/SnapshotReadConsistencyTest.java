@@ -39,6 +39,59 @@ class SnapshotReadConsistencyTest {
     @Autowired PlatformTransactionManager transactions;
 
     @ParameterizedTest
+    @CsvSource({"depsdev-version,true,false", "depsdev-version,false,true", "depsdev-version,true,true",
+            "depsdev-advisory,true,false"})
+    void depsDevCannotRefreshOldEvidenceDuringPublication(String source, boolean stale, boolean unresolved) throws Exception {
+        boolean version = source.equals("depsdev-version");
+        String name = "deps-read-" + java.util.UUID.randomUUID();
+        String key = version ? AirgappedSnapshotService.componentKey("npm", name, "1.0.0") : name;
+        String original = version ? "{\"licenses\":[],\"advisoryKeys\":[],\"latestVersion\":\"9.0.0\"}"
+                : "{\"ghsaId\":\"GHSA-old\",\"title\":\"old evidence\",\"aliases\":[]}";
+        String replacement = version ? "{\"licenses\":[],\"advisoryKeys\":[\"GHSA-new\"],\"latestVersion\":\"10.0.0\"}"
+                : "{\"ghsaId\":\"GHSA-new\",\"title\":\"new evidence\",\"aliases\":[]}";
+        entries.saveAndFlush(SnapshotEntry.builder().source(source).entryKey(key).payload(original).build());
+        if (unresolved) entries.saveAndFlush(SnapshotEntry.builder().source("unresolved").entryKey(key).payload("{}").build());
+        metadata.saveAndFlush(SnapshotMeta.builder().source(source).recordCount(1).importedAt(LocalDateTime.now())
+                .sourceAsOf(LocalDate.now().minusDays(stale ? 30 : 0)).build());
+        AtomicBoolean publishOnce = new AtomicBoolean();
+        try (var writer = Executors.newSingleThreadExecutor()) {
+            org.mockito.stubbing.Answer<Object> publish = call -> {
+                Object rows = call.callRealMethod();
+                if (publishOnce.compareAndSet(false, true)) {
+                    writer.submit(() -> new TransactionTemplate(transactions).executeWithoutResult(status -> {
+                        jdbc.update("UPDATE airgapped_snapshot_entries SET payload=? WHERE source=? AND entry_key=?", replacement, source, key);
+                        jdbc.update("DELETE FROM airgapped_snapshot_entries WHERE source='unresolved' AND entry_key=?", key);
+                        jdbc.update("UPDATE airgapped_snapshot_meta SET source_as_of=? WHERE source=?", LocalDate.now(), source);
+                    })).get(10, TimeUnit.SECONDS);
+                }
+                return rows;
+            };
+            if (version) doAnswer(publish).when(snapshots).findVersions(anyCollection());
+            else doAnswer(publish).when(snapshots).findAdvisories(anyCollection());
+            var client = new com.salkcoding.oswl.client.DepsDevClient(snapshots, true);
+            if (version) {
+                var query = List.of(new com.salkcoding.oswl.client.DepsDevClient.ComponentKey("NPM", name, "1.0.0"));
+                var old = client.getVersionsBatch(query).getFirst();
+                assertThat(old.advisoryKeys()).isEmpty();
+                assertThat(old.resolved()).isFalse();
+                assertThat(old.latestVersion()).isNull();
+                var current = client.getVersionsBatch(query).getFirst();
+                assertThat(current.resolved()).isTrue();
+                assertThat(current.advisoryKeys()).containsExactly("GHSA-new");
+                assertThat(current.latestVersion()).isEqualTo("10.0.0");
+            } else {
+                var old = client.getAdvisoriesBatch(List.of(key)).getFirst();
+                assertThat(old.title()).isEqualTo("old evidence");
+                assertThat(old.current()).isFalse();
+                var current = client.getAdvisoriesBatch(List.of(key)).getFirst();
+                assertThat(current.current()).isTrue();
+                assertThat(current.title()).isEqualTo("new evidence");
+            }
+            assertThat(publishOnce).isTrue();
+        }
+    }
+
+    @ParameterizedTest
     @CsvSource({"github-advisory,true,false", "github-advisory,false,true", "github-advisory,true,true",
             "nvd,true,false", "nvd,false,true", "nvd,true,true"})
     void otherSourcesCannotBorrowCoverageFromAConcurrentPublication(String source, boolean stale, boolean unresolved) throws Exception {
