@@ -375,6 +375,11 @@
 - **NVD 수명 검증·근거:** 정상 활성/유효 철회/미래·누락·잘못된 수정 시각을 온라인 모의 HTTP와 오프라인 snapshot 입력으로 비교한 10건 중 수정 전 8건 실패했다. ID 불일치·깨진 JSON·잘못된 상태 타입·노후 coverage의 추가 4건은 다른 발견 및 원본 snapshot 보존도 확인한다. 로그 `build/roadmap-nvd-lifecycle-before.log`, `build/roadmap-nvd-lifecycle-after.log`. [공식 NVD CVE FAQ](https://nvd.nist.gov/general/faq-sections/cve-faqs)의 REJECTED 수명 설명을 근거로 삼았다. [실제 NVD 레코드](https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=CVE-2026-40328)의 Rejected, lastModified=2026-05-13T22:16:43.327, configurations 부재를 확인했으며 원문을 fixture/배포물에 복사하지 않았다. API 응답 시각의 UTC 해석은 구현 계약으로 명시하며 이번 검색에서 별도 공식 시간대 문구는 재확인하지 못했다. 기존 NIST 출처·권리 고지 범위를 유지하고 신규 외부 자료/라이브러리 반입, UI·스키마 변경은 없다.
 - **NVD 수명 전체 검증:** Windows/Java 25 `build verifyProdJar` 통과. 총 4,520건 중 4,508건 성공·기존 skip 12건·실패/오류 0. 로그 `build/roadmap-nvd-lifecycle-build.log`. UI 변경이 없어 브라우저 재검증은 수행하지 않았다. 커밋 제목 `fix: exclude verified rejected nvd source records`.
 
+
+- **2026-09-12 NVD 후보 간 revision 충돌:** 온라인 여러 CPE 응답과 오프라인 목록에서 같은 ID의 활성/철회 근거를 첫 행만 남기던 오류를 양 모드·정역순 4건으로 재현했다. 모든 후보를 수집한 뒤 의미상 동일 근거만 합치며, 내용이 다르면 미채점 후보와 `conflictingRecords` 대안 목록을 보존하고 조회 미완료로 처리한다. 매칭 신뢰도·JSON 객체 키 순서만 다른 경우는 합치고, 충돌 문자열의 직렬화/재조회가 미확인을 해제하지 않도록 했다. 시각이나 도착 순서로 authoritative revision을 고르지 않는다. 기존 공유 행의 조정과 HTTP 페이지 내부 중복의 대안 보존까지 완료한 것은 아니다.
+- **후보 간 충돌 검증 범위:** 수정 전 4건 모두 실패. 이후 동일 근거/키 순서 대조와 JSON 왕복 검사를 추가하고 NVD 및 보강 서비스 묶음이 통과했다. 로그 `build/roadmap-nvd-conflict-before.log`, `build/roadmap-nvd-conflict-checked.log`. 자체 합성 입력이며 새 외부 자료/라이브러리, UI, DB migration 변경 없음. 기존 NIST 출처·권리 조건과 미완료인 전체 공급자 권한 감사는 유지한다.
+- **후보 간 충돌 전체 검증:** Windows/Java 25 `build verifyProdJar` 통과. 총 4,525건 중 4,513건 성공·기존 skip 12건·실패/오류 0. 로그 `build/roadmap-nvd-conflict-build.log`. UI 변경이 없어 브라우저 검증은 재실행하지 않았다. 커밋 제목 `fix: retain conflicting nvd candidate evidence`.
+
 ### 14. CPE 추정을 확정 취약·게이트에서 분리 — P0 · [부분 구현]
 
 - 현재·대상: [CpeNameMapper](src/main/java/com/salkcoding/oswl/client/CpeNameMapper.java), [NvdClient](src/main/java/com/salkcoding/oswl/client/NvdClient.java)의 이름 추정과 configuration 맥락 손실, 게이트의 신뢰도 처리.

@@ -17,6 +17,7 @@ public final class NvdLifecycle {
             var record = JSON.readTree(evidence);
             if (record == null || !record.isObject() || !record.path("id").isTextual()
                     || !record.path("id").asText().equals(id)) return State.UNVERIFIED;
+            if (record.has("conflictingRecords")) return State.UNVERIFIED;
             var status = record.get("vulnStatus");
             if (status == null) return State.CURRENT;
             if (!status.isTextual()) return State.UNVERIFIED;
