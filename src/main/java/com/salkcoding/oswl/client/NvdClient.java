@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.client;
 
+import com.salkcoding.oswl.dto.snapshot.SnapshotLookup;
 import com.salkcoding.oswl.domain.enums.MatchConfidence;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
@@ -144,32 +145,28 @@ public class NvdClient {
         return id != null && CVE_ID.matcher(id).matches();
     }
 
-    public boolean isSnapshotCoverageUncertain() {
-        return airgapped && snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_NVD);
-    }
-
     /**
      * Offline path: looks up NVD-derived CVEs by component key.
      * Returns stored findings by component key; absent keys have no completed lookup evidence.
      */
     public Map<String, List<NvdCve>> findByComponentKeys(Collection<String> componentKeys) {
-        if (!airgapped || componentKeys == null || componentKeys.isEmpty()) {
-            return Map.of();
-        }
-        Map<String, List<AirgappedSnapshotService.SnapshotVuln>> found =
-                snapshotService.findNvdVulns(componentKeys);
-        Map<String, List<NvdCve>> result = new LinkedHashMap<>();
+        Map<String, List<NvdCve>> findings = new LinkedHashMap<>();
+        findSnapshotByComponentKeys(componentKeys).forEach((key, lookup) -> findings.put(key, lookup.findings()));
+        return findings;
+    }
+
+    public Map<String, SnapshotLookup<NvdCve>> findSnapshotByComponentKeys(Collection<String> componentKeys) {
+        if (!airgapped || componentKeys == null || componentKeys.isEmpty()) return Map.of();
+        var snapshot = snapshotService.readNvdSnapshot(componentKeys);
+        if (snapshot == null) return Map.of();
+        Map<String, SnapshotLookup<NvdCve>> result = new LinkedHashMap<>();
         for (String key : componentKeys) {
-            List<AirgappedSnapshotService.SnapshotVuln> vulns = found.get(key);
-            if (vulns == null) {
-                continue;
-            } else {
-                result.put(key, vulns.stream()
-                        .map(v -> new NvdCve(v.cveId(), v.summary(),
-                                parseSeverity(v.severity()), v.cvssScore(), v.cvss3Vector(),
-                                parseConfidence(v.matchConfidence())))
-                        .toList());
-            }
+            var vulns = snapshot.findings().get(key);
+            if (vulns == null) continue;
+            boolean complete = !snapshot.stale() && !snapshot.unresolvedKeys().contains(key);
+            result.put(key, new SnapshotLookup<>(vulns.stream()
+                    .map(v -> new NvdCve(v.cveId(), v.summary(), parseSeverity(v.severity()), v.cvssScore(), v.cvss3Vector(), parseConfidence(v.matchConfidence())))
+                    .toList(), complete));
         }
         return result;
     }

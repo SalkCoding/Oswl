@@ -1,5 +1,6 @@
 package com.salkcoding.oswl.client;
 
+import com.salkcoding.oswl.dto.snapshot.SnapshotLookup;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.domain.enums.RiskLevel;
@@ -147,21 +148,11 @@ public class GitHubAdvisoryClient {
 
     /**
      * Looks up advisories for a single package/version. Returns an empty list when the ecosystem
-     * is not supported by GitHub Advisory or the client is air-gapped. Failed requests throw.
+     * is not supported by GitHub Advisory. Offline callers must supply captured snapshot coverage.
      */
     public List<GitHubAdvisory> findByPackage(String ecosystem, String name, String version) {
-        if ("NUGET".equals(toGitHubEcosystem(ecosystem))) {
-            // Validate before either mode can accept an empty result as completed coverage.
-            AdvisoryPackageNames.canonical("NUGET", name);
-            com.salkcoding.oswl.vdb.NuGetVersionComparator.compare(version, version);
-        }
-        if (airgapped) {
-            if (snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_GITHUB_ADVISORY)) {
-                // Cached findings are supplied separately; do not mark their coverage complete.
-                throw new IncompleteLookupException(List.of());
-            }
-            return List.of();
-        }
+        validateQueryIdentity(ecosystem, name, version);
+        if (airgapped) throw new IncompleteLookupException(List.of());
         String ghEcosystem = toGitHubEcosystem(ecosystem);
         if (ghEcosystem == null) {
             log.debug("[GitHubAdvisory] Skipping {} — ecosystem '{}' is not supported by GitHub Advisory", name, ecosystem);
@@ -180,6 +171,14 @@ public class GitHubAdvisoryClient {
             log.warn("[GitHubAdvisory] Lookup failed for {}:{} — {}", name, version, e.getMessage());
             if (e instanceof IncompleteLookupException incomplete) throw incomplete;
             throw new IllegalStateException("GitHub Advisory lookup unavailable", e);
+        }
+    }
+
+    public void validateQueryIdentity(String ecosystem, String name, String version) {
+        if ("NUGET".equals(toGitHubEcosystem(ecosystem))) {
+            // Validate before either mode can accept an empty result as completed coverage.
+            AdvisoryPackageNames.canonical("NUGET", name);
+            com.salkcoding.oswl.vdb.NuGetVersionComparator.compare(version, version);
         }
     }
 
@@ -202,23 +201,23 @@ public class GitHubAdvisoryClient {
      * Returns stored results only; absent keys have no completed lookup evidence.
      */
     public Map<String, List<GitHubAdvisory>> findByComponentKeys(Collection<String> componentKeys) {
-        if (!airgapped || componentKeys == null || componentKeys.isEmpty()) {
-            return Map.of();
-        }
-        Map<String, List<AirgappedSnapshotService.SnapshotVuln>> found =
-                snapshotService.findGitHubAdvisoryVulns(componentKeys);
-        boolean stale = snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_GITHUB_ADVISORY);
-        Map<String, List<GitHubAdvisory>> result = new LinkedHashMap<>();
+        Map<String, List<GitHubAdvisory>> findings = new LinkedHashMap<>();
+        findSnapshotByComponentKeys(componentKeys).forEach((key, lookup) -> findings.put(key, lookup.findings()));
+        return findings;
+    }
+
+    public Map<String, SnapshotLookup<GitHubAdvisory>> findSnapshotByComponentKeys(Collection<String> componentKeys) {
+        if (!airgapped || componentKeys == null || componentKeys.isEmpty()) return Map.of();
+        var snapshot = snapshotService.readGitHubAdvisorySnapshot(componentKeys);
+        if (snapshot == null) return Map.of();
+        Map<String, SnapshotLookup<GitHubAdvisory>> result = new LinkedHashMap<>();
         for (String key : componentKeys) {
-            List<AirgappedSnapshotService.SnapshotVuln> vulns = found.get(key);
-            if (vulns == null) {
-                continue;
-            } else {
-                result.put(key, vulns.stream()
-                        .map(v -> new GitHubAdvisory(v.osvId(), v.cveId(), v.summary(),
-                                parseSeverity(v.severity()), v.cvssScore(), v.cvss3Vector(), stale ? null : v.fixVersion(), v.fixVersionConflictCandidates()))
-                        .toList());
-            }
+            var vulns = snapshot.findings().get(key);
+            if (vulns == null) continue;
+            boolean complete = !snapshot.stale() && !snapshot.unresolvedKeys().contains(key);
+            result.put(key, new SnapshotLookup<>(vulns.stream()
+                    .map(v -> new GitHubAdvisory(v.osvId(), v.cveId(), v.summary(), parseSeverity(v.severity()), v.cvssScore(), v.cvss3Vector(), complete ? v.fixVersion() : null, v.fixVersionConflictCandidates()))
+                    .toList(), complete));
         }
         return result;
     }

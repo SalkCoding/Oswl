@@ -39,6 +39,55 @@ class SnapshotReadConsistencyTest {
     @Autowired PlatformTransactionManager transactions;
 
     @ParameterizedTest
+    @CsvSource({"github-advisory,true,false", "github-advisory,false,true", "github-advisory,true,true",
+            "nvd,true,false", "nvd,false,true", "nvd,true,true"})
+    void otherSourcesCannotBorrowCoverageFromAConcurrentPublication(String source, boolean stale, boolean unresolved) throws Exception {
+        String name = "other-read-" + java.util.UUID.randomUUID();
+        String key = AirgappedSnapshotService.componentKey("npm", name, "1.0.0");
+        entries.saveAndFlush(SnapshotEntry.builder().source(source).entryKey(key).payload("[]").build());
+        if (unresolved) entries.saveAndFlush(SnapshotEntry.builder().source("unresolved").entryKey(key).payload("{}").build());
+        metadata.saveAndFlush(SnapshotMeta.builder().source(source).recordCount(1).importedAt(LocalDateTime.now())
+                .sourceAsOf(LocalDate.now().minusDays(stale ? 30 : 0)).build());
+        AtomicBoolean publishOnce = new AtomicBoolean();
+        try (var writer = Executors.newSingleThreadExecutor()) {
+            org.mockito.stubbing.Answer<Object> publish = call -> {
+                Object rows = call.callRealMethod();
+                if (publishOnce.compareAndSet(false, true)) {
+                    writer.submit(() -> new TransactionTemplate(transactions).executeWithoutResult(status -> {
+                        jdbc.update("UPDATE airgapped_snapshot_entries SET payload=? WHERE source=? AND entry_key=?",
+                                "[{\"osvId\":\"GHSA-new\",\"cveId\":\"CVE-2026-1234\",\"fixVersion\":\"2.0.0\"}]", source, key);
+                        jdbc.update("DELETE FROM airgapped_snapshot_entries WHERE source='unresolved' AND entry_key=?", key);
+                        jdbc.update("UPDATE airgapped_snapshot_meta SET source_as_of=? WHERE source=?", LocalDate.now(), source);
+                    })).get(10, TimeUnit.SECONDS);
+                }
+                return rows;
+            };
+            if (source.equals("github-advisory")) doAnswer(publish).when(snapshots).findGitHubAdvisoryVulns(anyCollection());
+            else doAnswer(publish).when(snapshots).findNvdVulns(anyCollection());
+            var github = new com.salkcoding.oswl.client.GitHubAdvisoryClient(snapshots, true, null,
+                    "https://api.github.com/graphql", java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1));
+            var nvd = new com.salkcoding.oswl.client.NvdClient(snapshots, true, null,
+                    java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1));
+            var old = source.equals("github-advisory")
+                    ? new com.salkcoding.oswl.service.vulnerability.sources.GitHubAdvisorySource(github)
+                        .lookupSnapshot("npm", name, "1.0.0", github.findSnapshotByComponentKeys(List.of(key)).get(key))
+                    : new com.salkcoding.oswl.service.vulnerability.sources.NvdAdvisorySource(nvd, null)
+                        .lookupSnapshot(name, "1.0.0", null, nvd.findSnapshotByComponentKeys(List.of(key)).get(key));
+            assertThat(publishOnce).isTrue();
+            assertThat(old.findings()).isEmpty();
+            assertThat(old.lookupFailed()).isTrue();
+            var current = source.equals("github-advisory")
+                    ? new com.salkcoding.oswl.service.vulnerability.sources.GitHubAdvisorySource(github)
+                        .lookupSnapshot("npm", name, "1.0.0", github.findSnapshotByComponentKeys(List.of(key)).get(key))
+                    : new com.salkcoding.oswl.service.vulnerability.sources.NvdAdvisorySource(nvd, null)
+                        .lookupSnapshot(name, "1.0.0", null, nvd.findSnapshotByComponentKeys(List.of(key)).get(key));
+            assertThat(current.findings()).hasSize(1);
+            assertThat(current.lookupFailed()).isFalse();
+            assertThat(current.queried()).isTrue();
+        }
+    }
+
+    @ParameterizedTest
     @CsvSource({"true,false,false", "false,true,false", "true,true,false", "true,false,true", "false,true,true", "true,true,true"})
     void concurrentPublicationCannotGiveOldEmptyFindingsNewCoverage(boolean stale, boolean unresolved, boolean outerTransaction) throws Exception {
         if (System.getenv("OSWL_SNAPSHOT_READ_URL") != null) {

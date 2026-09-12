@@ -264,15 +264,29 @@ public class AirgappedSnapshotService {
         return parseVulnLists(SOURCE_OSV, componentKeys);
     }
 
-    public record OsvSnapshotView(Map<String, List<SnapshotVuln>> findings, Set<String> unresolvedKeys, boolean stale,
+    public record VulnerabilitySnapshotView(Map<String, List<SnapshotVuln>> findings, Set<String> unresolvedKeys, boolean stale,
                                   java.time.Instant validUntil) {}
 
     /** Do not combine old findings with coverage or dates published by a concurrent import. */
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.SERIALIZABLE,
             propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
-    public OsvSnapshotView readOsvSnapshot(Collection<String> componentKeys) {
-        return new OsvSnapshotView(findOsvVulns(componentKeys), findUnresolvedKeys(componentKeys),
+    public VulnerabilitySnapshotView readOsvSnapshot(Collection<String> componentKeys) {
+        return new VulnerabilitySnapshotView(findOsvVulns(componentKeys), findUnresolvedKeys(componentKeys),
                 isSourceStaleOrUndated(SOURCE_OSV), sourceEvidenceValidUntil(SOURCE_OSV));
+    }
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.SERIALIZABLE,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public VulnerabilitySnapshotView readNvdSnapshot(Collection<String> componentKeys) {
+        return new VulnerabilitySnapshotView(findNvdVulns(componentKeys), findUnresolvedKeys(componentKeys),
+                isSourceStaleOrUndated(SOURCE_NVD), sourceEvidenceValidUntil(SOURCE_NVD));
+    }
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.SERIALIZABLE,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public VulnerabilitySnapshotView readGitHubAdvisorySnapshot(Collection<String> componentKeys) {
+        return new VulnerabilitySnapshotView(findGitHubAdvisoryVulns(componentKeys), findUnresolvedKeys(componentKeys),
+                isSourceStaleOrUndated(SOURCE_GITHUB_ADVISORY), sourceEvidenceValidUntil(SOURCE_GITHUB_ADVISORY));
     }
 
     /** deps.dev version info per component key; absent keys mean "unresolved". */

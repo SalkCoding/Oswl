@@ -43,7 +43,10 @@ class GitHubNugetQueryIdentityTest {
             var client = new GitHubAdvisoryClient(snapshot, offline, "fixture", "https://api.github.com",
                     Duration.ofSeconds(1), Duration.ofSeconds(1));
             ReflectionTestUtils.setField(client, "restClient", builder.build());
-            var result = new GitHubAdvisorySource(client).lookup("NuGet", name, version, List.of());
+            var source = new GitHubAdvisorySource(client);
+            var result = offline
+                    ? source.lookupSnapshot("NuGet", name, version, new com.salkcoding.oswl.dto.snapshot.SnapshotLookup<>(List.of(), true))
+                    : source.lookup("NuGet", name, version, List.of());
             assertThat(result.lookupFailed()).as("offline=%s", offline).isEqualTo(!valid);
             assertThat(result.findings()).isEmpty();
             assertThat(requests.get()).isEqualTo(valid && !offline ? 1 : 0);

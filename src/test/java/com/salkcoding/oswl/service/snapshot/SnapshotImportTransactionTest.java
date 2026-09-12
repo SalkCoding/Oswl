@@ -377,7 +377,7 @@ class SnapshotImportTransactionTest {
                 java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1));
         var cpe = org.mockito.Mockito.mock(com.salkcoding.oswl.client.CpeMatchService.class);
         var source = new com.salkcoding.oswl.service.vulnerability.sources.NvdAdvisorySource(client, cpe);
-        var actual = source.lookup("identity-fixture", "1.0.0", null, client.findByComponentKeys(List.of(key)).get(key));
+        var actual = source.lookupSnapshot("identity-fixture", "1.0.0", null, client.findSnapshotByComponentKeys(List.of(key)).get(key));
         boolean valid = id.equals("CVE-2026-0001");
         assertThat(actual.lookupFailed()).isEqualTo(!valid);
         assertThat(actual.findings()).extracting(v -> v.cveId()).containsExactlyElementsOf(valid
@@ -450,12 +450,12 @@ class SnapshotImportTransactionTest {
                 java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1));
         var cpe = org.mockito.Mockito.mock(com.salkcoding.oswl.client.CpeMatchService.class);
         var source = new com.salkcoding.oswl.service.vulnerability.sources.NvdAdvisorySource(client, cpe);
-        var stored = client.findByComponentKeys(List.of(key, empty));
+        var stored = client.findSnapshotByComponentKeys(List.of(key, empty));
         assertThat(stored).containsKeys(key, empty);
-        var actual = source.lookup("fixture", "1.0.0", null, stored.get(key));
+        var actual = source.lookupSnapshot("fixture", "1.0.0", null, stored.get(key));
         assertThat(actual.lookupFailed()).isEqualTo(stale);
         assertThat(actual.findings()).singleElement().extracting(v -> v.cveId()).isEqualTo("CVE-2026-0001");
-        assertThat(source.lookup("empty", "1.0.0", null, stored.get(empty)).lookupFailed()).isEqualTo(stale);
+        assertThat(source.lookupSnapshot("empty", "1.0.0", null, stored.get(empty)).lookupFailed()).isEqualTo(stale);
         org.mockito.Mockito.verifyNoInteractions(cpe);
     }
 
@@ -472,14 +472,14 @@ class SnapshotImportTransactionTest {
                 .sourceAsOf(age == 999 ? null : java.time.LocalDate.now().minusDays(age)).build());
         var client = new com.salkcoding.oswl.client.GitHubAdvisoryClient(service, true, null,
                 "https://api.github.com/graphql", java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1));
-        var stored = client.findByComponentKeys(List.of(key, empty));
+        var stored = client.findSnapshotByComponentKeys(List.of(key, empty));
         var source = new com.salkcoding.oswl.service.vulnerability.sources.GitHubAdvisorySource(client);
         assertThat(stored).containsKeys(key, empty);
-        var actual = source.lookup("NPM", "fixture", "1.0.0", stored.get(key));
+        var actual = source.lookupSnapshot("NPM", "fixture", "1.0.0", stored.get(key));
         assertThat(actual.lookupFailed()).isEqualTo(stale);
         assertThat(actual.findings()).singleElement().extracting(v -> v.ghsaId()).isEqualTo("GHSA-fixture");
         assertThat(actual.findings().getFirst().fixVersion()).isEqualTo(stale ? null : "2.0.0");
-        assertThat(source.lookup("NPM", "empty", "1.0.0", stored.get(empty)).lookupFailed()).isEqualTo(stale);
+        assertThat(source.lookupSnapshot("NPM", "empty", "1.0.0", stored.get(empty)).lookupFailed()).isEqualTo(stale);
     }
 
     @org.junit.jupiter.params.ParameterizedTest
