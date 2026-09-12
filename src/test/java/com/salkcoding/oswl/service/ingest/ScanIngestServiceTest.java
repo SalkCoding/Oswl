@@ -44,6 +44,7 @@ class ScanIngestServiceTest {
     @Mock com.salkcoding.oswl.repository.vulnerability.LibraryCatalogRepository libraryCatalogRepository;
     @Mock ProjectRepository projectRepository;
     @Mock ImportJobStore importJobs;
+    @Mock org.springframework.context.MessageSource messageSource;
     @Mock VulnerabilityEnrichmentService enrichmentService;
     @Mock ProjectCliKeyPolicyService projectCliKeyPolicyService;
 
@@ -60,6 +61,24 @@ class ScanIngestServiceTest {
     @AfterEach
     void tearDown() {
         tsmMock.close();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(ScanStatus.class)
+    void identicalRetryDoesNotRestartAnySavedStatus(ScanStatus status) {
+        var project = Project.builder().id(1L).name("P").build();
+        var payload = ScanPayload.create("main", List.of());
+        payload.setIdempotencyKey("same-request");
+        var previous = ScanResult.builder().id(17L).project(project).status(status)
+                .idempotencyKey(payload.getIdempotencyKey()).inputDigest(ScanInputFingerprint.digest(payload)).build();
+        when(projectRepository.lockForScanIngest(1L)).thenReturn(Optional.of(project));
+        when(scanResultRepository.findByProjectIdAndIdempotencyKey(1L,"same-request")).thenReturn(Optional.of(previous));
+        assertThat(scanIngestService.ingest(1L,payload)).isSameAs(previous);
+        assertThat(previous.getStatus()).isEqualTo(status);
+        verify(projectCliKeyPolicyService).assertScanIngestAllowed(1L);
+        verify(scanResultRepository,never()).save(any());
+        verifyNoInteractions(scanComponentRepository,libraryRepository,enrichmentService,importJobs);
+        tsmMock.verifyNoInteractions();
     }
 
     // ── 예외 처리 ─────────────────────────────────────────────────────────

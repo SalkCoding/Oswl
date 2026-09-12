@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ScanResultRepository extends JpaRepository<ScanResult, Long> {
+    Optional<ScanResult> findByProjectIdAndIdempotencyKey(Long projectId, String idempotencyKey);
+
     @org.springframework.transaction.annotation.Transactional
     @org.springframework.data.jpa.repository.Modifying
     @Query("UPDATE ScanResult s SET s.snapshotGenerationId = :generation WHERE s.id = :id AND s.snapshotGenerationId IS NULL")

@@ -24,6 +24,11 @@ public class ScanPayload {
     @Valid
     private List<ComponentPayload> components;
 
+    @Schema(description = "Optional project-scoped retry key. Reuse only for an identical input; a new analysis needs a new key.")
+    @jakarta.validation.constraints.Pattern(regexp = "[A-Za-z0-9._:-]{1,128}")
+    @Setter
+    private String idempotencyKey;
+
     @Schema(hidden = true)
     @Setter
     private String rawJson;

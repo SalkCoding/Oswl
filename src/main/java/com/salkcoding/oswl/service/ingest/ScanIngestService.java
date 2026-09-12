@@ -51,6 +51,7 @@ public class ScanIngestService {
     /** Null in plain-Mockito unit tests (no Spring context) — every use is guarded. */
     private final OswlMetrics                     oswlMetrics;
     private final ImportJobStore importJobs;
+    private final org.springframework.context.MessageSource messageSource;
 
     /**
      * Persists the scan payload and kicks off async enrichment.
@@ -66,6 +67,21 @@ public class ScanIngestService {
 
         projectCliKeyPolicyService.assertScanIngestAllowed(projectId);
 
+        String retryKey = payload.getIdempotencyKey();
+        if (retryKey != null && !retryKey.matches("[A-Za-z0-9._:-]{1,128}"))
+            throw new com.salkcoding.oswl.exception.InvalidRequestException(messageSource.getMessage(
+                    "scan.error.invalidRetryKey", null, org.springframework.context.i18n.LocaleContextHolder.getLocale()));
+        String inputDigest = ScanInputFingerprint.digest(payload);
+        if (retryKey != null) {
+            var previous = scanResultRepository.findByProjectIdAndIdempotencyKey(projectId, retryKey);
+            if (previous.isPresent()) {
+                if (!inputDigest.equals(previous.get().getInputDigest()))
+                    throw new com.salkcoding.oswl.exception.ConflictException(messageSource.getMessage(
+                            "scan.error.retryInputConflict", null, org.springframework.context.i18n.LocaleContextHolder.getLocale()));
+                return previous.get();
+            }
+        }
+
         // A version labels an analysis input; it is not an identity for a saved result.
         String incomingVersion = payload.getVersion();
         boolean rescan = false;
@@ -80,6 +96,8 @@ public class ScanIngestService {
         ScanResult scanResult = scanResultRepository.save(ScanResult.builder()
                 .project(project)
                 .version(incomingVersion)
+                .idempotencyKey(retryKey)
+                .inputDigest(inputDigest)
                 .build());
 
         // Capture the requester's UI locale so async AI enrichment answers in their language.

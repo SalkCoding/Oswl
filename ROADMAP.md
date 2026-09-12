@@ -388,10 +388,12 @@
 
 - 현재·대상: [ScanIngestService](src/main/java/com/salkcoding/oswl/service/ingest/ScanIngestService.java)의 기존 스캔 reset 재사용과 CI/리포트 참조 관계.
 - 구현: 같은 버전의 완료된 스캔도 새 분석마다 새 행을 생성한다. 이전 컴포넌트·판정 상태·시각·스냅샷 세대를 지우거나 재사용하지 않는다. 진행 중 소스 작업의 중복 수신 차단은 유지한다.
-- 남은 범위: idempotency key/input digest 계약, 입력·설정·도구 revision, 별도 evaluation revision, 공유 Library/CVE를 참조하는 과거 결과의 불변 보존. 현재는 동일 요청 재전송도 새 스캔이므로 재전송 중복 제거까지 완료된 것은 아니다.
+- 남은 범위: 입력·설정·도구 revision, 별도 evaluation revision, 공유 Library/CVE를 참조하는 과거 결과의 불변 보존. 선택적 `idempotencyKey`가 있는 동일 프로젝트·동일 의미 입력의 재전송은 기존 scanId를 반환하고, 변경 입력은 409로 거절한다. SHA-256에는 버전·제출자 이메일·모든 컴포넌트 입력을 포함하며 비밀번호·rawJson은 제외한다. 키가 없거나 새 키이면 새 분석이다. 실패한 스캔도 같은 키로 재실행하지 않는다.
 - [ ] 수정: 새 분석에는 새 scanId를 부여하고 idempotency key+input digest로 동일 요청 재전송만 합친다. commit·산출물·설정·도구/DB/policy revision을 고정한다. 새 DB 판정은 원본 스캔을 유지하고 evaluation revision으로 추가한다.
 - 선행: 10·15번의 증거 계약.
 - DoD: 같은 브랜치 재스캔/변경 payload/동일 재전송/새 정의 재평가가 구분된다. 기존 행의 모르는 commit/digest를 추정해 채우지 않고 legacy evidence로 남긴다.
+
+- 검증: 동일·변경 입력, 모든 스캔 상태의 재전송, 프로젝트별 키 분리, 동시 요청, 컴포넌트 입력 필드별 해시 차이 회귀 통과. 전체 4,442개 중 4,430개 통과·12개 건너뜀, `build verifyProdJar` 통과. PostgreSQL 세대 보존·V42 마이그레이션/유일성 검증 6개 통과.
 
 ### 17. 소스·시크릿·IaC 등 분석기별 완전성 상태 — P0 · [코드 확인]
 

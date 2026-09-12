@@ -222,7 +222,7 @@ class SnapshotGenerationPersistenceTest {
                 connection.setSchema(schema);
                 statement.execute("CREATE TABLE airgapped_snapshot_entries(id BIGINT PRIMARY KEY, payload TEXT)");
                 statement.execute("INSERT INTO airgapped_snapshot_entries VALUES (1, 'original')");
-                statement.execute("CREATE TABLE scan_results(id BIGINT PRIMARY KEY)");
+                statement.execute("CREATE TABLE scan_results(id BIGINT PRIMARY KEY, project_id BIGINT)");
                 statement.execute("INSERT INTO scan_results(id) VALUES (1)");
                 org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection,
                         new org.springframework.core.io.ClassPathResource("db/migration/V35__database_mutation_locks.sql"));
@@ -230,6 +230,16 @@ class SnapshotGenerationPersistenceTest {
                         new org.springframework.core.io.ClassPathResource("db/migration/V40__snapshot_generations.sql"));
                 org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection,
                         new org.springframework.core.io.ClassPathResource("db/migration/V41__scan_snapshot_generation.sql"));
+                org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection,
+                        new org.springframework.core.io.ClassPathResource("db/migration/V42__scan_retry_identity.sql"));
+                try (var rows = statement.executeQuery("SELECT idempotency_key,input_digest FROM scan_results WHERE id=1")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getString(1)).isNull(); assertThat(rows.getString(2)).isNull();
+                }
+                statement.execute("INSERT INTO scan_results(id,project_id) VALUES (2,1),(3,1)");
+                statement.execute("INSERT INTO scan_results(id,project_id,idempotency_key) VALUES (4,1,'retry'),(5,2,'retry')");
+                assertThatThrownBy(() -> statement.execute("INSERT INTO scan_results(id,project_id,idempotency_key) VALUES (6,1,'retry')"))
+                        .isInstanceOf(java.sql.SQLException.class).extracting(error -> ((java.sql.SQLException) error).getSQLState()).isEqualTo("23505");
                 try (var rows = statement.executeQuery("SELECT snapshot_generation_id FROM scan_results WHERE id=1")) {
                     assertThat(rows.next()).isTrue(); assertThat(rows.getObject(1)).isNull();
                 }

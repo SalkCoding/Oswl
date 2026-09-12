@@ -80,6 +80,9 @@ public interface ScanControllerSpec {
         description = """
             Receives a full dependency scan payload from the CLI agent and persists it.
             On success the server runs AI analysis in the background (if configured).
+            An optional project-scoped idempotencyKey returns the original scan for identical
+            semantic input. Changed input with the same key returns 409; a new analysis requires
+            a new key. A retry never restarts a failed or completed scan.
 
             **Example CLI call:**
             ```
@@ -89,7 +92,8 @@ public interface ScanControllerSpec {
         security = @SecurityRequirement(name = "BearerAuth")
     )
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Scan accepted and stored",
+        @ApiResponse(responseCode = "409", description = "Retry key conflicts with input or a source scan is active", content = @Content),
+        @ApiResponse(responseCode = "200", description = "Scan accepted or identical retry returned",
             content = @Content(schema = @Schema(implementation = ScanResponse.class),
                 examples = @ExampleObject(value = """
                     {

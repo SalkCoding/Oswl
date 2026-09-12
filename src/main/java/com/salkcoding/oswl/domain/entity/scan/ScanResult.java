@@ -15,7 +15,7 @@ import java.util.List;
  * Tracks CLI version, scan time, and status (PENDING → COMPLETED, etc.).
  */
 @Entity
-@Table(name = "scan_results", indexes = {
+@Table(name = "scan_results", uniqueConstraints = @UniqueConstraint(name = "uq_scan_project_retry_key", columnNames = {"project_id", "idempotency_key"}), indexes = {
         // History/trend queries: ScanResultRepository.findCompletedByProjectId, findRecentCompleted
         @Index(name = "idx_scan_results_project_status_scanned", columnList = "project_id, status, scanned_at"),
         // Status polling banner + scan history page: findLatestByProjectId, findAllByProjectIdOrderByScannedAtDesc
@@ -47,6 +47,13 @@ public class ScanResult {
             throw new IllegalStateException("Scan snapshot generation cannot be changed");
         snapshotGenerationId = generationId;
     }
+
+    @Column(name = "idempotency_key", length = 128, updatable = false)
+    private String idempotencyKey;
+
+    /** SHA-256 of the versioned semantic input, excluding credentials and raw JSON. */
+    @Column(name = "input_digest", length = 64, updatable = false)
+    private String inputDigest;
 
     /** Project version at the time of the scan */
     @Column(length = 50)

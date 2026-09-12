@@ -59,6 +59,45 @@ class CustomRulePublicationTest {
     @Autowired com.salkcoding.oswl.service.ingest.ScanIngestService ingest;
     @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
     @Autowired SourceFindingStore findingStore;
+    @Test void identicalRetryKeepsOneScanAndChangedInputConflicts() {
+        var project = projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder().name("Retry identity").build());
+        var payload = com.salkcoding.oswl.dto.scan.ScanPayload.create("main", List.of());
+        payload.setIdempotencyKey("request-1");
+        var original = ingest.ingest(project.getId(), payload);
+        var retry = ingest.ingest(project.getId(), payload);
+        assertThat(retry.getId()).isEqualTo(original.getId());
+        assertThat(retry.getInputDigest()).isEqualTo(original.getInputDigest()).hasSize(64);
+        var changed = com.salkcoding.oswl.dto.scan.ScanPayload.create("changed", List.of());
+        changed.setIdempotencyKey("request-1");
+        assertThatThrownBy(() -> ingest.ingest(project.getId(), changed))
+                .isInstanceOf(com.salkcoding.oswl.exception.ConflictException.class);
+        assertThat(scans.findById(original.getId()).orElseThrow().getVersion()).isEqualTo("main");
+        var otherProject = projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder().name("Separate retry namespace").build());
+        assertThat(ingest.ingest(otherProject.getId(), payload).getId()).isNotEqualTo(original.getId());
+        payload.setIdempotencyKey("request-2");
+        assertThat(ingest.ingest(project.getId(), payload).getId()).isNotEqualTo(original.getId());
+    }
+
+    @Test void simultaneousRetriesShareOnePersistedScan() throws Exception {
+        var project = projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder().name("Concurrent retries").build());
+        var payload = com.salkcoding.oswl.dto.scan.ScanPayload.create("main", List.of());
+        payload.setIdempotencyKey("concurrent-1");
+        var ready = new java.util.concurrent.CountDownLatch(2);
+        var start = new java.util.concurrent.CountDownLatch(1);
+        try (var workers = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            java.util.concurrent.Callable<Long> request = () -> {
+                ready.countDown();
+                if (!start.await(10, java.util.concurrent.TimeUnit.SECONDS)) throw new IllegalStateException("Retry start timed out");
+                return ingest.ingest(project.getId(), payload).getId();
+            };
+            var first = workers.submit(request);
+            var second = workers.submit(request);
+            assertThat(ready.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            assertThat(first.get(20, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(second.get(20, java.util.concurrent.TimeUnit.SECONDS));
+        }
+    }
+
     @Test void successfulSameVersionRescanPreservesOldIncompleteFindings() throws Exception {
         var project=projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder().name("Rescan recovery").build());
         var scan=scans.save(com.salkcoding.oswl.domain.entity.scan.ScanResult.builder().project(project).version("retry").status(ScanStatus.COMPLETED).build());
