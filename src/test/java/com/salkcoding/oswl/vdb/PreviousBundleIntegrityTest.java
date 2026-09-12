@@ -15,6 +15,47 @@ import static org.assertj.core.api.Assertions.*;
 
 class PreviousBundleIntegrityTest {
     @ParameterizedTest
+    @ValueSource(strings = {"truncated", "not-zip", "duplicate", "crc"})
+    void incompleteOrAmbiguousArchiveCannotReplaceOutput(String damage, @TempDir Path directory) throws Exception {
+        Path previous = baseline(directory, "{\"cveId\":\"CVE-2026-1000\"}");
+        if (damage.equals("duplicate")) {
+            try (var zip = new ZipOutputStream(Files.newOutputStream(previous))) {
+                for (String name : new String[]{"kev.jsonl", "foo.jsonl"}) {
+                    zip.putNextEntry(new ZipEntry(name));
+                    zip.write("{\"cveId\":\"CVE-2026-1000\"}".getBytes(StandardCharsets.UTF_8));
+                    zip.closeEntry();
+                }
+            }
+            byte[] bytes = Files.readAllBytes(previous);
+            byte[] from = "foo.jsonl".getBytes(StandardCharsets.US_ASCII);
+            byte[] to = "kev.jsonl".getBytes(StandardCharsets.US_ASCII);
+            for (int i = 0; i <= bytes.length - from.length; i++) {
+                if (java.util.Arrays.equals(bytes, i, i + from.length, from, 0, from.length))
+                    System.arraycopy(to, 0, bytes, i, to.length);
+            }
+            Files.write(previous, bytes);
+        } else if (damage.equals("crc")) {
+            byte[] bytes = Files.readAllBytes(previous);
+            var buffer = java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+            boolean changed = false;
+            for (int i = 0; i < bytes.length - 20; i++) {
+                if (buffer.getInt(i) == 0x02014b50) { bytes[i + 16] ^= 1; changed = true; break; }
+            }
+            assertThat(changed).isTrue();
+            Files.write(previous, bytes);
+        } else if (damage.equals("truncated")) {
+            byte[] bytes = Files.readAllBytes(previous);
+            Files.write(previous, java.util.Arrays.copyOf(bytes, bytes.length - 22));
+        } else Files.writeString(previous, "not a zip archive");
+        assertThatThrownBy(() -> PreviousBundleReader.read(previous, new ObjectMapper())).isInstanceOf(IOException.class);
+        Path output = directory.resolve("output.zip");
+        Files.writeString(output, "existing output");
+        assertThat(new VdbBuilderCli().run(new String[]{"build", "--sources", "osv", "--since", previous.toString(),
+                "--offline-sources", directory.toString(), "--out", output.toString()})).isEqualTo(1);
+        assertThat(Files.readString(output)).isEqualTo("existing output");
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"{", "{}", "null", "[]", "{\"cveId\":123}",
             "{\"cveId\":\"CVE-2026-1000\"} {}",
             "{\"cveId\":\"CVE-2026-1000\",\"cveId\":\"CVE-2026-1001\"}",

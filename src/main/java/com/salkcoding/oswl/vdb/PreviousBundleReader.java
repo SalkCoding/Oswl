@@ -9,13 +9,13 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.BufferedReader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
+import java.util.zip.ZipFile;
+import java.util.zip.CRC32;
 
 /**
  * Delta mode ({@code --since <previous-bundle.zip>}): reads a previously built bundle so the
@@ -30,11 +30,22 @@ final class PreviousBundleReader {
     static PreviousBundle read(Path bundlePath, ObjectMapper mapper) throws IOException {
         Map<String, byte[]> files = new LinkedHashMap<>();
         byte[] metaBytes = null;
-        try (ZipInputStream zis = new ZipInputStream(Files.newInputStream(bundlePath))) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
+        try (ZipFile zip = new ZipFile(bundlePath.toFile())) {
+            var entries = zip.entries();
+            var names = new java.util.HashSet<String>();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                if (!names.add(entry.getName())) throw new IOException("Duplicate previous-bundle ZIP entry");
                 if (entry.isDirectory()) continue;
-                byte[] content = zis.readAllBytes();
+                byte[] content;
+                try (var input = zip.getInputStream(entry)) {
+                    content = input.readAllBytes();
+                }
+                CRC32 crc = new CRC32();
+                crc.update(content);
+                if (content.length != entry.getSize() || crc.getValue() != entry.getCrc()) {
+                    throw new IOException("Previous-bundle ZIP entry integrity mismatch");
+                }
                 if ("meta.json".equals(entry.getName())) metaBytes = content;
                 else files.put(entry.getName(), content);
             }
