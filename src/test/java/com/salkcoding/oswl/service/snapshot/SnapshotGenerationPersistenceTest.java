@@ -31,7 +31,129 @@ class SnapshotGenerationPersistenceTest {
     @Autowired SnapshotMetaRepository metadata;
     @Autowired SnapshotGenerationRepository generations;
     @Autowired JdbcTemplate jdbc;
+    @Autowired com.salkcoding.oswl.repository.scan.ScanResultRepository scans;
+    @Autowired com.salkcoding.oswl.repository.project.ProjectRepository projects;
     @MockitoSpyBean SnapshotGenerationService publication;
+
+    @org.junit.jupiter.api.BeforeEach void isolatedStore() {
+        scans.deleteAllInBatch();
+        projects.deleteAllInBatch();
+        jdbc.update("DELETE FROM snapshot_active_generation");
+        jdbc.update("DELETE FROM snapshot_generation_entries");
+        jdbc.update("DELETE FROM snapshot_generations");
+        entries.deleteAllInBatch();
+        metadata.deleteAllInBatch();
+    }
+
+    @Test void concurrentScanPinningAndStaleSavesCannotChangeTheChosenGeneration() throws Exception {
+        snapshots.importBundle(new ByteArrayInputStream(bundle("CVE-2026-123450", "0.1")));
+        long first = generations.activeId();
+        snapshots.importBundle(new ByteArrayInputStream(bundle("CVE-2026-123450", "0.2")));
+        long second = generations.activeId();
+        var project = projects.saveAndFlush(com.salkcoding.oswl.domain.entity.project.Project.builder().name("generation fixture").build());
+        var scan = scans.saveAndFlush(com.salkcoding.oswl.domain.entity.scan.ScanResult.builder().project(project).build());
+        var stale = scans.findById(scan.getId()).orElseThrow();
+        var start = new java.util.concurrent.CountDownLatch(1);
+        try (var workers = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var a = workers.submit(() -> { start.await(); return scans.pinSnapshotGenerationIfAbsent(scan.getId(), first); });
+            var b = workers.submit(() -> { start.await(); return scans.pinSnapshotGenerationIfAbsent(scan.getId(), second); });
+            start.countDown();
+            assertThat(a.get(10, java.util.concurrent.TimeUnit.SECONDS) + b.get(10, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(1);
+        }
+        long selected = scans.findSnapshotGenerationId(scan.getId());
+        assertThat(selected).isIn(first, second);
+        assertThat(scans.pinSnapshotGenerationIfAbsent(scan.getId(), selected == first ? second : first)).isZero();
+        stale.startAnalyzing();
+        scans.saveAndFlush(stale);
+        var persisted = scans.findById(scan.getId()).orElseThrow();
+        assertThat(persisted.getSnapshotGenerationId()).isEqualTo(selected);
+        assertThatThrownBy(() -> persisted.pinSnapshotGeneration(selected == first ? second : first))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,false", "true,false", "false,true"})
+    void pinnedProvidersKeepTheirRowsAndDatesAcrossPublication(boolean stale, boolean unresolved) throws Exception {
+        String name = "generation-provider-fixture";
+        String key = AirgappedSnapshotService.componentKey("npm", name, "1.0.0");
+        snapshots.importBundle(new ByteArrayInputStream(providerBundle(name, "old", stale ? 30 : 0, unresolved)));
+        long old = generations.activeId();
+        var osv = new com.salkcoding.oswl.client.OsvClient(snapshots, true);
+        var deps = new com.salkcoding.oswl.client.DepsDevClient(snapshots, true);
+        var github = new com.salkcoding.oswl.client.GitHubAdvisoryClient(snapshots, true, null, null, Duration.ofSeconds(1), Duration.ofSeconds(1));
+        var nvd = new com.salkcoding.oswl.client.NvdClient(snapshots, true, null, Duration.ofSeconds(1), Duration.ofSeconds(1));
+        var epss = new com.salkcoding.oswl.client.EpssClient(snapshots, true);
+        var kev = new com.salkcoding.oswl.client.KevCatalogService(snapshots, true);
+        try (var scope = publication.open(old)) {
+            try (var writer = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+                writer.submit(() -> {
+                    snapshots.importBundle(new ByteArrayInputStream(providerBundle(name, "new", 0, false)));
+                    kev.refresh();
+                    return null;
+                }).get(20, java.util.concurrent.TimeUnit.SECONDS);
+            }
+            assertThat(generations.activeId()).isNotEqualTo(old);
+            assertThat(osv.queryBatch(List.of(new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", name, "1.0.0")))
+                    .getFirst().vulns()).singleElement().extracting(v -> v.osvId()).isEqualTo("OSV-old");
+            var version = deps.getVersionsBatch(List.of(new com.salkcoding.oswl.client.DepsDevClient.ComponentKey("NPM", name, "1.0.0"))).getFirst();
+            assertThat(version.advisoryKeys()).containsExactly("GHSA-old");
+            assertThat(version.resolved()).isEqualTo(!stale && !unresolved);
+            var advisory = deps.getAdvisoriesBatch(List.of("GHSA-old")).getFirst();
+            assertThat(advisory.title()).isEqualTo("old");
+            assertThat(advisory.current()).isEqualTo(!stale);
+            var gh = github.findSnapshotByComponentKeys(List.of(key)).get(key);
+            assertThat(gh.findings()).singleElement().extracting(v -> v.ghsaId()).isEqualTo("GHSA-old");
+            assertThat(gh.complete()).isEqualTo(!stale && !unresolved);
+            var nv = nvd.findSnapshotByComponentKeys(List.of(key)).get(key);
+            assertThat(nv.findings()).singleElement().extracting(v -> v.cveId()).isEqualTo("CVE-2026-234560");
+            assertThat(nv.complete()).isEqualTo(!stale && !unresolved);
+            assertThat(epss.fetchScores(List.of("CVE-2026-234560")))
+                    .isEqualTo(stale ? Map.of() : Map.of("CVE-2026-234560", 0.1));
+            assertThat(kev.listingStatus("CVE-2026-234560")).isTrue();
+            assertThat(kev.listingStatus("CVE-2026-234561")).isEqualTo(stale ? null : Boolean.FALSE);
+            try (var nested = publication.open(generations.activeId())) {
+                assertThat(kev.listingStatus("CVE-2026-234561")).isTrue();
+                assertThat(github.findSnapshotByComponentKeys(List.of(key)).get(key).findings())
+                        .singleElement().extracting(v -> v.ghsaId()).isEqualTo("GHSA-new");
+            }
+            assertThat(SnapshotGenerationScope.current().generationId()).isEqualTo(old);
+        }
+        assertThat(SnapshotGenerationScope.current()).isNull();
+        assertThat(kev.listingStatus("CVE-2026-234561")).isTrue();
+        assertThatThrownBy(() -> publication.open(Long.MAX_VALUE)).isInstanceOf(org.springframework.dao.EmptyResultDataAccessException.class);
+        assertThat(SnapshotGenerationScope.current()).isNull();
+    }
+
+    private static byte[] providerBundle(String name, String label, int age, boolean unresolved) throws Exception {
+        String cve = label.equals("old") ? "CVE-2026-234560" : "CVE-2026-234561";
+        String prefix = "{\"ecosystem\":\"npm\",\"name\":\"" + name + "\",\"version\":\"1.0.0\",\"vulns\":[";
+        Map<String, String> files = new LinkedHashMap<>();
+        files.put("unresolved.jsonl", unresolved ? "{\"ecosystem\":\"npm\",\"name\":\"" + name + "\",\"version\":\"1.0.0\"}\n" : "");
+        files.put("osv.jsonl", prefix + "{\"osvId\":\"OSV-" + label + "\",\"cveId\":\"" + cve + "\"}]}\n");
+        files.put("github-advisory.jsonl", prefix + "{\"osvId\":\"GHSA-" + label + "\",\"cveId\":\"" + cve + "\"}]}\n");
+        files.put("nvd.jsonl", prefix + "{\"cveId\":\"" + cve + "\"}]}\n");
+        files.put("depsdev.jsonl", "{\"type\":\"version\",\"ecosystem\":\"npm\",\"name\":\"" + name + "\",\"version\":\"1.0.0\",\"licenses\":[],\"advisoryKeys\":[\"GHSA-" + label + "\"]}\n"
+                + "{\"type\":\"advisory\",\"ghsaId\":\"GHSA-" + label + "\",\"title\":\"" + label + "\",\"aliases\":[]}\n");
+        files.put("epss.jsonl", "{\"cveId\":\"" + cve + "\",\"score\":0.1}\n");
+        files.put("kev.jsonl", "{\"cveId\":\"" + cve + "\"}\n");
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var meta = mapper.createObjectNode().put("formatVersion", 2);
+        var sources = meta.putObject("sources");
+        for (String source : List.of("osv", "github-advisory", "nvd", "depsdev-version", "depsdev-advisory", "epss", "kev"))
+            sources.putObject(source).put("asOf", LocalDate.now().minusDays(age).toString());
+        var manifest = meta.putObject("files");
+        for (var entry : files.entrySet()) manifest.putObject(entry.getKey()).put("lines", entry.getValue().lines().count())
+                .put("sha256", HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(entry.getValue().getBytes(StandardCharsets.UTF_8))));
+        files.put("meta.json", meta.toString());
+        var output = new ByteArrayOutputStream();
+        try (var zip = new ZipOutputStream(output)) {
+            for (var entry : files.entrySet()) {
+                zip.putNextEntry(new ZipEntry(entry.getKey()));
+                zip.write(entry.getValue().getBytes(StandardCharsets.UTF_8)); zip.closeEntry();
+            }
+        }
+        return output.toByteArray();
+    }
 
     @Test void legacyReplaceMergeAndRollbackPreserveIndependentGenerations() throws Exception {
         if (System.getenv("OSWL_SNAPSHOT_READ_URL") != null) {
@@ -100,10 +222,19 @@ class SnapshotGenerationPersistenceTest {
                 connection.setSchema(schema);
                 statement.execute("CREATE TABLE airgapped_snapshot_entries(id BIGINT PRIMARY KEY, payload TEXT)");
                 statement.execute("INSERT INTO airgapped_snapshot_entries VALUES (1, 'original')");
+                statement.execute("CREATE TABLE scan_results(id BIGINT PRIMARY KEY)");
+                statement.execute("INSERT INTO scan_results(id) VALUES (1)");
                 org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection,
                         new org.springframework.core.io.ClassPathResource("db/migration/V35__database_mutation_locks.sql"));
                 org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection,
                         new org.springframework.core.io.ClassPathResource("db/migration/V40__snapshot_generations.sql"));
+                org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection,
+                        new org.springframework.core.io.ClassPathResource("db/migration/V41__scan_snapshot_generation.sql"));
+                try (var rows = statement.executeQuery("SELECT snapshot_generation_id FROM scan_results WHERE id=1")) {
+                    assertThat(rows.next()).isTrue(); assertThat(rows.getObject(1)).isNull();
+                }
+                assertThatThrownBy(() -> statement.execute("UPDATE scan_results SET snapshot_generation_id=999 WHERE id=1"))
+                        .isInstanceOf(java.sql.SQLException.class).extracting(error -> ((java.sql.SQLException) error).getSQLState()).isEqualTo(connection.getMetaData().getDatabaseProductName().equals("PostgreSQL") ? "23503" : "23506");
                 statement.execute("INSERT INTO snapshot_generations(published_at, source_metadata) VALUES (CURRENT_TIMESTAMP, '{}')");
                 long generation;
                 try (var rows = statement.executeQuery("SELECT id FROM snapshot_generations")) {

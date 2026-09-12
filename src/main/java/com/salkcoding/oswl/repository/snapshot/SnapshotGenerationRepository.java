@@ -39,6 +39,11 @@ public class SnapshotGenerationRepository {
         return id;
     }
 
+    public java.util.Set<String> keys(long generationId, String source) {
+        return new java.util.LinkedHashSet<>(jdbc.queryForList(
+                "SELECT entry_key FROM snapshot_generation_entries WHERE generation_id=? AND source=?", String.class, generationId, source));
+    }
+
     public String metadata(long generationId) {
         return jdbc.queryForObject("SELECT source_metadata FROM snapshot_generations WHERE id=?", String.class, generationId);
     }

@@ -38,6 +38,16 @@ public class ScanResult {
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
+    /** Immutable offline data generation selected for this scan's enrichment. */
+    @Column(name = "snapshot_generation_id", updatable = false)
+    private Long snapshotGenerationId;
+
+    public void pinSnapshotGeneration(long generationId) {
+        if (generationId <= 0 || (snapshotGenerationId != null && snapshotGenerationId != generationId))
+            throw new IllegalStateException("Scan snapshot generation cannot be changed");
+        snapshotGenerationId = generationId;
+    }
+
     /** Project version at the time of the scan */
     @Column(length = 50)
     private String version;

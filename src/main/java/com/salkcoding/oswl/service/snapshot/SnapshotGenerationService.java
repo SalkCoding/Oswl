@@ -25,6 +25,33 @@ public class SnapshotGenerationService {
         if (generations.activeId() == null) publish();
     }
 
+    public long activeGeneration() {
+        Long active = generations.activeId();
+        if (active == null) throw new IllegalStateException("Snapshot generations are not initialized");
+        return active;
+    }
+
+    public SnapshotGenerationScope open(long generationId) {
+        try {
+            var root = json.readTree(generations.metadata(generationId));
+            if (!root.isObject()) throw new IllegalStateException("Invalid snapshot generation metadata");
+            java.util.Map<String, java.time.LocalDate> dates = new java.util.LinkedHashMap<>();
+            root.fields().forEachRemaining(entry -> {
+                var date = entry.getValue().path("sourceAsOf");
+                dates.put(entry.getKey(), date.isNull() || date.isMissingNode() ? null : java.time.LocalDate.parse(date.asText()));
+            });
+            return new SnapshotGenerationScope(generationId, dates);
+        } catch (java.io.IOException invalid) {
+            throw new IllegalStateException("Snapshot generation metadata is unreadable", invalid);
+        }
+    }
+
+    public java.util.Set<String> keys(long id, String source) { return generations.keys(id, source); }
+
+    public java.util.Map<String, String> payloads(long id, String source, java.util.Collection<String> keys) {
+        return generations.payloads(id, source, keys);
+    }
+
     @Transactional(propagation = Propagation.MANDATORY)
     public long publish() {
         var sources = json.createObjectNode();

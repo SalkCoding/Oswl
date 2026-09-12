@@ -390,7 +390,9 @@ public class AirgappedSnapshotService {
     /** All KEV-listed CVE ids in the store (uppercase). */
     @Transactional(readOnly = true)
     public Set<String> loadKevCveIds() {
-        return snapshotEntryRepository.findEntryKeysBySource(SOURCE_KEV);
+        var scope = SnapshotGenerationScope.current();
+        return scope == null ? snapshotEntryRepository.findEntryKeysBySource(SOURCE_KEV)
+                : generations.keys(scope.generationId(), SOURCE_KEV);
     }
 
     /** Per-source status for the admin API (sources never imported report 0 records). */
@@ -430,11 +432,24 @@ public class AirgappedSnapshotService {
                 .orElse(null);
     }
 
+    private LocalDate sourceDate(String source) {
+        var scope = SnapshotGenerationScope.current();
+        return scope == null ? snapshotMetaRepository.findById(source).map(SnapshotMeta::getSourceAsOf).orElse(null)
+                : scope.sourceDate(source);
+    }
+
+    @Transactional(readOnly = true)
+    public Boolean pinnedKevStatus(String cveId) {
+        if (SnapshotGenerationScope.current() == null) throw new IllegalStateException("Pinned KEV lookup requires a generation");
+        if (findPayloads(SOURCE_KEV, List.of(cveId)).containsKey(cveId)) return true;
+        return isSourceStaleOrUndated(SOURCE_KEV) ? null : Boolean.FALSE;
+    }
+
     /** Missing, future, or stale provenance cannot establish current lookup coverage. */
     @Transactional(readOnly = true)
     public boolean isSourceStaleOrUndated(String source) {
         LocalDate today = LocalDate.now();
-        LocalDate asOf = snapshotMetaRepository.findById(source).map(SnapshotMeta::getSourceAsOf).orElse(null);
+        LocalDate asOf = sourceDate(source);
         return asOf == null || asOf.isAfter(today) || stalenessWarnDays < 0
                 || java.time.temporal.ChronoUnit.DAYS.between(asOf, today) > stalenessWarnDays;
     }
@@ -442,7 +457,7 @@ public class AirgappedSnapshotService {
     /** Exclusive expiry under the same calendar-day policy used for snapshot coverage. */
     @Transactional(readOnly = true)
     public java.time.Instant sourceEvidenceValidUntil(String source) {
-        LocalDate asOf = snapshotMetaRepository.findById(source).map(SnapshotMeta::getSourceAsOf).orElse(null);
+        LocalDate asOf = sourceDate(source);
         if (asOf == null || asOf.isAfter(LocalDate.now()) || stalenessWarnDays < 0) return null;
         return asOf.plusDays((long) stalenessWarnDays + 1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant();
     }
@@ -474,6 +489,8 @@ public class AirgappedSnapshotService {
 
     private Map<String, String> findPayloads(String source, Collection<String> keys) {
         if (keys == null || keys.isEmpty()) return Map.of();
+        var scope = SnapshotGenerationScope.current();
+        if (scope != null) return generations.payloads(scope.generationId(), source, keys);
         return snapshotEntryRepository.findBySourceAndEntryKeyIn(source, keys).stream()
                 .collect(Collectors.toMap(SnapshotEntry::getEntryKey, SnapshotEntry::getPayload, (a, _) -> a));
     }

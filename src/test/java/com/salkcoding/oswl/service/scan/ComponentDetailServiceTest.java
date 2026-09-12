@@ -88,7 +88,13 @@ class ComponentDetailServiceTest {
         var osv = mock(com.salkcoding.oswl.client.OsvClient.class);
         var deps = mock(com.salkcoding.oswl.client.DepsDevClient.class);
         var github = mock(com.salkcoding.oswl.client.GitHubAdvisoryClient.class);
-        var verifier = new com.salkcoding.oswl.service.vulnerability.RemediationTargetVerifier(osv, deps, github);
+        var generationRepository = org.mockito.Mockito.mock(com.salkcoding.oswl.repository.snapshot.SnapshotGenerationRepository.class);
+        org.mockito.Mockito.lenient().when(generationRepository.activeId()).thenReturn(1L);
+        org.mockito.Mockito.lenient().when(generationRepository.metadata(1L)).thenReturn("{}");
+        var generations = new com.salkcoding.oswl.service.snapshot.SnapshotGenerationService(generationRepository,
+                org.mockito.Mockito.mock(com.salkcoding.oswl.repository.snapshot.SnapshotMetaRepository.class),
+                org.mockito.Mockito.mock(com.salkcoding.oswl.repository.DatabaseMutationLockRepository.class));
+        var verifier = new com.salkcoding.oswl.service.vulnerability.RemediationTargetVerifier(osv, deps, github, generations);
         org.springframework.test.util.ReflectionTestUtils.setField(componentDetailService, "remediationTargetVerifier", verifier);
         var library = Library.builder().id(10L).name("example").version("1.0.0").ecosystem("NPM")
                 .latestVersion("2.0.0").isLatestVersion(false).build();

@@ -11,6 +11,14 @@ import java.util.List;
 import java.util.Optional;
 
 public interface ScanResultRepository extends JpaRepository<ScanResult, Long> {
+    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.data.jpa.repository.Modifying
+    @Query("UPDATE ScanResult s SET s.snapshotGenerationId = :generation WHERE s.id = :id AND s.snapshotGenerationId IS NULL")
+    int pinSnapshotGenerationIfAbsent(@Param("id") Long id, @Param("generation") Long generation);
+
+    @Query("SELECT s.snapshotGenerationId FROM ScanResult s WHERE s.id = :id")
+    Long findSnapshotGenerationId(@Param("id") Long id);
+
     @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM ScanResult s WHERE s.id = :id")
     Optional<ScanResult> lockForSourceWrite(@Param("id") Long id);

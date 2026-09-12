@@ -130,6 +130,8 @@ public class KevCatalogService {
         if (cveId == null) return null;
         String id = cveId.strip().toUpperCase(java.util.Locale.ROOT);
         if (!id.matches("CVE-[0-9]{4}-[0-9]{4,}")) return null;
+        if (airgapped && com.salkcoding.oswl.service.snapshot.SnapshotGenerationScope.current() != null)
+            return snapshotService.pinnedKevStatus(id);
         CatalogState state = catalog;
         if (state.ids().contains(id)) return true;
         java.time.Instant loaded = state.loadedAt();
