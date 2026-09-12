@@ -31,8 +31,9 @@ final class ApkVersionComparator {
 
     private static final Pattern APK_VERSION = Pattern.compile(
             "^(?<nums>\\d+(?:\\.\\d+)*)"
+                    + "(?<letter>[a-z])?"
                     + "(?:_(?<suffix>alpha|beta|pre|rc|cvs|svn|git|hg|p)(?<suffixnum>\\d*)"
-                    + "|(?<letter>[a-z]))?"
+                    + ")?"
                     + "(?:-r(?<rev>\\d+))?$");
 
     /** Suffix rank — "no suffix" sits between rc and cvs, per apk's own ordering. */
