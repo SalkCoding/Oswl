@@ -180,7 +180,7 @@
 - **2026-09-10 부분 구현:** `OsvRangeEvaluator`를 만들어 bulk 판정에 연결했다. versions/ranges 합집합, 정렬되지 않은 이벤트의 timeline, 반복 구간/열린 구간, last_affected 포함·fixed/limit 제외, 복수 limit의 범위 확장과 `*`를 적용했다. GIT 및 미지원 생태계 비교는 UNKNOWN으로 보존하며 Alpine의 기존 apk 비교를 유지한다. 잘못된 이벤트/근거 없음도 UNKNOWN으로 남긴다. 평가기 18건과 실제 bulk record→snapshot 결과/미확인 coverage 연결 2건, SemVer 22건 및 기존 OSV client 14건을 Windows/Java 25에서 실행해 총 56건 통과·실패/skip 0. 명령: `test --tests '*SemVerVersionComparatorTest' --tests '*OsvRangeEvaluatorTest' --tests '*OsvBulkRangeIntegrationTest' --tests '*OsvClientTest' --tests '*OsvLookupOutcomeTest'`. commit 제목: `fix: evaluate osv ranges as ordered version unions`.
 - **잔여:** online 판정/재평가와 공통 평가기 통합, repo/commit graph 기반 GIT 판정, 추가 생태계 native comparator, MatchEvidence의 저장/노출 및 실제 데이터 oracle 동등성 검증이 남아 있다. GHSA 비교기는 아직 남아 있다. OSV live fixed 제안은 아래 13번에서 공통 선택기로 교체했다.
 
-### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [코드 확인]
+### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [부분 구현]
 
 - **벌크 ZIP 검증 결과:** Windows/Java 25에서 `test --tests '*Osv*Test' --tests '*Vdb*Test'` 및 `build verifyProdJar` 성공. 전체 4,368건 중 4,356건 통과·환경 의존/선택 실행 skip 12건·실패/오류 0. 잘린 ZIP 4종의 수정 전 실패와 수정 후 CLI 기존 번들 보존, CRC·크기·비압축 내용 손상 3종, 정상 압축/비압축 입력 2종을 추가 검증했다. 실행 후 임시 ZIP 잔존이 없음을 확인했다. 로그 `build/roadmap-osv-archive-before.log`, `build/roadmap-osv-archive-checked.log`, `build/roadmap-osv-archive-build.log`. UI·DB 스키마 변경이 없어 브라우저/운영 DB 검증은 재실행하지 않았다. 세 언어 관리 문서·diff 확인을 완료했으며 실제 대규모 공급자 ZIP의 성능 측정과 원천별 데이터 권한 검증 완료를 주장하지 않는다.
 
@@ -369,6 +369,11 @@
 
 - **2026-09-10 GHSA 캐시 병합 보완:** source adapter에서 같은 GHSA ID의 캐시 finding보다 현재 live finding의 판정을 반영한다. 기존 offline-first 중복 제거 때문에 새 fixed 또는 명시적 fixed 보류가 사라지던 문제를 수정했다. 부분 조회의 확인된 finding도 fixed 보류 상태로 교체하면서 lookupFailed를 유지한다. 응답에서 확인하지 못한 다른 ID의 캐시 finding은 보존한다. 이 변경만으로 순수 오프라인 과거 데이터의 수정/철회 전파가 완료되는 것은 아니다.
 - **캐시 병합 회귀:** 정상 후보·범위 내 잘못된 후보·부분 응답의 HTTP→client→source 검사 3건은 수정 전 모두 실패했다. 수정 후 `.\gradlew.bat test --tests '*GitHubAdvisoryRangeTest' --tests '*VulnerabilityEnrichmentServiceTest'` 68건 통과·실패/skip 0. Windows/Java 25, 로그 `build/roadmap-ghsa-cache-before.log`, `build/roadmap-ghsa-cache-after.log`. 커밋 제목 `fix: preserve live advisory decisions when merging cache`. 자체 합성 입력이며 외부 자료/의존성 및 UI 변경 없음. 원문 modified 기준 revision 충돌 조정, live 미응답 ID의 철회 판정과 과거 DB fixed 정정은 잔여다.
+
+
+- **2026-09-12 NVD Rejected 수명 처리:** CPE 페이지 수집은 원래 행 수를 유지하고, 공급자 결과 구성 단계에서 유효한 Rejected 근거만 제외한다. 온라인·오프라인 공통으로 JSON ID 일치와 현재/과거 lastModified를 요구하며, 미래·누락·깨진 시각/원문·상태 타입 오류는 발견 ID와 미완료 조회를 유지한다. 오프셋 없는 NVD 시각은 UTC로 해석한다. configurations가 없는 철회 응답에서도 상태/수정 근거를 보존하도록 앞선 구조 보존을 확장했다. 원래 snapshot·다른 공급자의 결과·이미 저장된 CVE는 삭제하지 않는다. 기존 행의 출처별 철회·재활성화 조정, 충돌 revision 선택은 잔여다.
+- **NVD 수명 검증·근거:** 정상 활성/유효 철회/미래·누락·잘못된 수정 시각을 온라인 모의 HTTP와 오프라인 snapshot 입력으로 비교한 10건 중 수정 전 8건 실패했다. ID 불일치·깨진 JSON·잘못된 상태 타입·노후 coverage의 추가 4건은 다른 발견 및 원본 snapshot 보존도 확인한다. 로그 `build/roadmap-nvd-lifecycle-before.log`, `build/roadmap-nvd-lifecycle-after.log`. [공식 NVD CVE FAQ](https://nvd.nist.gov/general/faq-sections/cve-faqs)의 REJECTED 수명 설명을 근거로 삼았다. [실제 NVD 레코드](https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=CVE-2026-40328)의 Rejected, lastModified=2026-05-13T22:16:43.327, configurations 부재를 확인했으며 원문을 fixture/배포물에 복사하지 않았다. API 응답 시각의 UTC 해석은 구현 계약으로 명시하며 이번 검색에서 별도 공식 시간대 문구는 재확인하지 못했다. 기존 NIST 출처·권리 고지 범위를 유지하고 신규 외부 자료/라이브러리 반입, UI·스키마 변경은 없다.
+- **NVD 수명 전체 검증:** Windows/Java 25 `build verifyProdJar` 통과. 총 4,520건 중 4,508건 성공·기존 skip 12건·실패/오류 0. 로그 `build/roadmap-nvd-lifecycle-build.log`. UI 변경이 없어 브라우저 재검증은 수행하지 않았다. 커밋 제목 `fix: exclude verified rejected nvd source records`.
 
 ### 14. CPE 추정을 확정 취약·게이트에서 분리 — P0 · [부분 구현]
 

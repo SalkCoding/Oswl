@@ -33,8 +33,8 @@ class NvdApplicabilityEvidenceTest {
         server.expect(anything()).andRespond(withSuccess(json.writeValueAsString(Map.of("startIndex",0,
                 "resultsPerPage",1,"totalResults",1,"vulnerabilities",java.util.List.of(Map.of("cve",cve)))),MediaType.APPLICATION_JSON));
         var result=client.findByCpeName("cpe:2.3:a:fixture:product:1:*:*:*:*:*:*:*",MatchConfidence.HIGH).getFirst();
-        if (state.equals("missing")) assertThat(result.nvdApplicability()).isNull();
-        else assertThat(json.readTree(result.nvdApplicability())).isEqualTo(cve);
+        assertThat(json.readTree(result.nvdApplicability())).isEqualTo(cve);
+        assertThat(json.readTree(result.nvdApplicability()).has("configurations")).isEqualTo(!state.equals("missing"));
         assertThat(result.matchConfidence()).isEqualTo(MatchConfidence.HIGH);
         server.verify();
     }

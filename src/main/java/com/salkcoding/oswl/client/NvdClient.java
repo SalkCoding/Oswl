@@ -276,7 +276,7 @@ public class NvdClient {
     }
 
     private static String applicability(Map<String, Object> cve) {
-        if (!cve.containsKey("configurations")) return null;
+        if (!cve.containsKey("configurations") && !cve.containsKey("vulnStatus")) return null;
         Map<String, Object> evidence = new LinkedHashMap<>();
         for (String key : List.of("id", "sourceIdentifier", "lastModified", "vulnStatus", "configurations")) {
             if (cve.containsKey(key)) evidence.put(key, cve.get(key));
