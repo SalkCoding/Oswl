@@ -420,29 +420,25 @@
         </div>
     </section>
 
-    <!-- Reachability evidence — only meaningful for a REACHABLE verdict, since
-         NOT_REACHABLE/UNKNOWN have nothing to point to (absence of evidence, not evidence). -->
-    <p th:if="${reachabilityAnalysis != null}" class="text-sm text-[var(--grayscale-60)]"
+    <section th:if="${reachabilityAnalysis != null or (reachability == 'REACHABLE' and not #lists.isEmpty(reachabilityEvidence))}"
+             class="px-[40px] py-[28px] border-b border-[var(--grayscale-15)]" data-source-analysis>
+        <h2 class="font-bold text-[16px] text-[var(--grayscale-100)] mb-[14px]" th:text="#{componentDetail.section.sourceAnalysis}">Source analysis</h2>
+        <p th:if="${reachabilityAnalysis != null}" class="text-[13px] text-[var(--grayscale-60)]"
        th:text="#{componentDetail.sourceAnalysis}"></p>
-    <div th:if="${reachabilityAnalysis != null}" class="text-xs text-[var(--grayscale-60)] space-y-1">
-        <p th:text="${#messages.msg('componentDetail.sourceFiles', reachabilityAnalysis.language(), reachabilityAnalysis.fileCount())}"></p>
-        <p th:text="${reachabilityAnalysis.partial()} ? #{componentDetail.sourcePartial} : #{componentDetail.sourceSubset}"></p>
-        <p th:text="${#messages.msg('componentDetail.sourceReason.' + reachabilityAnalysis.reason())}"></p>
+        <div th:if="${reachabilityAnalysis != null}" class="text-[12px] text-[var(--grayscale-60)] space-y-1">
+            <p th:text="${#messages.msg('componentDetail.sourceFiles', reachabilityAnalysis.language(), reachabilityAnalysis.fileCount())}"></p>
+            <p th:text="${reachabilityAnalysis.partial()} ? #{componentDetail.sourcePartial} : #{componentDetail.sourceSubset}"></p>
+            <p th:text="${#messages.msg('componentDetail.sourceReason.' + reachabilityAnalysis.reason())}"></p>
     </div>
-    <section th:if="${reachability == 'REACHABLE' and not #lists.isEmpty(reachabilityEvidence)}"
-             class="px-[40px] py-[28px] border-b border-[var(--grayscale-15)]">
-        <div class="flex items-center gap-[8px] mb-[14px]">
-            <img th:src="@{/icon/icon-shield.svg}" class="w-[20px] h-[20px]" alt="" aria-hidden="true">
-            <h2 class="font-bold text-[16px] text-[var(--grayscale-100)] tracking-[-0.16px] leading-[1.3]" th:text="#{componentDetail.section.reachabilityEvidence}">Why reachable?</h2>
+        <div th:if="${reachability == 'REACHABLE' and not #lists.isEmpty(reachabilityEvidence)}" class="mt-[14px]">
+            <h3 class="font-bold text-[13px] mb-[10px]" th:text="#{componentDetail.section.reachabilityEvidence}">Why reachable?</h3>
+            <p class="text-[13px] text-[var(--grayscale-60)] mb-[10px]" th:text="#{componentDetail.reachabilityEvidence.description}"></p>
+            <ul class="flex flex-col gap-[6px]">
+                <li th:each="line : ${reachabilityEvidence}"
+                    class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] rounded-[8px] px-[14px] py-[10px] font-mono text-[12px] text-[var(--grayscale-90)] break-all"
+                    th:text="${line}"></li>
+            </ul>
         </div>
-        <p class="text-[13px] text-[var(--grayscale-60)] tracking-[-0.13px] mb-[10px]" th:text="#{componentDetail.reachabilityEvidence.description}">
-            Your code references the vulnerable library through these classes:
-        </p>
-        <ul class="flex flex-col gap-[6px]">
-            <li th:each="line : ${reachabilityEvidence}"
-                class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] rounded-[8px] px-[14px] py-[10px] font-mono text-[12px] text-[var(--grayscale-90)] break-all"
-                th:text="${line}">com.example.MyService -&gt; org.apache.commons.collections.MapUtils</li>
-        </ul>
     </section>
 
     <!-- Vulnerability Details -->
@@ -453,14 +449,21 @@
         </div>
 
         <div class="flex flex-col gap-[12px]">
-            <dl th:if="${vulnerabilityLookupOutcomes != null}" class="text-[13px] text-[var(--grayscale-80)]">
-                <dt class="font-bold" th:text="#{componentDetail.lookup.title}">Latest lookup status</dt>
-                <dd th:text="${vulnerabilityLookupAt}"></dd>
-                <th:block th:each="outcome : ${vulnerabilityLookupOutcomes}">
-                    <dt class="font-bold" th:text="${outcome.key}"></dt>
-                    <dd th:text="#{${'componentDetail.lookup.' + outcome.value}}"></dd>
-                </th:block>
-            </dl>
+            <div th:if="${vulnerabilityLookupOutcomes != null}" class="bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] rounded-[8px] p-[16px] text-[13px]" data-lookup-status>
+                <div class="flex flex-wrap items-baseline justify-between gap-[8px] mb-[12px]">
+                    <h3 class="font-bold text-[var(--grayscale-90)]" th:text="#{componentDetail.lookup.title}">Latest lookup status</h3>
+                    <time th:if="${vulnerabilityLookupAt != null}" th:datetime="${vulnerabilityLookupAt}"
+                          class="text-[12px] text-[var(--grayscale-60)]"
+                          th:text="${#temporals.format(vulnerabilityLookupAt, 'yyyy-MM-dd HH:mm:ss')}"></time>
+                    <span th:if="${vulnerabilityLookupAt == null}" class="text-[12px] text-[var(--grayscale-60)]" th:text="#{componentDetail.lookup.noTime}"></span>
+                </div>
+                <dl class="flex flex-col gap-[8px]">
+                    <div th:each="outcome : ${vulnerabilityLookupOutcomes}" class="flex flex-wrap items-baseline justify-between gap-[8px]">
+                        <dt class="font-medium text-[var(--grayscale-80)]" th:text="${outcome.key}"></dt>
+                        <dd class="text-[var(--grayscale-60)]" th:text="#{${'componentDetail.lookup.' + outcome.value}}"></dd>
+                    </div>
+                </dl>
+            </div>
             <p th:if="${#lists.isEmpty(cves) and vulnerabilitiesAnalyzed}" class="text-[13px] text-[var(--grayscale-60)] tracking-[-0.13px] py-[8px]" th:text="#{componentDetail.cve.empty}">No security vulnerabilities detected for this component.</p>
             <p th:if="${#lists.isEmpty(cves) and !vulnerabilitiesAnalyzed}" class="text-[13px] text-[var(--grayscale-60)] py-[8px]" th:text="#{securityCenter.table.notAnalyzedTooltip}">Vulnerability analysis is unavailable.</p>
             <div th:each="cve, it : ${cves}"

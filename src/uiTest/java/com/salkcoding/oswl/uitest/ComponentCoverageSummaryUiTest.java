@@ -32,6 +32,43 @@ class ComponentCoverageSummaryUiTest extends UiTestBase {
     private final ScanComponentRepository components;
     private final MessageSource messages;
 
+    @org.junit.jupiter.api.Test
+    void sourceAndLookupEvidenceHaveSectionSpacingAndReadableDates() throws Exception {
+        var project = projects.save(Project.builder().name("Detail evidence layout").build());
+        var scan = scans.save(ScanResult.builder().project(project).version("1").status(ScanStatus.COMPLETED).build());
+        var library = Library.builder().name("layout-fixture").version("1").ecosystem("NPM")
+                .licenseStatus(LicenseStatus.UNKNOWN).build();
+        library.recordLookupOutcomes(Map.of("OSV","RESOLVED","NVD","UNSUPPORTED","GITHUB_ADVISORY","NOT_CONFIGURED"));
+        library.markFetched();
+        library = libraries.save(library);
+        var component = components.save(ScanComponent.builder().scanResult(scan).library(library)
+                .reachabilityAnalysis(new com.salkcoding.oswl.dto.scan.SourceAnalysisDetails(
+                        "JAVASCRIPT",0,0,"UNKNOWN",false,"NO_LANGUAGE_FILES",java.util.List.of()).toJson()).build());
+        loginAsTestAdmin();
+        Path output = Path.of("build/reports/component-detail-layout-ui");
+        Files.createDirectories(output);
+        for (String lang : new String[]{"ko","en","ja"}) {
+            page.navigate(url("/projects/" + project.getId() + "/components/" + component.getId() + "?lang=" + lang));
+            var detail = page.locator("#component-detail-content");
+            var text = detail.getByText(messages.getMessage("componentDetail.sourceAnalysis",null,Locale.forLanguageTag(lang)),
+                    new com.microsoft.playwright.Locator.GetByTextOptions().setExact(true));
+            assertThat((Boolean) text.evaluate("e => {const s=e.closest('section'); return !!s && parseFloat(getComputedStyle(s).paddingLeft)>=24;}"))
+                    .as("source evidence belongs to a padded section").isTrue();
+            assertThat(detail.innerText()).doesNotContain("??componentDetail", library.getVulnerabilityLookupAt().toString());
+            assertThat(detail.locator("time[datetime]").count()).isPositive();
+            page.screenshot(new Page.ScreenshotOptions().setPath(output.resolve(lang+".png")).setFullPage(true));
+            page.navigate(url("/projects/" + project.getId() + "/security-center?lang=" + lang));
+            page.locator(".component-row").filter(new com.microsoft.playwright.Locator.FilterOptions().setHasText("layout-fixture")).click();
+            var panel = page.locator("#slideout-content #component-detail-content");
+            panel.locator("[data-source-analysis]").waitFor();
+            panel.locator("[data-lookup-status]").scrollIntoViewIfNeeded();
+            assertThat((Boolean) panel.locator("[data-lookup-status]").evaluate("e => e.scrollWidth <= e.clientWidth + 1")).isTrue();
+            assertThat(panel.innerText()).doesNotContain("??componentDetail");
+            page.screenshot(new Page.ScreenshotOptions().setPath(output.resolve(lang+"-drawer.png")));
+
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"missing", "partial", "complete"})
     void summariesRequireCompletedCoverageInEveryLanguage(String coverage) throws Exception {
@@ -41,6 +78,7 @@ class ComponentCoverageSummaryUiTest extends UiTestBase {
                 .licenseStatus(LicenseStatus.UNKNOWN).fetchedAt(coverage.equals("missing") ? null : LocalDateTime.now())
                 .vulnerabilityLookupOutcomes(coverage.equals("partial") ? Map.of("OSV", "RESOLVED", "GITHUB_ADVISORY", "UNAVAILABLE")
                         : Map.of("OSV", "RESOLVED")).build();
+        if (!coverage.equals("missing")) library.recordLookupOutcomes(library.getVulnerabilityLookupOutcomes());
         library.updateVersionStatus(true, null, null);
         library = libraries.save(library);
         var component = components.save(ScanComponent.builder().scanResult(scan).library(library).build());

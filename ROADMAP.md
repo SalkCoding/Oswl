@@ -126,6 +126,8 @@
 - 선행: 3번; 2번 provenance 계약과 함께 확정.
 - DoD: 비교 불능·이름 후보·조회 0건이 확정 영향/전체 안전으로 합쳐지지 않는다. API/UI/CLI와 재평가가 같은 의미를 사용하고 변경 전 데이터는 근거 미상으로 이행한다.
 
+- **2026-09-12 상세 화면 조회 근거 배치 수정:** 소스 분석 안내가 섹션 밖에 붙어 여백이 사라진 사용자 제보를 Chromium에서 재현했다. 기존 상세 섹션 여백으로 묶고 출처별 조회 상태를 행으로 구분하며 시각을 초 단위로 표시한다. 시각 누락은 별도 안내하고 세 언어를 반영했다. 실제 앱 상세 페이지와 HTMX 슬라이드 패널의 한국어/영어/일본어 표시 및 패널 넘침을 확인했다. `ComponentCoverageSummaryUiTest` 4건 통과(각 세 언어), 로그 `build/detail-layout-before.log`, `build/detail-layout-after.log`, `build/detail-layout-drawer.log`, 화면 `build/reports/component-detail-layout-ui/`. 기존 완료 대조군에는 새 조회 시각 계약에 맞는 실제 조회 시각 기록을 추가했으며 미조회/부분 실패 기대값은 유지했다. 커밋 제목 `fix: align component detail analysis and lookup sections`.
+
 ### 11. 범용 버전 비교기와 GHSA 비교 실패 처리 교체 — P0 · [코드 확인/진단]
 
 - **2026-09-11 NuGet 실제 테스트 DB 왕복:** 고정한 Microsoft/GHSA 공지를 실제 bulk 변환기로 처리하고 SHA-256/행 수/기준일 manifest가 포함된 ZIP을 snapshot service로 가져와 H2 DB에 저장한 뒤 실제 오프라인 OSV client로 조회했다. 최신·8일 경과·기준일 없음의 3조건에서 동일 CVE/공지 ID를 보존하고 최신 조건에서만 8.0.4를 안내했다. 오래된 조건에서도 저장 원본의 수정 후보는 유지되며, 수집하지 않은 8.0.2 key는 조회 완료로 분류하지 않는다. 기준일은 테스트 조건으로 생성했으며 원본 공지가 실제로 새로 갱신됐다는 주장이 아니다.
