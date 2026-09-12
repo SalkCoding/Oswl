@@ -100,6 +100,11 @@ final class SnapshotBundleStager implements AutoCloseable {
         if (Thread.currentThread().isInterrupted()) throw new InvalidRequestException("Snapshot import was interrupted.");
     }
 
+    static void requireImportableLine(String line) {
+        if (line.getBytes(StandardCharsets.UTF_8).length > LINE_LIMIT)
+            throw new InvalidRequestException("Snapshot export line exceeds the 1 MiB import limit; no original evidence was discarded");
+    }
+
     @Override public void close() {
         for (Path file : temporaryFiles) {
             try { Files.deleteIfExists(file); }

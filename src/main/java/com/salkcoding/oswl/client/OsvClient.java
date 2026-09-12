@@ -117,12 +117,17 @@ public class OsvClient {
      * A resolved lookup can still lack the range evidence required for a common fix.
      */
     public record OsvResult(List<OsvVuln> vulns, boolean resolved, OsvFixVersionSelector.Selection commonFix,
-                            Map<String, String> advisoryRevisions) {
+                            Map<String, String> advisoryRevisions, Map<String, String> advisoryDigests) {
         public OsvResult {
             advisoryRevisions = advisoryRevisions == null ? Map.of() : Map.copyOf(advisoryRevisions);
+            advisoryDigests = advisoryDigests == null ? Map.of() : Map.copyOf(advisoryDigests);
             if (!resolved || commonFix == null) {
                 commonFix = new OsvFixVersionSelector.Selection(null, resolved ? "NO_RANGE_EVIDENCE" : "INCOMPLETE_LOOKUP");
             }
+        }
+        public OsvResult(List<OsvVuln> vulns, boolean resolved, OsvFixVersionSelector.Selection commonFix,
+                         Map<String, String> revisions) {
+            this(vulns, resolved, commonFix, revisions, Map.of());
         }
         public OsvResult(List<OsvVuln> vulns, boolean resolved, OsvFixVersionSelector.Selection commonFix) {
             this(vulns, resolved, commonFix, Map.of());
@@ -245,7 +250,8 @@ public class OsvClient {
         if (!current) findings = findings.stream().map(v -> new OsvVuln(v.osvId(), v.cveId(), v.summary(), null,
                 v.cweId(), v.severity(), v.cvssScore(), v.cvssVector(), v.fixVersionConflictCandidates())).toList();
         return new OsvResult(findings, resolved, resolved ? snapshotCommonFix(evidence, query) : null,
-                advisoryRevisions(evidence.stream().map(SnapshotVuln::osvAdvisory).filter(java.util.Objects::nonNull).toList()));
+                advisoryRevisions(evidence.stream().map(SnapshotVuln::osvAdvisory).filter(java.util.Objects::nonNull).toList()),
+                advisoryDigests(evidence.stream().map(SnapshotVuln::osvAdvisory).filter(java.util.Objects::nonNull).toList()));
     }
 
     private static OsvFixVersionSelector.Selection snapshotCommonFix(List<SnapshotVuln> vulns, OsvQuery query) {
@@ -448,7 +454,14 @@ public class OsvClient {
         }
         var commonFix = resolved ? OsvFixVersionSelector.selectAcrossAdvisories(
                 List.copyOf(rangeEvidence.values()), query.ecosystem(), query.name(), query.version()) : null;
-        return new OsvResult(List.copyOf(findings.values()), resolved, commonFix, advisoryRevisions(rangeEvidence.values()));
+        return new OsvResult(List.copyOf(findings.values()), resolved, commonFix, advisoryRevisions(rangeEvidence.values()),
+                advisoryDigests(rangeEvidence.values()));
+    }
+
+    private static Map<String, String> advisoryDigests(java.util.Collection<com.fasterxml.jackson.databind.JsonNode> originals) {
+        Map<String, String> digests = new java.util.LinkedHashMap<>();
+        for (var original : originals) digests.put(original.path("id").asText(), com.salkcoding.oswl.vdb.OsvOriginalDigest.of(original));
+        return Map.copyOf(digests);
     }
 
     private static Map<String, String> advisoryRevisions(java.util.Collection<com.fasterxml.jackson.databind.JsonNode> originals) {

@@ -22,6 +22,83 @@ import static org.assertj.core.api.Assertions.*;
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:snapshot-budget;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT")
 class SnapshotImportTransactionTest {
 
+    @Autowired com.salkcoding.oswl.repository.vulnerability.LibraryRepository libraries;
+    @Autowired com.salkcoding.oswl.repository.vulnerability.CveRepository cves;
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"match", "changed-content", "missing", "extra", "legacy-assessment", "failed-lookup", "oversized"})
+    void exportOriginalsMustMatchTheContentUsedForTheStoredAssessment(String state) throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        String name = "original-export-" + java.util.UUID.randomUUID();
+        var current = json.readTree("""
+                {"id":"OSV-current","modified":"2026-01-01T00:00:00Z","credits":[{"name":"fixture author"}],
+                "references":[{"type":"ADVISORY","url":"https://example.invalid/fixture"}],"database_specific":{"notice":"자체 검증 원문"},
+                "affected":[{"package":{"ecosystem":"npm","name":"%s"},"ranges":[{"type":"SEMVER",
+                "events":[{"introduced":"0"},{"fixed":"2.0.0"}]}]}]}
+                """.formatted(name));
+        var later = json.readTree(current.toString().replace("OSV-current", "OSV-later")
+                .replace("\"introduced\":\"0\"", "\"introduced\":\"2.0.0\"").replace("\"fixed\":\"2.0.0\"", "\"fixed\":\"3.0.0\""));
+        var records = new ArrayList<Map<String, Object>>();
+        if (state.equals("oversized")) {
+            byte[] content = new byte[300_000];
+            new java.util.Random(42).nextBytes(content);
+            ((com.fasterxml.jackson.databind.node.ObjectNode) current).put("summary", java.util.HexFormat.of().formatHex(content));
+        }
+        for (var raw : List.of(current, later)) records.add(Map.of("osvId", raw.path("id").asText(), "osvAdvisory", raw));
+        String key = AirgappedSnapshotService.componentKey("npm", name, "1.0.0");
+        var entry = entries.saveAndFlush(SnapshotEntry.builder().source("osv").entryKey(key).payload(json.writeValueAsString(records)).build());
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("osv").recordCount(1)
+                .importedAt(java.time.LocalDateTime.now()).sourceAsOf(java.time.LocalDate.now())
+                .dataNotices("[{\"credit\":\"fixture author\"}]").build());
+        var query = new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", name, "1.0.0");
+        var assessment = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(query)).getFirst();
+        assertThat(assessment.resolved()).isTrue();
+        assertThat(assessment.commonFix().version()).isEqualTo("3.0.0");
+        var library = com.salkcoding.oswl.domain.entity.vulnerability.Library.builder().name(name).version("1.0.0").ecosystem("NPM").build();
+        library.markFetched();
+        library.recordLookupOutcomes(Map.of("OSV", state.equals("failed-lookup") ? "UNAVAILABLE" : "RESOLVED"));
+        library.recordOsvFixAssessment("3.0.0", "SOURCE_FIXED_EVENT", assessment.advisoryRevisions(), java.util.Set.of("OSV-current"),
+                java.time.Instant.now().plusSeconds(3600), state.equals("legacy-assessment") ? Map.of() : assessment.advisoryDigests());
+        library = libraries.saveAndFlush(library);
+        cves.saveAndFlush(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder().library(library)
+                .ghsaId("OSV-current").fixVersion("2.0.0").summary(current.path("summary").asText(null)).build());
+        if (state.equals("changed-content")) ((com.fasterxml.jackson.databind.node.ObjectNode) current).put("summary", "changed at same revision");
+        if (state.equals("extra")) records.add(Map.of("osvId", "OSV-extra"));
+        entries.deleteById(entry.getId());
+        if (!state.equals("missing")) entries.saveAndFlush(SnapshotEntry.builder().source("osv").entryKey(key)
+                .payload(json.writeValueAsString(records)).build());
+        if (state.equals("oversized")) {
+            assertThatThrownBy(service::exportBundle).isInstanceOf(InvalidRequestException.class).hasMessageContaining("1 MiB");
+            return;
+        }
+        byte[] exported = service.exportBundle();
+        com.fasterxml.jackson.databind.JsonNode line = null;
+        try (var zip = new java.util.zip.ZipInputStream(new ByteArrayInputStream(exported))) {
+            java.util.zip.ZipEntry file;
+            while ((file = zip.getNextEntry()) != null) if (file.getName().equals("osv.jsonl")) {
+                for (String text : new String(zip.readAllBytes(), StandardCharsets.UTF_8).lines().toList()) {
+                    var candidate = json.readTree(text);
+                    if (candidate.path("name").asText().equals(name)) line = candidate;
+                }
+            }
+        }
+        assertThat(line).isNotNull();
+        if (state.equals("match")) {
+            assertThat(exportedMeta(exported).path("formatVersion").asInt()).isEqualTo(3);
+            assertThat(line.path("vulns").size()).isEqualTo(2);
+            assertThat(line.path("vulns").get(0).path("osvAdvisory")).isEqualTo(current);
+            assertThat(line.path("vulns").get(1).path("osvAdvisory")).isEqualTo(later);
+            service.importBundle(new ByteArrayInputStream(exported));
+            assertThat(metadata.findById("osv").orElseThrow().getFormatVersion()).isEqualTo(3);
+            var restored = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(query)).getFirst();
+            assertThat(restored.advisoryDigests()).isEqualTo(assessment.advisoryDigests());
+            assertThat(restored.resolved()).isFalse(); // A scan export does not renew the source's date.
+        } else {
+            assertThat(line.path("vulns").size()).isEqualTo(1);
+            assertThat(line.path("vulns").get(0).path("osvAdvisory").isObject()).isFalse();
+        }
+    }
+
     @Test void exportIncludesItsOwnNoticesInTheRoundTripBudget() {
         metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("epss")
                 .recordCount(1).importedAt(java.time.LocalDateTime.now())
@@ -508,7 +585,7 @@ class SnapshotImportTransactionTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"broken", "null", "[]", "{\"formatVersion\":3}",
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"broken", "null", "[]", "{\"formatVersion\":4}",
             "{\"formatVersion\":0}", "{\"formatVersion\":null}", "{\"formatVersion\":\"2\"}",
             "{\"formatVersion\":2.5}", "{\"formatVersion\":2}",
             "{\"formatVersion\":2,\"files\":{}}", "{\"formatVersion\":2,\"files\":{\"epss.jsonl\":{}}}"})

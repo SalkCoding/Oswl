@@ -161,7 +161,7 @@ final class OsvBulkSource {
                     }
                     byte[] content = zis.readAllBytes();
                     JsonNode original = readOriginal(content);
-                    String digest = originalDigest(original);
+                    String digest = OsvOriginalDigest.of(original);
                     String previous = originalDigests.putIfAbsent(original.path("id").asText(), digest);
                     if (previous != null) {
                         if (!previous.equals(digest)) {
@@ -212,30 +212,6 @@ final class OsvBulkSource {
             throw new IOException("OSV advisory revision is missing, malformed or in the future; source coverage is unknown");
         }
         return vuln;
-    }
-
-    // Keep only a digest per ID, not every full advisory in a potentially large archive.
-    private String originalDigest(JsonNode original) throws IOException {
-        try {
-            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
-                    .digest(mapper.writeValueAsBytes(orderedOriginal(original))));
-        } catch (java.security.NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("SHA-256 unavailable", impossible);
-        }
-    }
-
-    private Object orderedOriginal(JsonNode value) {
-        if (value.isObject()) {
-            Map<String, Object> ordered = new java.util.TreeMap<>();
-            value.properties().forEach(entry -> ordered.put(entry.getKey(), orderedOriginal(entry.getValue())));
-            return ordered;
-        }
-        if (value.isArray()) {
-            List<Object> ordered = new ArrayList<>();
-            value.forEach(element -> ordered.add(orderedOriginal(element)));
-            return ordered;
-        }
-        return value;
     }
 
     private void processOriginal(JsonNode vuln, String ecosystem, Map<String, Set<String>> namesWanted,

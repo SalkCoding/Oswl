@@ -58,12 +58,11 @@ import java.util.zip.ZipOutputStream;
  * <p>A bundle is a zip of JSONL files, one per source, plus a {@code meta.json} describing
  * provenance. {@code meta.json}'s {@code formatVersion}:
  * <ul>
- *   <li>{@code 2} (current) — {@code bundleId}/{@code mode}/{@code builtAt}/{@code sources[].asOf}/
+ *   <li>{@code 2} and {@code 3} — {@code bundleId}/{@code mode}/{@code builtAt}/{@code sources[].asOf}/
  *       {@code sources[].origin}/{@code files[].sha256} are read and enforced (checksum mismatch
  *       rejects the whole bundle before any store mutation).</li>
- *   <li>missing or {@code 1} — legacy bundle: {@code meta.json} content (if present at all) is
- * ignored beyond format detection, exactly like the original behavior, so old exports keep
- *       importing.</li>
+ *   <li>{@code 3} requires original-aware OSV evaluation, including currently unaffected constraints.</li>
+ *   <li>missing or {@code 1} — legacy import without integrity provenance; supplied notices are still retained.</li>
  * </ul>
  *
  * <ul>
@@ -111,7 +110,7 @@ public class AirgappedSnapshotService {
             SOURCE_NVD, SOURCE_EPSS, SOURCE_KEV, SOURCE_UNRESOLVED, SOURCE_COCOAPODS_SPECS);
 
     private static final String BUNDLE_FORMAT = "oswl-vdb";
-    private static final int CURRENT_FORMAT_VERSION = 2;
+    private static final int CURRENT_FORMAT_VERSION = 3;
     private static final String EXPORT_ORIGIN = "derived-from-scan";
 
     private static final int SAVE_CHUNK_SIZE = 500;
@@ -201,7 +200,7 @@ public class AirgappedSnapshotService {
     private record BundleSourceMeta(Integer records, LocalDate asOf, String origin) {}
     private record BundleFileMeta(String sha256, Integer lines) {}
     private record BundleMetaV2(String mode, LocalDateTime builtAt, String bundleId,
-                                Map<String, BundleSourceMeta> sources, Map<String, BundleFileMeta> files) {}
+                                Map<String, BundleSourceMeta> sources, Map<String, BundleFileMeta> files, int formatVersion) {}
 
     /** One decoded JSONL line: either a normal upsert ({@code deleted=false}) or a delete marker. */
     private record ParsedLine(String key, String payload, boolean deleted) {}
@@ -596,7 +595,7 @@ public class AirgappedSnapshotService {
                         .builtAt(meta.builtAt())
                         .sourceAsOf(asOf)
                         .origin(sourceMeta != null ? sourceMeta.origin() : null)
-                        .formatVersion(CURRENT_FORMAT_VERSION);
+                        .formatVersion(meta.formatVersion());
             }
             snapshotMetaRepository.save(builder.build());
         }
@@ -878,7 +877,7 @@ public class AirgappedSnapshotService {
             JsonNode declaredVersion = root.path("formatVersion");
             if (declaredVersion.isMissingNode()) return null;
             if (!declaredVersion.isIntegralNumber() || !declaredVersion.canConvertToInt()
-                    || (declaredVersion.intValue() != 1 && declaredVersion.intValue() != CURRENT_FORMAT_VERSION))
+                    || declaredVersion.intValue() < 1 || declaredVersion.intValue() > CURRENT_FORMAT_VERSION)
                 throw new InvalidRequestException("Unsupported snapshot formatVersion");
             if (declaredVersion.intValue() == 1) return null;
             if (!root.path("files").isObject()) throw new InvalidRequestException("Snapshot v2 requires a files manifest");
@@ -915,7 +914,7 @@ public class AirgappedSnapshotService {
                     // Left null — same reasoning as asOf above.
                 }
             }
-            return new BundleMetaV2(text(root, "mode"), builtAt, text(root, "bundleId"), sources, files);
+            return new BundleMetaV2(text(root, "mode"), builtAt, text(root, "bundleId"), sources, files, declaredVersion.intValue());
         } catch (Exception e) {
             throw new InvalidRequestException("Invalid snapshot metadata: " + e.getMessage());
         }
@@ -983,12 +982,15 @@ public class AirgappedSnapshotService {
         int githubAdvisoryRecords = 0;
         int nvdRecords = 0;
         int versionRecords = 0;
+        boolean hasOriginals = false;
 
         while (afterId < upperId) {
             List<Long> ids = libraryRepository.findSnapshotIds(afterId, upperId,
                     org.springframework.data.domain.PageRequest.of(0, SAVE_CHUNK_SIZE));
             if (ids.isEmpty()) break;
             List<Library> libraries = libraryRepository.findByIdInWithCves(ids);
+            Map<String, List<SnapshotVuln>> storedOriginals = findOsvVulns(libraries.stream()
+                    .map(this::osvExportKey).filter(Objects::nonNull).toList());
             exportedLibraries += libraries.size();
             for (Library lib : libraries) {
                 String key = componentKey(lib.getEcosystem(), lib.getName(), lib.getVersion());
@@ -1012,7 +1014,10 @@ public class AirgappedSnapshotService {
                     if (hasSources && srcs.contains(CveSource.NVD)) nvdCves.add(c);
                 }
                 if (!osvCves.isEmpty() || (lib.getVulnerabilityLookupOutcomes() != null && "RESOLVED".equals(lib.getVulnerabilityLookupOutcomes().get("OSV")))) {
-                    osvRecords += appendVulnLines(osv, lib, osvCves, true);
+                    List<SnapshotVuln> originals = exportableOriginals(lib, osvCves, storedOriginals.get(osvExportKey(lib)));
+                    hasOriginals |= originals != null;
+                    osvRecords += originals == null ? appendVulnLines(osv, lib, osvCves, true)
+                            : appendSnapshotVulnLine(osv, lib, originals, true);
                 }
                 if (!ghCves.isEmpty() || (lib.getVulnerabilityLookupOutcomes() != null && "RESOLVED".equals(lib.getVulnerabilityLookupOutcomes().get("GITHUB_ADVISORY")))) {
                     githubAdvisoryRecords += appendVulnLines(githubAdvisory, lib, ghCves);
@@ -1120,7 +1125,7 @@ public class AirgappedSnapshotService {
 
         ObjectNode meta = objectMapper.createObjectNode();
         meta.put("format", BUNDLE_FORMAT);
-        meta.put("formatVersion", CURRENT_FORMAT_VERSION);
+        meta.put("formatVersion", hasOriginals ? CURRENT_FORMAT_VERSION : 2);
         meta.put("bundleId", bundleId);
         meta.put("mode", "full");
         meta.put("builtAt", builtAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
@@ -1131,8 +1136,9 @@ public class AirgappedSnapshotService {
         meta.set("upstreamDataNotices", objectMapper.valueToTree(upstreamNotices));
         dataNotices.put("scope", "These notices are not a redistribution clearance for the bundle or its other data sources. "
                 + "The OsWL software license does not relicense third-party data. Retain supplied record-level credits and notices.");
-        dataNotices.put("changes", "Exported records are selected and normalized from OsWL scan data; "
-                + "they are not original advisory documents. Fields may be omitted or combined from multiple sources.");
+        dataNotices.put("changes", hasOriginals
+                ? "Exported records are selected from OsWL scan data. Attached OSV originals are preserved where their stored content matches the lookup assessment; other fields may be normalized, omitted or combined across sources."
+                : "Exported records are selected and normalized from OsWL scan data; they are not original advisory documents. Fields may be omitted or combined from multiple sources.");
         ObjectNode githubNotice = dataNotices.putObject("githubAdvisoryDatabase");
         githubNotice.put("appliesTo", "GitHub Advisory Database material, where present; not every record with a GHSA alias.");
         githubNotice.put("attribution", "GitHub Advisory Database and contributors; retain any supplied creator attribution.");
@@ -1203,6 +1209,50 @@ public class AirgappedSnapshotService {
                         c.getCvssScore(), c.getCvss3Vector(),
                         c.getMatchConfidence() != null ? c.getMatchConfidence().name() : null, c.getFixVersionConflictCandidates()))
                 .toList();
+        return appendSnapshotVulnLine(target, lib, vulns, osvKeys);
+    }
+
+    private String osvExportKey(Library lib) {
+        return "COCOAPODS".equalsIgnoreCase(lib.getEcosystem()) && lib.getSourceRepoUrl() != null
+                ? componentKey("SwiftURL", lib.getSourceRepoUrl(), lib.getVersion())
+                : componentKey(lib.getEcosystem(), lib.getName(), lib.getVersion());
+    }
+
+    private List<SnapshotVuln> exportableOriginals(Library library, List<Cve> cves, List<SnapshotVuln> stored) {
+        var assessment = library.getOsvFixAssessment();
+        if (stored == null || assessment == null || assessment.advisoryRevisions().isEmpty()
+                || !assessment.advisoryDigests().keySet().equals(assessment.advisoryRevisions().keySet())
+                || library.getVulnerabilityLookupOutcomes() == null
+                || !"RESOLVED".equals(library.getVulnerabilityLookupOutcomes().get("OSV"))) return null;
+        if (cves.stream().anyMatch(c -> c.isFixVersionConflict()
+                || !(assessment.findingIds().contains(c.getGhsaId() == null ? "" : c.getGhsaId())
+                || assessment.findingIds().contains(c.getCveId() == null ? "" : c.getCveId())))) return null;
+        Map<String, JsonNode> originals = new LinkedHashMap<>();
+        for (SnapshotVuln record : stored) {
+            JsonNode raw = record.osvAdvisory();
+            if (raw == null || !record.fixVersionConflictCandidates().isEmpty()
+                    || !Objects.equals(assessment.advisoryRevisions().get(record.osvId()), raw.path("modified").asText())
+                    || !Objects.equals(assessment.advisoryDigests().get(record.osvId()), com.salkcoding.oswl.vdb.OsvOriginalDigest.of(raw))) return null;
+            JsonNode previous = originals.putIfAbsent(record.osvId(), raw);
+            if (previous != null && !previous.equals(raw)) return null;
+        }
+        if (!originals.keySet().equals(assessment.advisoryRevisions().keySet())) return null;
+        List<SnapshotVuln> result = new ArrayList<>();
+        originals.forEach((id, raw) -> {
+            Set<String> aliases = new LinkedHashSet<>();
+            aliases.add(id);
+            raw.path("aliases").forEach(alias -> { if (alias.isTextual()) aliases.add(alias.asText()); });
+            Cve finding = cves.stream().filter(c -> aliases.contains(c.getGhsaId()) || aliases.contains(c.getCveId())).findFirst().orElse(null);
+            result.add(new SnapshotVuln(id, finding == null ? null : finding.getCveId(), finding == null ? null : finding.getSummary(),
+                    finding == null ? null : finding.getFixVersion(), finding == null ? null : finding.getCweId(),
+                    finding == null || finding.getSeverity() == null ? null : finding.getSeverity().name(),
+                    finding == null ? null : finding.getCvssScore(), finding == null ? null : finding.getCvss3Vector(),
+                    finding == null || finding.getMatchConfidence() == null ? null : finding.getMatchConfidence().name(), Set.of(), raw));
+        });
+        return result;
+    }
+
+    private int appendSnapshotVulnLine(StringBuilder target, Library lib, List<SnapshotVuln> vulns, boolean osvKeys) {
         ObjectNode line = objectMapper.createObjectNode();
         line.put("ecosystem", lib.getEcosystem());
         line.put("name", lib.getName());
@@ -1212,7 +1262,9 @@ public class AirgappedSnapshotService {
         }
         line.put("version", lib.getVersion());
         line.set("vulns", objectMapper.valueToTree(vulns));
-        target.append(writeJson(line)).append('\n');
+        String payload = writeJson(line);
+        SnapshotBundleStager.requireImportableLine(payload);
+        target.append(payload).append('\n');
         return 1;
     }
 
