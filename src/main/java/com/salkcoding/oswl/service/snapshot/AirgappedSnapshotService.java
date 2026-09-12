@@ -140,7 +140,13 @@ public class AirgappedSnapshotService {
      */
     public record SnapshotVuln(String osvId, String cveId, String summary, String fixVersion, String cweId,
                                 String severity, Double cvssScore, String cvss3Vector, String matchConfidence,
-                                Set<String> fixVersionConflictCandidates, JsonNode osvAdvisory) {
+                                Set<String> fixVersionConflictCandidates, JsonNode osvAdvisory, String nvdApplicability) {
+        public SnapshotVuln(String osvId, String cveId, String summary, String fixVersion, String cweId,
+                String severity, Double cvssScore, String cvss3Vector, String matchConfidence,
+                Set<String> fixVersionConflictCandidates, JsonNode osvAdvisory) {
+            this(osvId,cveId,summary,fixVersion,cweId,severity,cvssScore,cvss3Vector,matchConfidence,
+                    fixVersionConflictCandidates,osvAdvisory,null);
+        }
         public SnapshotVuln {
             if (osvAdvisory != null && !osvAdvisory.isNull()) {
                 if (!osvAdvisory.isObject() || !osvAdvisory.path("id").isTextual()
@@ -851,7 +857,7 @@ public class AirgappedSnapshotService {
                     throw new InvalidRequestException("Snapshot vulnerability requires an advisory identity");
                 vulns.add(new SnapshotVuln(text(v, "osvId"), text(v, "cveId"),
                         text(v, "summary"), text(v, "fixVersion"), text(v, "cweId"),
-                        text(v, "severity"), number(v, "cvssScore"), text(v, "cvss3Vector"), text(v, "matchConfidence"), readFixConflicts(v), v.get("osvAdvisory")));
+                        text(v, "severity"), number(v, "cvssScore"), text(v, "cvss3Vector"), text(v, "matchConfidence"), readFixConflicts(v), v.get("osvAdvisory"), text(v, "nvdApplicability")));
             }
             buffer.add(new ParsedLine(key, objectMapper.writeValueAsString(vulns), false));
         } catch (Exception e) {
@@ -1297,7 +1303,7 @@ public class AirgappedSnapshotService {
                         c.getFixVersion(), c.getCweId(),
                         c.getSeverity() != null ? c.getSeverity().name() : null,
                         c.getCvssScore(), c.getCvss3Vector(),
-                        c.getMatchConfidence() != null ? c.getMatchConfidence().name() : null, c.getFixVersionConflictCandidates()))
+                        c.getMatchConfidence() != null ? c.getMatchConfidence().name() : null, c.getFixVersionConflictCandidates(), null, c.getNvdApplicability()))
                 .toList();
         return appendSnapshotVulnLine(target, lib, vulns, osvKeys);
     }

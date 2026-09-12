@@ -258,6 +258,8 @@ A ready-to-import Grafana dashboard covering these metrics ships at [`deploy/obs
 
 For air-gapped deployments (`OSWL_AIRGAPPED_ENABLED=true`), vulnerability and threat-intel data (OSV, deps.dev, FIRST.org EPSS, CISA KEV) is served from an imported snapshot rather than live APIs — no outbound HTTP is attempted, and components absent from the snapshot resolve as "no data".
 
+NVD applicability evidence is retained as the optional JSON string `nvdApplicability` in vulnerability snapshot rows and preserved scan findings. It contains the received `configurations` tree and available `id`, `sourceIdentifier`, `lastModified`, and `vulnStatus` fields. Missing configurations remain null; empty and explicit-null configurations remain distinguishable inside the string. Import does not interpret these conditions or promote candidates. The string is source evidence, not executable content or a verified applicability decision. Legacy bundles lack this evidence; older exporters may discard it. Existing source dates, size limits and data notices still apply.
+
 `SYSTEM_ADMIN` or `SETTINGS_SNAPSHOT_MANAGE` required. See [What's New in v1.0.4](Whats-New-v1.0.4.md).
 
 Bundles are v2 format: each JSONL file is checksummed in `meta.json`, and per-source provenance (`bundleId`, `builtAt`, `asOf`, `origin`) is stored. A checksum mismatch is rejected before any data is written.

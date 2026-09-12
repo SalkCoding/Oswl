@@ -34,7 +34,7 @@ public record ScanAssessment(int formatVersion, String capturedAt, List<LibraryA
                           String cvss3Vector, String title, String summary, String cweId,
                           String fixVersion, Set<String> fixVersionConflictCandidates,
                           Double epssScore, Boolean kevListed, Set<CveSource> sources,
-                          boolean severityConflict, MatchConfidence matchConfidence) {
+                          boolean severityConflict, MatchConfidence matchConfidence, String nvdApplicability) {
         public Finding {
             fixVersionConflictCandidates = fixVersionConflictCandidates == null ? Set.of() : Set.copyOf(fixVersionConflictCandidates);
             sources = sources == null ? Set.of() : Set.copyOf(sources);

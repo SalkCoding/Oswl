@@ -33,6 +33,7 @@ import java.util.Map;
 @Slf4j
 public class NvdClient {
 
+    private static final com.fasterxml.jackson.databind.ObjectMapper EVIDENCE_JSON = new com.fasterxml.jackson.databind.ObjectMapper();
     private static final String BASE_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0";
     private static final int MAX_RETRIES = 3;
     private static final int MAX_PAGES = 20;
@@ -82,7 +83,11 @@ public class NvdClient {
 
     /** One NVD CVE returned for a CPE lookup. */
     public record NvdCve(String cveId, String description, RiskLevel severity,
-                         Double cvssScore, String cvss3Vector, MatchConfidence matchConfidence) {
+                         Double cvssScore, String cvss3Vector, MatchConfidence matchConfidence, String nvdApplicability) {
+        public NvdCve(String cveId, String description, RiskLevel severity,
+                      Double cvssScore, String cvss3Vector, MatchConfidence confidence) {
+            this(cveId, description, severity, cvssScore, cvss3Vector, confidence, null);
+        }
         public NvdCve {
             cvssScore = com.salkcoding.oswl.service.cvss.CvssScore.validOrNull(cvssScore);
         }
@@ -165,7 +170,7 @@ public class NvdClient {
             if (vulns == null) continue;
             boolean complete = !snapshot.stale() && !snapshot.unresolvedKeys().contains(key);
             result.put(key, new SnapshotLookup<>(vulns.stream()
-                    .map(v -> new NvdCve(v.cveId(), v.summary(), parseSeverity(v.severity()), v.cvssScore(), v.cvss3Vector(), parseConfidence(v.matchConfidence())))
+                    .map(v -> new NvdCve(v.cveId(), v.summary(), parseSeverity(v.severity()), v.cvssScore(), v.cvss3Vector(), parseConfidence(v.matchConfidence()), v.nvdApplicability()))
                     .toList(), complete));
         }
         return result;
@@ -260,7 +265,7 @@ public class NvdClient {
                 if (!isValidCveId(id))
                     throw new IllegalArgumentException("Invalid NVD identifier");
                 Cvss cvss = extractCvss(cve);
-                result.add(new NvdCve(id, extractDescription(cve), cvss.severity, cvss.score, cvss.vector, confidence));
+                result.add(new NvdCve(id, extractDescription(cve), cvss.severity, cvss.score, cvss.vector, confidence, applicability(cve)));
             } catch (RuntimeException e) {
                 log.debug("[NVD] Skipping malformed finding; lookup remains incomplete", e);
                 incomplete = true;
@@ -268,6 +273,19 @@ public class NvdClient {
         }
         if (incomplete) throw new IncompleteLookupException(result);
         return result;
+    }
+
+    private static String applicability(Map<String, Object> cve) {
+        if (!cve.containsKey("configurations")) return null;
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        for (String key : List.of("id", "sourceIdentifier", "lastModified", "vulnStatus", "configurations")) {
+            if (cve.containsKey(key)) evidence.put(key, cve.get(key));
+        }
+        try {
+            return EVIDENCE_JSON.writeValueAsString(evidence);
+        } catch (java.io.IOException failure) {
+            throw new IllegalArgumentException("Cannot preserve NVD applicability evidence", failure);
+        }
     }
 
     private static Long nonNegativeInteger(Object value) {

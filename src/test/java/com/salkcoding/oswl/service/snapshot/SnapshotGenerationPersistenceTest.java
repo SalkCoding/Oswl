@@ -250,6 +250,28 @@ class SnapshotGenerationPersistenceTest {
                 .containsExactlyEntriesOf(Map.of(first, "0.9"));
     }
 
+    @Test void nvdApplicabilitySurvivesOfflineSerializationAndImport() throws Exception {
+        String raw = "{\"id\":\"CVE-2026-123450\",\"sourceIdentifier\":\"fixture\",\"lastModified\":\"2026-09-12T00:00:00.000\",\"configurations\":[{\"operator\":\"AND\",\"nodes\":[{\"operator\":\"OR\",\"cpeMatch\":[{\"vulnerable\":false,\"criteria\":\"fixture-os\"}]}]}]}";
+        var finding = com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder().cveId("CVE-2026-123450")
+                .nvdApplicability(raw).matchConfidence(com.salkcoding.oswl.domain.enums.MatchConfidence.HIGH).build();
+        var library = com.salkcoding.oswl.domain.entity.vulnerability.Library.builder().name("fixture").version("1").ecosystem("CONAN").build();
+        var line = new StringBuilder();
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(snapshots,"appendVulnLines",line,library,List.of(finding));
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(line.toString()).path("vulns").get(0)
+                .path("nvdApplicability").asText()).isEqualTo(raw);
+        var output = new ByteArrayOutputStream();
+        try (var zip = new ZipOutputStream(output)) {
+            zip.putNextEntry(new ZipEntry("nvd.jsonl"));
+            zip.write(line.toString().getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        snapshots.importBundle(new ByteArrayInputStream(output.toByteArray()));
+        var client = new com.salkcoding.oswl.client.NvdClient(snapshots,true,null,Duration.ofSeconds(1),Duration.ofSeconds(1));
+        var restored = client.findSnapshotByComponentKeys(List.of("CONAN|fixture|1")).get("CONAN|fixture|1");
+        assertThat(restored.findings()).singleElement().satisfies(c -> assertThat(c.nvdApplicability()).isEqualTo(raw));
+        assertThat(restored.complete()).isFalse(); // Missing source date remains incomplete despite retained configurations.
+    }
+
     @Test void migrationCreatesGenerationConstraintsWithoutChangingLegacyRows() throws Exception {
         String schema = "generation_migration_" + UUID.randomUUID().toString().replace("-", "");
         try (var connection = jdbc.getDataSource().getConnection()) {
@@ -259,6 +281,13 @@ class SnapshotGenerationPersistenceTest {
                 connection.setSchema(schema);
                 statement.execute("CREATE TABLE airgapped_snapshot_entries(id BIGINT PRIMARY KEY, payload TEXT)");
                 statement.execute("INSERT INTO airgapped_snapshot_entries VALUES (1, 'original')");
+                statement.execute("CREATE TABLE library_cves(id BIGINT PRIMARY KEY)");
+                statement.execute("INSERT INTO library_cves(id) VALUES (1)");
+                org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection,
+                        new org.springframework.core.io.ClassPathResource("db/migration/V44__nvd_applicability_evidence.sql"));
+                try (var rows = statement.executeQuery("SELECT nvd_applicability FROM library_cves WHERE id=1")) {
+                    assertThat(rows.next()).isTrue(); assertThat(rows.getString(1)).isNull();
+                }
                 statement.execute("CREATE TABLE scan_results(id BIGINT PRIMARY KEY, project_id BIGINT)");
                 statement.execute("INSERT INTO scan_results(id) VALUES (1)");
                 org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection,

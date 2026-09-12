@@ -256,6 +256,8 @@ v1.0.4의 작업 코드는 필터 UI에서 **모니터링**(`MONITOR.*`), **연�
 
 폐쇄망(에어갭) 배포(`OSWL_AIRGAPPED_ENABLED=true`)에서는 취약점·위협 인텔 데이터(OSV, deps.dev, FIRST.org EPSS, CISA KEV)가 라이브 API 대신 반입된 스냅샷에서 제공됩니다 — 외부로 나가는 HTTP 요청은 전혀 시도되지 않으며, 스냅샷에 없는 컴포넌트는 "데이터 없음"으로 표시됩니다.
 
+NVD 영향 조건 근거를 스냅샷 취약점 행과 보존 스캔 판정의 선택적 JSON 문자열 `nvdApplicability`에 유지합니다. 수신한 `configurations` 트리와 존재하는 `id`·`sourceIdentifier`·`lastModified`·`vulnStatus`를 담습니다. configurations 누락은 null로 유지하며 빈 배열과 명시적 null은 문자열 내부에서 구분됩니다. 반입만으로 조건을 해석하거나 후보를 확정하지 않습니다. 문자열은 실행 가능한 내용이나 검증된 영향 판정이 아닌 출처 근거입니다. 기존 번들에는 없으며 이전 exporter는 이 필드를 버릴 수 있습니다. 기존 출처 날짜·크기 제한·데이터 고지는 계속 적용됩니다.
+
 `SYSTEM_ADMIN` 또는 `SETTINGS_SNAPSHOT_MANAGE` 권한이 필요합니다. [v1.0.4 새로운 기능](Whats-New-v1.0.4.md) 참고.
 
 번들은 v2 포맷입니다: 각 JSONL 파일의 체크섬이 `meta.json`에 기록되며, 소스별 출처 정보(`bundleId`, `builtAt`, `asOf`, `origin`)도 함께 저장됩니다. 체크섬이 일치하지 않으면 어떤 데이터도 기록하지 않고 반입을 거부합니다.

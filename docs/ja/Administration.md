@@ -258,6 +258,8 @@ v1.0.4 のアクションコードはフィルター UI で **モニタリング
 
 閉域網（エアギャップ）デプロイ（`OSWL_AIRGAPPED_ENABLED=true`）向けに、脆弱性・脅威インテリジェンスデータ（OSV、deps.dev、FIRST.org EPSS、CISA KEV）はライブ API ではなくインポート済みのスナップショットから提供されます — 外部への HTTP 通信は一切試みられず、スナップショットに存在しないコンポーネントは「データなし」として表示されます。
 
+NVDの影響条件の根拠は、スナップショットの脆弱性行と保存スキャン判定の任意JSON文字列`nvdApplicability`に保持します。受信した`configurations`ツリーと存在する`id`・`sourceIdentifier`・`lastModified`・`vulnStatus`を含みます。configurationsの欠落はnullで保持し、空配列と明示的nullは文字列内で区別します。取り込みだけで条件を評価したり候補を確定したりしません。文字列は出典の根拠であり、実行可能な内容や検証済みの影響判定ではありません。旧バンドルにはなく、旧エクスポーターは破棄する場合があります。既存の出典日付・サイズ制限・データ告知は引き続き適用します。
+
 `SYSTEM_ADMIN` または `SETTINGS_SNAPSHOT_MANAGE` が必要です。[v1.0.4 の新機能](Whats-New-v1.0.4.md)を参照してください。
 
 バンドルは v2 フォーマットです: 各 JSONL ファイルのチェックサムが `meta.json` に記録され、ソースごとの来歴情報（`bundleId`、`builtAt`、`asOf`、`origin`）も保存されます。チェックサムが一致しない場合、データを書き込む前にインポートが拒否されます。

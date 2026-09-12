@@ -20,7 +20,7 @@ class ScanAssessmentServiceTest {
         var library = Library.builder().id(5L).name("fixture").version("1").ecosystem("NPM").build();
         library.recordLookupOutcomes(Map.of("OSV","UNAVAILABLE"));
         library.getCves().add(Cve.builder().cveId("CVE-2026-123450").fixVersion("2")
-                .fixVersionConflictCandidates(Set.of("2","3")).sources(Set.of(CveSource.OSV)).build());
+                .fixVersionConflictCandidates(Set.of("2","3")).sources(Set.of(CveSource.OSV)).nvdApplicability("{\"configurations\":[]}").build());
         var component = ScanComponent.builder().library(library).build();
         service.capture(7L,List.of(component,component));
         var json = ArgumentCaptor.forClass(String.class);
@@ -35,6 +35,7 @@ class ScanAssessmentServiceTest {
                 assertThat(finding.kevListed()).isNull();
                 assertThat(finding.cvssScore()).isNull();
                 assertThat(finding.sources()).containsExactly(CveSource.OSV);
+                assertThat(finding.nvdApplicability()).isEqualTo("{\"configurations\":[]}");
             });
         });
         assertThatThrownBy(() -> assessment.libraries().clear()).isInstanceOf(UnsupportedOperationException.class);
