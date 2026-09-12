@@ -203,7 +203,7 @@ public class OsvClient {
     }
 
     private OsvResult snapshotResult(List<SnapshotVuln> vulns, OsvQuery query, boolean current, boolean resolved, java.time.Instant validUntil) {
-        boolean concreteIdentity = hasConcreteIdentity(query);
+        boolean concreteIdentity = com.salkcoding.oswl.vdb.OsvQueryIdentity.isConcrete(query.ecosystem(), query.name(), query.version());
         resolved &= concreteIdentity;
         current &= concreteIdentity;
         List<OsvVuln> findings = new ArrayList<>();
@@ -282,25 +282,6 @@ public class OsvClient {
     }
 
     // ── Internal ─────────────────────────────────────────────────────────
-
-    private static boolean hasConcreteIdentity(OsvQuery query) {
-        try {
-            String version = query.version();
-            String ecosystem = query.ecosystem().strip().toUpperCase(java.util.Locale.ROOT);
-            com.salkcoding.oswl.vdb.AdvisoryPackageNames.canonical(ecosystem, query.name());
-            switch (ecosystem) {
-                case "NPM", "CARGO", "CRATES.IO" -> com.salkcoding.oswl.vdb.SemVerVersionComparator.compare(version, version);
-                case "GO" -> com.salkcoding.oswl.vdb.GoVersionComparator.compare(version, version);
-                case "PYPI", "PIP" -> com.salkcoding.oswl.vdb.Pep440VersionComparator.compare(version, version);
-                case "MAVEN" -> com.salkcoding.oswl.vdb.MavenVersionComparator.compare(version, version);
-                case "NUGET" -> com.salkcoding.oswl.vdb.NuGetVersionComparator.compare(version, version);
-                default -> { }
-            }
-            return true;
-        } catch (IllegalArgumentException invalid) {
-            return false;
-        }
-    }
 
     private static boolean hasQueryIdentity(OsvQuery query) {
         boolean present = query != null && query.ecosystem() != null && !query.ecosystem().isBlank()
@@ -408,7 +389,7 @@ public class OsvClient {
         Map<String, com.fasterxml.jackson.databind.JsonNode> rangeEvidence = new java.util.LinkedHashMap<>();
         Set<String> cursors = new LinkedHashSet<>();
         Set<String> untrustedIds = new LinkedHashSet<>();
-        boolean concreteIdentity = hasConcreteIdentity(query);
+        boolean concreteIdentity = com.salkcoding.oswl.vdb.OsvQueryIdentity.isConcrete(query.ecosystem(), query.name(), query.version());
         boolean resolved = concreteIdentity;
         if (details.deadline == 0) details.deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos();
         for (int pageNumber = 1; ; pageNumber++) {

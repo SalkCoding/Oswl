@@ -55,6 +55,44 @@ class OsvBulkInputIntegrityTest {
         assertThatThrownBy(this::fetch).isInstanceOf(IOException.class);
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(value = {"npm;absent;*;true", "cargo;absent;latest;true",
+            "go;absent;master;true", "pypi;absent;>=1;true", "maven;absent;[1,2);true",
+            "nuget;absent;1.*;true", "pypi;invalid/name;1.0.0;true", "npm;absent;1.0.0;false"}, delimiter = ';')
+    void absentPackageCannotValidateAnInvalidWantedIdentity(String ecosystem, String name,
+            String version, boolean unresolved) throws Exception {
+        var cache = org.mockito.Mockito.mock(HttpCache.class);
+        org.mockito.Mockito.when(cache.getOrFetchWithLastModified(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString())).thenReturn(new HttpCache.FetchResult(zip(VALID), LocalDate.now()));
+        var result = new OsvBulkSource(new ObjectMapper()).fetch(List.of(
+                new WantedComponent(ecosystem, name, version), new WantedComponent("npm", "example", "1.0.0")), null, cache);
+        String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(ecosystem, name, version);
+        assertThat(result.unresolvedKeys().contains(key)).isEqualTo(unresolved);
+        assertThat(result.vulnsByComponentKey()).doesNotContainKey(key);
+        assertThat(result.vulnsByComponentKey().get("NPM|example|1.0.0")).hasSize(1);
+        assertThat(result.unresolvedKeys()).doesNotContain("NPM|example|1.0.0");
+    }
+
+    @Test void invalidWantedVersionIsPublishedAsUnresolvedByCli() throws Exception {
+        cache(zip(VALID), true);
+        Path wanted = directory.resolve("wanted.jsonl");
+        Files.writeString(wanted, """
+                {"ecosystem":"npm","name":"absent","version":"*"}
+                {"ecosystem":"npm","name":"example","version":"1.0.0"}
+                """);
+        Path output = directory.resolve("identity-bundle.zip");
+        assertThat(new VdbBuilderCli().run(new String[] {"build", "--sources", "osv", "--wanted", wanted.toString(),
+                "--offline-sources", directory.toString(), "--out", output.toString()})).isZero();
+        try (var zip = new java.util.zip.ZipFile(output.toFile())) {
+            String unresolved = new String(zip.getInputStream(zip.getEntry("unresolved.jsonl")).readAllBytes(), StandardCharsets.UTF_8);
+            var row = new ObjectMapper().readTree(unresolved);
+            assertThat(row.path("name").asText()).isEqualTo("absent");
+            assertThat(row.path("version").asText()).isEqualTo("*");
+            String osv = new String(zip.getInputStream(zip.getEntry("osv.jsonl")).readAllBytes(), StandardCharsets.UTF_8);
+            assertThat(osv).contains("example").doesNotContain("absent");
+        }
+    }
+
     @Test void nonZipResponseIsNotAnEmptySuccessfulDataset() throws Exception {
         cache("<html>upstream error</html>".getBytes(StandardCharsets.UTF_8), true);
         assertThatThrownBy(this::fetch).isInstanceOf(IOException.class);

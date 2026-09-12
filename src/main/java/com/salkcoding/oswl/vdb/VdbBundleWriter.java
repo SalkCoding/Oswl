@@ -171,10 +171,8 @@ final class VdbBundleWriter {
         if (unresolvedComponentCount > 0) {
             ObjectNode coverage = meta.putObject("coverage");
             coverage.put("unresolvedComponents", unresolvedComponentCount);
-            coverage.put("note", "These wanted components had at least one OSV range-typed "
-                    + "affected[] entry this builder could not confidently evaluate (non-SEMVER "
-                    + "range type, or an unparseable version string) — they are NOT necessarily "
-                    + "vulnerability-free, just unresolved.");
+            coverage.put("note", "These wanted components have unresolved OSV identity or advisory evidence. "
+                    + "They must not be treated as vulnerability-free.");
         }
         ObjectNode files = meta.putObject("files");
         putFileMeta(files, "osv.jsonl", osvContent, countLines(osvContent));

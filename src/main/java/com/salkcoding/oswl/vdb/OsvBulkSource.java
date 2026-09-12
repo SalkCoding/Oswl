@@ -111,19 +111,25 @@ final class OsvBulkSource {
                   Map<String, LocalDate> asOfByBucket) {}
 
     Result fetch(List<WantedComponent> wanted, Set<String> ecosystemFilter, HttpCache cache) throws Exception {
+        Set<String> unresolvedKeys = new LinkedHashSet<>();
         // ecosystem (normalized) -> name -> versions wanted
         Map<String, Map<String, Set<String>>> byEcosystem = new LinkedHashMap<>();
         for (WantedComponent w : wanted) {
             String eco = AirgappedSnapshotService.normalizeEcosystem(w.ecosystem());
             if (resolveBucket(eco) == null) continue;
             if (ecosystemFilter != null && !ecosystemFilter.contains(eco)) continue;
+            if (!OsvQueryIdentity.isConcrete(eco, w.name(), w.version())) {
+                String key = AirgappedSnapshotService.componentKey(eco, w.name(), w.version());
+                if (key == null) throw new IOException("Missing OSV wanted identity cannot be recorded as unresolved");
+                unresolvedKeys.add(key);
+                continue;
+            }
             byEcosystem.computeIfAbsent(eco, e -> new LinkedHashMap<>())
                     .computeIfAbsent(w.name(), n -> new LinkedHashSet<>())
                     .add(w.version());
         }
 
         Map<String, List<SnapshotVuln>> result = new LinkedHashMap<>();
-        Set<String> unresolvedKeys = new LinkedHashSet<>();
         Map<String, LocalDate> asOfByBucket = new LinkedHashMap<>();
 
         for (Map.Entry<String, Map<String, Set<String>>> ecoEntry : byEcosystem.entrySet()) {
