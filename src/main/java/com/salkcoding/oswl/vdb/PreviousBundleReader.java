@@ -44,7 +44,12 @@ final class PreviousBundleReader {
             bundleId = mapper.readTree(metaBytes).path("bundleId").asText(null);
         }
         Map<String, Map<String, String>> result = new LinkedHashMap<>();
+        var strictReader = mapper.reader()
+                .with(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
         for (Map.Entry<String, byte[]> e : files.entrySet()) {
+            if (!java.util.Set.of("osv.jsonl", "unresolved.jsonl", "depsdev.jsonl", "epss.jsonl", "kev.jsonl")
+                    .contains(e.getKey())) continue;
             Map<String, String> keyed = new LinkedHashMap<>();
             try (BufferedReader reader = new BufferedReader(
                     new InputStreamReader(new ByteArrayInputStream(e.getValue()), StandardCharsets.UTF_8))) {
@@ -53,12 +58,20 @@ final class PreviousBundleReader {
                     if (line.isBlank()) continue;
                     JsonNode node;
                     try {
-                        node = mapper.readTree(line);
-                    } catch (Exception ex) {
-                        continue; // malformed line in the previous bundle — skip, don't fail the whole diff
+                        node = strictReader.readTree(line);
+                    } catch (IOException ex) {
+                        throw new IOException("Invalid previous-bundle JSON row in " + e.getKey(), ex);
+                    }
+                    if (node == null || !node.isObject()) {
+                        throw new IOException("Previous-bundle row must be an object in " + e.getKey());
                     }
                     String key = extractKey(e.getKey(), node);
-                    if (key != null) keyed.put(key, line);
+                    if (key == null || key.isBlank()) {
+                        throw new IOException("Missing or invalid previous-bundle identity in " + e.getKey());
+                    }
+                    if (keyed.putIfAbsent(key, line) != null) {
+                        throw new IOException("Duplicate previous-bundle identity in " + e.getKey());
+                    }
                 }
             }
             result.put(e.getKey(), keyed);
@@ -83,6 +96,6 @@ final class PreviousBundleReader {
 
     private static String text(JsonNode node, String field) {
         JsonNode v = node.get(field);
-        return v == null || v.isNull() ? null : v.asText();
+        return v == null || !v.isTextual() || v.asText().isBlank() ? null : v.asText();
     }
 }
