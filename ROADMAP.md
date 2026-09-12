@@ -380,6 +380,11 @@
 - **후보 간 충돌 검증 범위:** 수정 전 4건 모두 실패. 이후 동일 근거/키 순서 대조와 JSON 왕복 검사를 추가하고 NVD 및 보강 서비스 묶음이 통과했다. 로그 `build/roadmap-nvd-conflict-before.log`, `build/roadmap-nvd-conflict-checked.log`. 자체 합성 입력이며 새 외부 자료/라이브러리, UI, DB migration 변경 없음. 기존 NIST 출처·권리 조건과 미완료인 전체 공급자 권한 감사는 유지한다.
 - **후보 간 충돌 전체 검증:** Windows/Java 25 `build verifyProdJar` 통과. 총 4,525건 중 4,513건 성공·기존 skip 12건·실패/오류 0. 로그 `build/roadmap-nvd-conflict-build.log`. UI 변경이 없어 브라우저 검증은 재실행하지 않았다. 커밋 제목 `fix: retain conflicting nvd candidate evidence`.
 
+
+- **2026-09-12 NVD HTTP 중복 근거 보존:** 페이지 내부·페이지 사이·일부 행이 손상된 후속 페이지에서 같은 CVE ID의 다른 revision을 ID map이 버리는 경로를 정역순 6건으로 재현했다. 페이지의 반복 ID 탐지와 레코드 보존 집합을 분리해 중복 시 조회 미완료를 유지하면서 서로 다른 레코드를 모두 공급자 어댑터의 충돌 판정에 전달한다. 완전히 같은 레코드는 한 번 보존한다. 앞선 후보 간 충돌 작업의 HTTP 중복 근거 보존 잔여를 이 경로에서 해결했으며 기존 공유 행의 revision 조정은 여전히 남아 있다.
+- **HTTP 중복 회귀 근거:** 수정 전 6건 모두 실패했고 수정 후 실제 모의 HTTP→client의 부분 실패 예외→source adapter에서 ID와 활성/철회 양쪽 근거를 확인했다. 기존 동일 중복·페이지 offset·전체 건수·페이지 한도·전송 실패 검사도 유지하여 NVD 및 보강 서비스 묶음이 통과했다. 로그 `build/roadmap-nvd-page-conflict-before.log`, `build/roadmap-nvd-page-conflict-after.log`. 자체 합성 입력이며 새 외부 자료/라이브러리·UI·DB migration 변경 없음. 기존 출처 및 권리 감사의 범위는 유지한다.
+- **HTTP 중복 전체 검증:** Windows/Java 25 `build verifyProdJar` 통과. 총 4,531건 중 4,519건 성공·기존 skip 12건·실패/오류 0. 로그 `build/roadmap-nvd-page-conflict-build.log`. UI 변경이 없어 브라우저 검증은 재실행하지 않았다. 커밋 제목 `fix: preserve conflicting records from nvd pages`.
+
 ### 14. CPE 추정을 확정 취약·게이트에서 분리 — P0 · [부분 구현]
 
 - 현재·대상: [CpeNameMapper](src/main/java/com/salkcoding/oswl/client/CpeNameMapper.java), [NvdClient](src/main/java/com/salkcoding/oswl/client/NvdClient.java)의 이름 추정과 configuration 맥락 손실, 게이트의 신뢰도 처리.

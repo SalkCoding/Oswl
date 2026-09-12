@@ -113,7 +113,9 @@ public class NvdClient {
             return List.of();
         }
         String url = BASE_URL + "?cpeName=" + URLEncoder.encode(cpeName.strip(), StandardCharsets.UTF_8);
-        Map<String, NvdCve> found = new LinkedHashMap<>();
+        // Repeated IDs invalidate pagination, but different revisions must survive for review.
+        java.util.Set<NvdCve> found = new java.util.LinkedHashSet<>();
+        java.util.Set<String> receivedIds = new java.util.HashSet<>();
         try {
             Long expectedTotal = null;
             long offset = 0;
@@ -122,24 +124,25 @@ public class NvdClient {
                 List<NvdCve> findings = offset == 0 ? parseBody(body, confidence) : parseBody(body, confidence, offset);
                 boolean duplicate = false;
                 for (NvdCve finding : findings) {
-                    duplicate |= found.putIfAbsent(finding.cveId(), finding) != null;
+                    duplicate |= !receivedIds.add(finding.cveId());
+                    found.add(finding);
                 }
                 Long total = nonNegativeInteger(body.get("totalResults"));
                 if (duplicate || expectedTotal != null && !expectedTotal.equals(total)) {
-                    throw new IncompleteLookupException(new ArrayList<>(found.values()));
+                    throw new IncompleteLookupException(new ArrayList<>(found));
                 }
                 expectedTotal = total;
                 offset += findings.size();
-                if (offset == total) return List.copyOf(found.values());
+                if (offset == total) return List.copyOf(found);
             }
-            throw new IncompleteLookupException(new ArrayList<>(found.values()));
+            throw new IncompleteLookupException(new ArrayList<>(found));
         } catch (IncompleteLookupException e) {
-            for (NvdCve finding : e.findings()) found.putIfAbsent(finding.cveId(), finding);
+            found.addAll(e.findings());
             log.warn("[NVD] Incomplete CPE lookup; retaining {} findings", found.size());
-            throw new IncompleteLookupException(new ArrayList<>(found.values()));
+            throw new IncompleteLookupException(new ArrayList<>(found));
         } catch (Exception e) {
             log.warn("[NVD] CPE lookup failed for {}: {}", cpeName, e.getMessage());
-            if (!found.isEmpty()) throw new IncompleteLookupException(new ArrayList<>(found.values()));
+            if (!found.isEmpty()) throw new IncompleteLookupException(new ArrayList<>(found));
             throw new IllegalStateException("NVD lookup unavailable", e);
         }
     }

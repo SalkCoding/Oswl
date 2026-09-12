@@ -14,6 +14,42 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 class NvdPaginationTest {
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"same,false", "same,true", "next,false", "next,true", "malformed,false", "malformed,true"})
+    void duplicateIdsKeepBothRevisionsForSourceReview(String placement, boolean reverse) throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var active = java.util.Map.of("cve",java.util.Map.of("id","CVE-2026-123450","vulnStatus","Analyzed","lastModified","2020-01-01T00:00:00Z"));
+        var rejected = java.util.Map.of("cve",java.util.Map.of("id","CVE-2026-123450","vulnStatus","Rejected","lastModified","2020-01-01T00:00:00Z"));
+        var first = reverse ? rejected : active;
+        var second = reverse ? active : rejected;
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = client(builder);
+        if (placement.equals("same")) {
+            server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.anything()).andRespond(withSuccess(
+                    json.writeValueAsString(java.util.Map.of("startIndex",0,"totalResults",2,"resultsPerPage",2,
+                            "vulnerabilities",java.util.List.of(first,second))),MediaType.APPLICATION_JSON));
+        } else {
+            server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.anything()).andRespond(withSuccess(
+                    json.writeValueAsString(java.util.Map.of("startIndex",0,"totalResults",placement.equals("malformed") ? 3 : 2,
+                            "resultsPerPage",1,"vulnerabilities",java.util.List.of(first))),MediaType.APPLICATION_JSON));
+            server.expect(request -> assertThat(request.getURI().getRawQuery()).endsWith("startIndex=1")).andRespond(withSuccess(
+                    json.writeValueAsString(java.util.Map.of("startIndex",1,"totalResults",placement.equals("malformed") ? 3 : 2,
+                            "resultsPerPage",2,"vulnerabilities",placement.equals("malformed") ? java.util.Arrays.asList(second,null) : java.util.List.of(second))),MediaType.APPLICATION_JSON));
+        }
+        var cpe = org.mockito.Mockito.mock(CpeMatchService.class);
+        org.mockito.Mockito.when(cpe.inferCpes("fixture","1")).thenReturn(java.util.List.of(
+                new CpeNameMapper.CpeCandidate("fixture","product","1",MatchConfidence.HIGH)));
+        var result = new com.salkcoding.oswl.service.vulnerability.sources.NvdAdvisorySource(client,cpe)
+                .lookup("fixture","1",null,java.util.List.of());
+        assertThat(result.lookupFailed()).isTrue();
+        assertThat(result.findings()).singleElement().satisfies(finding -> {
+            assertThat(finding.cveId()).isEqualTo("CVE-2026-123450");
+            assertThat(finding.nvdApplicability()).contains("conflictingRecords", "Analyzed", "Rejected");
+        });
+        server.verify();
+    }
+
     private static final String URL = "https://services.nvd.nist.gov/rest/json/cves/2.0?cpeName=cpe%3Afixture";
 
     @ParameterizedTest
