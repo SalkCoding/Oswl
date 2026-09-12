@@ -38,6 +38,54 @@ class ScanSummaryReaderTest {
 
     @Autowired com.salkcoding.oswl.service.vulnerability.SecurityCenterService securityCenter;
 
+    @Test void riskSortDoesNotPromoteLowerSeverityByWeightedOverflow() {
+        var project = projects.save(Project.builder().name("Risk-precedence-" + UUID.randomUUID()).build());
+        var scan = scans.save(ScanResult.builder().project(project).status(ScanStatus.COMPLETED).build());
+        var ids = new java.util.ArrayList<Long>();
+        for (int i = 0; i < 2; i++) {
+            var lib = Library.builder().name(i == 0 ? "a-many-medium" : "z-one-high").version("1").ecosystem("NPM").build();
+            for (int j = 0; j < (i == 0 ? 1001 : 1); j++) {
+                lib.getCves().add(Cve.builder().library(lib).cveId("CVE-2026-" + (10000 + j))
+                        .sources(java.util.Set.of(CveSource.OSV)).severity(i == 0 ? RiskLevel.MEDIUM : RiskLevel.HIGH).build());
+            }
+            libraries.save(lib);
+            ids.add(components.save(ScanComponent.builder().scanResult(scan).library(lib).build()).getId());
+        }
+        entityManager.flush(); entityManager.clear();
+        var result = securityCenter.queryRows(project.getId(), scan.getId(),
+                com.salkcoding.oswl.dto.SecurityCenterRowFilterParams.initialPageLoad(), 0);
+        assertThat(result.getContent()).extracting(com.salkcoding.oswl.dto.ComponentRowDto::getId)
+                .containsExactly(ids.get(1), ids.get(0));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"NVD", "CPE", "confidence", "package"})
+    void riskSortUsesNonCandidateSeverity(String evidence) {
+        var project = projects.save(Project.builder().name("Risk-sort-" + UUID.randomUUID()).build());
+        var scan = scans.save(ScanResult.builder().project(project).status(ScanStatus.COMPLETED).build());
+        var ids = new java.util.ArrayList<Long>();
+        for (int i = 0; i < 3; i++) {
+            var lib = Library.builder().name(i == 0 ? "a-candidate" : i == 1 ? "b-high" : "c-unscored")
+                    .version("1").ecosystem("NPM").build();
+            java.util.Set<CveSource> sources = i > 0 ? java.util.Set.of(CveSource.OSV) : switch (evidence) {
+                case "NVD" -> java.util.Set.of(CveSource.NVD);
+                case "CPE" -> java.util.Set.of(CveSource.CPE);
+                case "confidence" -> java.util.Set.of();
+                default -> java.util.Set.of(CveSource.NVD, CveSource.OSV);
+            };
+            lib.getCves().add(Cve.builder().library(lib).cveId("CVE-2026-123453").sources(sources)
+                    .matchConfidence(i == 0 && evidence.equals("confidence") ? MatchConfidence.LOW : null)
+                    .severity(i == 0 ? RiskLevel.CRITICAL : i == 1 ? RiskLevel.HIGH : null).build());
+            libraries.save(lib);
+            ids.add(components.save(ScanComponent.builder().scanResult(scan).library(lib).build()).getId());
+        }
+        entityManager.flush(); entityManager.clear();
+        var result = securityCenter.queryRows(project.getId(), scan.getId(),
+                com.salkcoding.oswl.dto.SecurityCenterRowFilterParams.initialPageLoad(), 0);
+        assertThat(result.getContent()).extracting(com.salkcoding.oswl.dto.ComponentRowDto::getId)
+                .containsExactlyElementsOf(evidence.equals("package") ? ids : List.of(ids.get(1), ids.get(2), ids.get(0)));
+    }
+
     @Test void patchFilterCountsMatchesAcrossUnmatchedPages() {
         var project = projects.save(Project.builder().name("Patch-pages-" + UUID.randomUUID()).build());
         var scan = scans.save(ScanResult.builder().project(project).status(ScanStatus.COMPLETED).build());
