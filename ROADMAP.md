@@ -438,6 +438,10 @@
 
 - 미채점 게이트 검증: 수정 전 4개 회귀 실패로 잘못된 통과를 재현했다. 수정 후 경계값을 포함한 전체 4,459개 중 4,447개 통과·12개 건너뜀, `build verifyProdJar` 통과.
 
+- EPSS 임계값 검증: 요청·정책·기본값을 합친 최종 값의 NaN·무한대·1 초과를 거절해 비교 무력화를 막는다. 유한 음수의 명시적 비활성화는 기존 계약대로 유지하며 조직 최소 정책 조합은 여전히 남아 있다.
+
+- 임계값 검증 결과: 수정 전 요청·정책·기본값 6개 회귀 실패를 확인했다. 수정 후 정상 경계값을 포함해 전체 4,468개 중 4,456개 통과·12개 건너뜀, `build verifyProdJar` 통과.
+
 ### 20. npm·Yarn·pnpm의 실제 패키지와 설치 트리 — P1 · [지원 범위별 필수]
 
 - 현재·대상: [NpmManifestParser](src/main/java/com/salkcoding/oswl/service/ingest/parser/NpmManifestParser.java), lockfile·workspace 해석.

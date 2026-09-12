@@ -10,6 +10,9 @@ Gate baseline selection uses the closest completed scan before the target scan w
 A missing severity does not disable independent KEV or EPSS gate rules. A finding that triggers either rule is reported as `UNSCORED`; no severity is inferred. EPSS compares against the configured inclusive threshold. This does not supply missing severity or threat-intelligence evidence.
 
 
+The effective EPSS gate threshold is validated after request, policy and instance-default resolution: it must be finite and at most 1. Values in [0,1] enable the rule; finite negative values retain the explicit disable behavior. NaN, infinities and values above 1 return an invalid-request error instead of producing a gate result. This validation does not yet enforce an organization minimum against request overrides.
+
+
 ## Retrying an upload
 
 Each `oswl scan` invocation generates a fresh random idempotency key and prints it before uploading. If the upload response is lost, rerun the same input and credentials with `oswl scan ... --idempotency-key <printed-key>`. The server returns the original scan ID without restarting its analysis. A changed input with the same key returns 409; use a new key (or omit the option) for a new analysis. Do not reuse a key to restart a failed scan.

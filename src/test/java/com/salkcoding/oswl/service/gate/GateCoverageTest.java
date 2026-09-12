@@ -26,6 +26,7 @@ class GateCoverageTest {
     @Mock ScanFindingRepository findings;
     @Mock LibraryRepository libraries;
     @Mock PolicyService policies;
+    @Mock org.springframework.context.MessageSource messageSource;
     @Mock OswlMetrics metrics;
     @InjectMocks GatePolicyService service;
     Project project;
@@ -155,6 +156,39 @@ class GateCoverageTest {
             assertThat(v.severity()).isEqualTo("UNSCORED");
             assertThat(v.reason()).doesNotContain("severity");
         });
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"NaN","Infinity","-Infinity","1.0001"})
+    void invalidEpssThresholdCannotProduceAPassingGate(String value) {
+        org.mockito.Mockito.reset(scans);
+        org.mockito.Mockito.lenient().when(scans.findRecentCompleted(1L,1)).thenReturn(List.of(scan));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.evaluate(1L,
+                new GatePolicyService.GateOptions(null,null,false,Double.valueOf(value),false,false,false,false)))
+                .isInstanceOf(com.salkcoding.oswl.exception.InvalidRequestException.class);
+        org.mockito.Mockito.verifyNoInteractions(scans);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans={true,false})
+    void invalidEffectivePolicyOrInstanceThresholdIsRejected(boolean policy) {
+        org.mockito.Mockito.reset(scans);
+        org.mockito.Mockito.lenient().when(scans.findRecentCompleted(1L,1)).thenReturn(List.of(scan));
+        if (policy) when(policies.resolveGateOptions(1L)).thenReturn(
+                new GatePolicyService.GateOptions(null,null,null,Double.NaN,null,null,null,null));
+        else ReflectionTestUtils.setField(service,"defaultFailOnEpss",Double.NaN);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.evaluate(1L,GatePolicyService.GateOptions.defaults()))
+                .isInstanceOf(com.salkcoding.oswl.exception.InvalidRequestException.class);
+        org.mockito.Mockito.verifyNoInteractions(scans);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(doubles={-1.0,0.0,1.0})
+    void validEpssBoundariesAndExplicitDisableRemainSupported(double value) {
+        var result = service.evaluate(1L,new GatePolicyService.GateOptions(null,null,null,value,null,null,null,null));
+        assertThat(result.passed()).isTrue();
+        if (value < 0) assertThat(result.thresholds().failOnEpss()).isNull();
+        else assertThat(result.thresholds().failOnEpss()).isEqualTo(value);
     }
 
     @Test void missingLookupCannotPassEvenWhenIgnoredOrFiltered() {

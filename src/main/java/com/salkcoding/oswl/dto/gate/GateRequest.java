@@ -16,7 +16,7 @@ public record GateRequest(
         String failOnSeverity,
         @Schema(description = "Fail on any CISA KEV-listed CVE", example = "true")
         Boolean failOnKev,
-        @Schema(description = "Fail on CVEs with EPSS ≥ this value; negative disables", example = "0.5")
+        @Schema(description = "Fail on CVEs with EPSS ≥ this finite value in [0,1]; finite negative disables; invalid values return 400", example = "0.5")
         Double failOnEpss,
         @Schema(description = "Fail on RESTRICTED-license components", example = "true")
         Boolean failOnLicenseViolation,

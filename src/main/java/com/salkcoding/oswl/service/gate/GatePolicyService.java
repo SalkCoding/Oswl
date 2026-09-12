@@ -60,6 +60,7 @@ public class GatePolicyService {
     private final ScanFindingRepository scanFindingRepository;
     private final LibraryRepository libraryRepository;
     private final PolicyService policyService;
+    private final org.springframework.context.MessageSource messageSource;
     /** Null in plain-Mockito unit tests (no Spring context) — every use is guarded. */
     private final OswlMetrics oswlMetrics;
 
@@ -111,6 +112,10 @@ public class GatePolicyService {
                 options.failOnSeverity(), policyOptions.failOnSeverity(), defaultFailOnSeverity));
         boolean failOnKev = firstNonNull(options.failOnKev(), policyOptions.failOnKev(), defaultFailOnKev);
         double failOnEpss = firstNonNull(options.failOnEpss(), policyOptions.failOnEpss(), defaultFailOnEpss);
+        if (!Double.isFinite(failOnEpss) || failOnEpss > 1.0) {
+            throw new com.salkcoding.oswl.exception.InvalidRequestException(messageSource.getMessage(
+                    "gate.error.invalidEpssThreshold", null, org.springframework.context.i18n.LocaleContextHolder.getLocale()));
+        }
         boolean failOnLicense = firstNonNull(options.failOnLicenseViolation(),
                 policyOptions.failOnLicenseViolation(), defaultFailOnLicenseViolation);
         boolean onlyNew = firstNonNull(options.onlyNew(), policyOptions.onlyNew(), defaultOnlyNew);
