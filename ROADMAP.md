@@ -449,6 +449,8 @@
 
 - **2026-09-13 OSV 응답의 중복 필드 거절:** 배치/후속 페이지의 중복 results와 상세 원문의 중복 affected가 마지막 값으로 덮여 정상 조회·공통 수정 후보를 만들 수 있었다. 세 경로의 중복 필드 회귀 3건이 수정 전 실패했고 후속 JSON 3건은 기존에도 거절되는 대조군으로 유지했다. 세 HTTP 응답을 원문 바이트에서 중복 필드·후속 토큰 검사 후 읽도록 연결했다. 첫 배치 실패는 미완료, 상세 실패는 조회 ID만 유지, 후속 페이지 실패는 앞선 취약점/개별 근거를 보존하면서 공통 후보와 조회 완료를 보류한다. 관련 OSV·스냅샷·보강 561건 중 559 통과·기존 skip 2·실패/오류 0; `bootJar verifyProdJar` 성공. 세 언어 문서 반영. 합성 mock HTTP만 사용했고 새 외부 자료/라이브러리·DB/UI 변경 없음. 전체 build·실제 공급자·PostgreSQL·브라우저는 이번에 재실행하지 않았다. 공급자 원문 revision/권리의 전체 보존과 모든 모드 동등성 잔여는 유지한다. 로그 `build/osv-ambiguous-before.log`, `build/osv-ambiguous-checked.log`, `build/osv-ambiguous-jar.log`. 커밋 제목 `fix: reject ambiguous osv response json`.
 
+- **2026-09-13 번들 공급자 증거의 미확인 보존:** VdbBuilderCli의 partitionResolution이 명시적 OSV 미확인을 다른 OSV 발견 또는 deps.dev 버전 정보로 덮어쓰던 3조건의 수정 전 실패를 확인했다. 미확인 키를 우선 보존하여 발견 항목이 있어도 unresolved.jsonl에서 제거하지 않는다. 미확인/발견/deps.dev의 8조합과 실제 CLI의 정상 공지+평가 불가 GIT 범위 공지 입력을 검증했다. 출력에 기존 OSV-fixture 발견과 동일 컴포넌트 미확인 기록이 함께 남는다. OSV/Vdb/스냅샷 반입 관련 465건 중 463 통과·기존 skip 2·실패/오류 0, `bootJar verifyProdJar` 성공(41초). 세 언어 문서 반영. 자체 합성 fixture만 사용했고 새 외부 자료/라이브러리·DB schema·UI 변경 없음. 전체 build·실제 외부 API·PostgreSQL·브라우저는 이번에 재실행하지 않았다. 모든 공급원의 개별 coverage 모델은 여전히 잔여다. 로그 `build/bundle-partial-before.log`, `build/bundle-partial-checked.log`. 커밋 제목 `fix: retain unresolved osv coverage across bundle evidence`.
+
 ### 14. CPE 추정을 확정 취약·게이트에서 분리 — P0 · [부분 구현]
 
 - 현재·대상: [CpeNameMapper](src/main/java/com/salkcoding/oswl/client/CpeNameMapper.java), [NvdClient](src/main/java/com/salkcoding/oswl/client/NvdClient.java)의 이름 추정과 configuration 맥락 손실, 게이트의 신뢰도 처리.

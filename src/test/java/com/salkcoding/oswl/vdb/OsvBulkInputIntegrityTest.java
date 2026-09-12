@@ -93,6 +93,48 @@ class OsvBulkInputIntegrityTest {
         }
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"true,true,true", "true,true,false", "true,false,true", "true,false,false",
+            "false,true,true", "false,true,false", "false,false,true", "false,false,false"})
+    void explicitOsvUncertaintySurvivesOtherEvidence(boolean partial, boolean finding, boolean depsdev) {
+        var wanted = new WantedComponent("npm", "example", "1.0.0");
+        String key = "NPM|example|1.0.0";
+        var versions = depsdev ? List.of(new DepsDevSource.VersionRecord("npm", "example", "1.0.0",
+                List.of(), List.of(), false, null)) : List.<DepsDevSource.VersionRecord>of();
+        Object result = org.springframework.test.util.ReflectionTestUtils.invokeMethod(VdbBuilderCli.class,
+                "partitionResolution", List.of(wanted), finding ? java.util.Set.of(key) : java.util.Set.of(),
+                partial ? java.util.Set.of(key) : java.util.Set.of(), java.util.Set.of("NPM"), versions);
+        List<WantedComponent> unresolved = org.springframework.test.util.ReflectionTestUtils.invokeMethod(result, "unresolved");
+        Integer resolvedCount = org.springframework.test.util.ReflectionTestUtils.invokeMethod(result, "resolvedCount");
+        assertThat(unresolved).isEqualTo(partial ? List.of(wanted) : List.of());
+        assertThat(resolvedCount).isEqualTo(partial ? 0 : 1);
+    }
+
+    @Test void cliPreservesBothKnownFindingsAndUnresolvedAdvisories() throws Exception {
+        var mapper = new ObjectMapper();
+        var unknown = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(VALID);
+        unknown.put("id", "OSV-unknown");
+        var affected = (com.fasterxml.jackson.databind.node.ObjectNode) unknown.path("affected").get(0);
+        affected.remove("versions");
+        affected.putArray("ranges").addObject().put("type", "GIT").putArray("events")
+                .addObject().put("introduced", "0");
+        cache(zipRecords(List.of(VALID, unknown.toString())), true);
+        Path wanted = directory.resolve("wanted.jsonl");
+        Files.writeString(wanted, """
+                {"ecosystem":"npm","name":"example","version":"1.0.0"}
+                """);
+        Path output = directory.resolve("partial-bundle.zip");
+        assertThat(new VdbBuilderCli().run(new String[] {"build", "--sources", "osv", "--wanted", wanted.toString(),
+                "--offline-sources", directory.toString(), "--out", output.toString()})).isZero();
+        try (var zip = new java.util.zip.ZipFile(output.toFile())) {
+            var unresolved = mapper.readTree(zip.getInputStream(zip.getEntry("unresolved.jsonl")));
+            assertThat(unresolved.path("name").asText()).isEqualTo("example");
+            var osv = mapper.readTree(zip.getInputStream(zip.getEntry("osv.jsonl")));
+            assertThat(osv.path("vulns")).hasSize(1);
+            assertThat(osv.path("vulns").get(0).path("osvId").asText()).isEqualTo("OSV-fixture");
+        }
+    }
+
     @Test void nonZipResponseIsNotAnEmptySuccessfulDataset() throws Exception {
         cache("<html>upstream error</html>".getBytes(StandardCharsets.UTF_8), true);
         assertThatThrownBy(this::fetch).isInstanceOf(IOException.class);

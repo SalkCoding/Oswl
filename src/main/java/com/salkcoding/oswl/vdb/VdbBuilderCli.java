@@ -231,7 +231,8 @@ public final class VdbBuilderCli {
 
     private record Resolution(int resolvedCount, List<WantedComponent> unresolved) {}
 
-    /** A wanted component counts as "resolved" if OSV or deps.dev actually produced an answer
+    /** Explicit OSV uncertainty remains unresolved even when another record contains findings or metadata.
+     * A wanted component otherwise counts as "resolved" if OSV or deps.dev actually produced an answer
      * for it — either found vulnerabilities, confirmed none, or resolved a deps.dev version. Only
      * genuinely unresolved (OSV range we couldn't evaluate, deps.dev lookup failed/skipped, or an
      * ecosystem OSV never even fetched a dump for) components are excluded — those are written to
@@ -256,7 +257,7 @@ public final class VdbBuilderCli {
             String ecosystem = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.normalizeEcosystem(w.ecosystem());
             boolean osvResolved = osvVulnKeys.contains(key)
                     || (osvProcessedEcosystems.contains(ecosystem) && !osvUnresolvedKeys.contains(key));
-            if (osvResolved || depsdevResolvedKeys.contains(key)) {
+            if (!osvUnresolvedKeys.contains(key) && (osvResolved || depsdevResolvedKeys.contains(key))) {
                 resolved++;
             } else {
                 unresolved.add(w);
