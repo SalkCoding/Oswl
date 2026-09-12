@@ -397,6 +397,10 @@
 
 - CLI 연결: Bash·PowerShell은 매 실행 새 무작위 키를 생성하고 `--idempotency-key`로 동일 입력의 명시적 재전송을 지원한다. 응답 유실·새 키 분리·잘못된 키·409 종료를 실제 로컬 HTTP 업로드로 검증했다. 자동 재시도는 없으며 구버전 서버의 키 무시는 중복 제거를 보장하지 않는다. Git Bash와 PowerShell 5.1/7에서 검증했고 네이티브 macOS/Linux 실행은 미검증이다.
 
+- 판정 보존 연결: 완료 전 데이터 분석 판정을 V43의 최초 기록으로 저장하고 보고서·스캔 요약이 이를 우선 조회한다. 공유 데이터 변경과 오래된 객체 저장 후에도 수정 버전·심각도·라이선스 판정이 유지된다. 기존 판정 없는 행은 소급 채우지 않는다. 상세·게이트 등 나머지 직접 조회, 동시 공급자 저장의 일관성, AI·재평가 revision은 여전히 남아 있다.
+
+- 판정 보존 검증: 전체 4,445개 중 4,433개 통과·12개 건너뜀, `build verifyProdJar` 통과. PostgreSQL 보존·마이그레이션 검증 7개 통과. 조회 실패·미상 KEV·수정 버전 충돌 보존과 지원하지 않는 형식의 실패 동작을 검증했다.
+
 ### 17. 소스·시크릿·IaC 등 분석기별 완전성 상태 — P0 · [코드 확인]
 
 - 현재·대상: [SecretIacScanService](src/main/java/com/salkcoding/oswl/service/secretscan/SecretIacScanService.java)의 반환/로그와 CLI manifest-only 제출. 공급원별 coverage 전체를 새로 만드는 작업은 아니다.

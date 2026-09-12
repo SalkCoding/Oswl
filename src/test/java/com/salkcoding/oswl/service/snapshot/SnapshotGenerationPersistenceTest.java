@@ -33,6 +33,9 @@ class SnapshotGenerationPersistenceTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired com.salkcoding.oswl.repository.scan.ScanResultRepository scans;
     @Autowired com.salkcoding.oswl.repository.project.ProjectRepository projects;
+    @Autowired com.salkcoding.oswl.service.scan.ScanAssessmentService assessments;
+    @Autowired com.salkcoding.oswl.service.scan.ScanSummaryReader summaryReader;
+    @Autowired com.salkcoding.oswl.service.reporting.ComplianceReportService reports;
     @MockitoSpyBean SnapshotGenerationService publication;
 
     @org.junit.jupiter.api.BeforeEach void isolatedStore() {
@@ -43,6 +46,40 @@ class SnapshotGenerationPersistenceTest {
         jdbc.update("DELETE FROM snapshot_generations");
         entries.deleteAllInBatch();
         metadata.deleteAllInBatch();
+    }
+
+    @Test void preservedAssessmentSurvivesChangedLibraryDataAndStaleScanSaves() {
+        var project = projects.saveAndFlush(com.salkcoding.oswl.domain.entity.project.Project.builder().name("Assessment history").build());
+        var scan = scans.saveAndFlush(com.salkcoding.oswl.domain.entity.scan.ScanResult.builder().project(project)
+                .version("main").status(com.salkcoding.oswl.domain.enums.ScanStatus.COMPLETED).build());
+        var stale = scans.findById(scan.getId()).orElseThrow();
+        var library = com.salkcoding.oswl.domain.entity.vulnerability.Library.builder().id(31L).name("fixture")
+                .version("1").ecosystem("NPM").licenseStatus(com.salkcoding.oswl.domain.enums.LicenseStatus.RESTRICTED).build();
+        library.getCves().add(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder()
+                .cveId("CVE-2026-123450").severity(com.salkcoding.oswl.domain.enums.RiskLevel.HIGH)
+                .fixVersion("2").kevListed(true).build());
+        var component = com.salkcoding.oswl.domain.entity.scan.ScanComponent.builder().library(library).scanResult(scan).build();
+        assessments.capture(scan.getId(), List.of(component));
+        String original = scans.findById(scan.getId()).orElseThrow().getAssessmentJson();
+        assertThat(original).isNotBlank();
+        library.getCves().clear();
+        library.updateLicense("MIT",List.of("MIT"),com.salkcoding.oswl.domain.enums.LicenseStatus.PERMITTED);
+        assessments.capture(scan.getId(),List.of(component));
+        scans.saveAndFlush(stale);
+        var preserved = scans.findById(scan.getId()).orElseThrow();
+        assertThat(preserved.getAssessmentJson()).isEqualTo(original);
+        var summary = summaryReader.read(List.of(preserved)).get(scan.getId());
+        assertThat(summary.security()).containsExactly(0,1,0,0,0);
+        assertThat(summary.licenses()).containsExactly(1,0,0,0);
+        var report = reports.build(project.getId());
+        assertThat(report.highCves()).isEqualTo(1);
+        assertThat(report.licenseViolations()).isEqualTo(1);
+        assertThat(report.kevRows()).singleElement().satisfies(row -> {
+            assertThat(row.fixVersion()).isEqualTo("2");
+            assertThat(row.cveId()).isEqualTo("CVE-2026-123450");
+        });
+        assertThatThrownBy(() -> com.salkcoding.oswl.service.scan.ScanAssessmentService.read("invalid"))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test void concurrentScanPinningAndStaleSavesCannotChangeTheChosenGeneration() throws Exception {
@@ -232,6 +269,11 @@ class SnapshotGenerationPersistenceTest {
                         new org.springframework.core.io.ClassPathResource("db/migration/V41__scan_snapshot_generation.sql"));
                 org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection,
                         new org.springframework.core.io.ClassPathResource("db/migration/V42__scan_retry_identity.sql"));
+                org.springframework.jdbc.datasource.init.ScriptUtils.executeSqlScript(connection,
+                        new org.springframework.core.io.ClassPathResource("db/migration/V43__scan_assessment_evidence.sql"));
+                try (var rows = statement.executeQuery("SELECT assessment_json FROM scan_results WHERE id=1")) {
+                    assertThat(rows.next()).isTrue(); assertThat(rows.getString(1)).isNull();
+                }
                 try (var rows = statement.executeQuery("SELECT idempotency_key,input_digest FROM scan_results WHERE id=1")) {
                     assertThat(rows.next()).isTrue();
                     assertThat(rows.getString(1)).isNull(); assertThat(rows.getString(2)).isNull();

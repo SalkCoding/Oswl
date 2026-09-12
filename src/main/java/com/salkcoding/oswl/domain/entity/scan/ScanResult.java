@@ -55,6 +55,10 @@ public class ScanResult {
     @Column(name = "input_digest", length = 64, updatable = false)
     private String inputDigest;
 
+    /** Immutable data-phase findings; null denotes a scan without preserved evidence. */
+    @Column(name = "assessment_json", columnDefinition = "TEXT", updatable = false)
+    private String assessmentJson;
+
     /** Project version at the time of the scan */
     @Column(length = 50)
     private String version;

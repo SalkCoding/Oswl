@@ -1,7 +1,7 @@
 package com.salkcoding.oswl.service.reporting;
 
-import com.salkcoding.oswl.domain.entity.vulnerability.Cve;
-import com.salkcoding.oswl.domain.entity.vulnerability.Library;
+import com.salkcoding.oswl.dto.scan.ScanAssessment;
+import com.salkcoding.oswl.service.scan.ScanAssessmentService;
 import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.domain.entity.scan.ScanComponent;
 import com.salkcoding.oswl.domain.entity.scan.ScanResult;
@@ -27,7 +27,7 @@ import java.util.Map;
 /**
  * Assembles the compliance report (CRA readiness / ISMS-P evidence) from the project's
  * most recent completed scan. Pure read-model reassembly of existing scan, CVE, and
- * deferral data — no new entities or persistence.
+ * deferral data. Preserved data-phase evidence takes precedence over shared live metadata.
  */
 @Slf4j
 @Service
@@ -54,7 +54,11 @@ public class ComplianceReportService {
             return emptyReport(project.getName(), generatedAt);
         }
 
-        List<Library> libraries = libraryRepository.findByScanResultIdWithCves(scan.getId());
+        List<ScanAssessment.LibraryAssessment> libraries = scan.getAssessmentJson() == null
+                ? libraryRepository.findByScanResultIdWithCves(scan.getId()).stream().map(ScanAssessmentService::fromLibrary).toList()
+                : ScanAssessmentService.read(scan.getAssessmentJson()).libraries();
+        Map<Long, ScanAssessment.LibraryAssessment> assessments = new java.util.HashMap<>();
+        libraries.forEach(library -> assessments.put(library.libraryId(), library));
         List<ScanComponent> components = scanComponentRepository.findByScanResultId(scan.getId());
         Map<Long, ScanComponent> scByLibrary = new java.util.HashMap<>();
         for (ScanComponent sc : components) {
@@ -66,13 +70,13 @@ public class ComplianceReportService {
         int licenseViolations = 0, licenseWarnings = 0, licenseUnknown = 0, licensePermitted = 0;
         List<KevRow> kevRows = new ArrayList<>();
 
-        for (Library lib : libraries) {
-            ScanComponent sc = scByLibrary.get(lib.getId());
+        for (ScanAssessment.LibraryAssessment lib : libraries) {
+            ScanComponent sc = scByLibrary.get(lib.libraryId());
             boolean triaged = sc != null && (sc.isDeferred() || sc.isReviewed());
 
-            for (Cve cve : lib.getCves()) {
-                if (cve.getSeverity() != null) {
-                    switch (cve.getSeverity()) {
+            for (ScanAssessment.Finding cve : lib.findings()) {
+                if (cve.severity() != null) {
+                    switch (cve.severity()) {
                         case CRITICAL -> criticalCves++;
                         case HIGH -> highCves++;
                         case MEDIUM -> mediumCves++;
@@ -83,21 +87,21 @@ public class ComplianceReportService {
                 } else {
                     unscoredCves++;
                 }
-                if (cve.getKevListed() == null) kevUnknown++;
-                if (Boolean.TRUE.equals(cve.getKevListed())) {
+                if (cve.kevListed() == null) kevUnknown++;
+                if (Boolean.TRUE.equals(cve.kevListed())) {
                     kevTotal++;
                     if (!triaged) kevUnresolved++;
                     kevRows.add(new KevRow(
-                            cve.getCveId() != null ? cve.getCveId() : cve.getGhsaId(),
-                            lib.getName(),
-                            lib.getVersion() != null ? lib.getVersion() : "-",
-                            cve.getSeverity() != null ? cve.getSeverity().name() : "UNSCORED",
-                            cve.getFixVersion() != null ? cve.getFixVersion() : "—",
+                            cve.cveId() != null ? cve.cveId() : cve.ghsaId(),
+                            lib.name(),
+                            lib.version() != null ? lib.version() : "-",
+                            cve.severity() != null ? cve.severity().name() : "UNSCORED",
+                            cve.fixVersion() != null ? cve.fixVersion() : "—",
                             triageState(sc)));
                 }
             }
 
-            switch (lib.getLicenseStatus()) {
+            switch (lib.licenseStatus()) {
                 case RESTRICTED -> licenseViolations++;
                 case CAUTION -> licenseWarnings++;
                 case UNKNOWN -> licenseUnknown++;
@@ -109,9 +113,10 @@ public class ComplianceReportService {
         int reviewed = 0, deferred = 0, untriagedRisk = 0;
         List<Duration> triageDurations = new ArrayList<>();
         for (ScanComponent sc : components) {
-            boolean hasRisk = sc.getLibrary().getCves().stream()
-                    .anyMatch(c -> c.getSeverity() != null
-                            && c.getSeverity() != com.salkcoding.oswl.domain.enums.RiskLevel.NONE);
+            var assessment = assessments.get(sc.getLibrary().getId());
+            boolean hasRisk = assessment != null && assessment.findings().stream()
+                    .anyMatch(c -> c.severity() != null
+                            && c.severity() != com.salkcoding.oswl.domain.enums.RiskLevel.NONE);
             if (sc.isDeferred()) {
                 deferred++;
                 if (sc.getDeferredAt() != null && scan.getScannedAt() != null) {

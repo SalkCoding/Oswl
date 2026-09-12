@@ -5,7 +5,7 @@ import java.util.List;
 /**
  * Aggregated data for the printable compliance report (CRA / ISMS-P evidence).
  * Assembled by {@code ComplianceReportService} from the latest completed scan —
- * no new persistence, all figures are derived from existing scan/CVE/deferral data.
+ * preserved data-phase findings take precedence; triage state remains current.
  */
 public record ComplianceReportDto(
         String projectName,

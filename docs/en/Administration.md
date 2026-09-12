@@ -10,6 +10,13 @@ Role templates here control **instance-wide permissions**, not which projects a 
 
 ---
 
+## Preserved scan assessments
+
+New data-phase completions preserve a versioned assessment before publishing the completed status (V43 schema). It records library identity, license evidence/classification, provider lookup outcomes/timestamps, OSV fix assessment and individual findings, including fix conflicts, missing scores/KEV status and source attribution. The report and scan summary reader use this evidence even after shared Library/CVE data changes. Capturing again cannot replace the first assessment; ordinary stale scan saves cannot erase it. Invalid stored formats fail rather than falling back to an empty result.
+
+Legacy scans with no assessment still use the existing live/archived read paths; their past findings are not reconstructed. Triage/deferral state and report generation time remain current. Security Center details, gates and other direct Library/CVE queries still need migration to preserved assessments; this is not yet full immutable evaluation history. Independent AI output is not part of the data-phase assessment. Concurrent provider persistence and incomplete enrichment failures retain their existing limits, and this capture does not prove all requested providers succeeded. The original offline generation remains referenced by the scan. Per-scan retention and separate reevaluation revisions remain pending.
+
+
 ## User Management
 
 **Settings → Admin → Users**
