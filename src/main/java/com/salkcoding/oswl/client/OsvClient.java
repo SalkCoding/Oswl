@@ -35,7 +35,9 @@ import java.util.Set;
 public class OsvClient {
 
     private static final String BASE_URL = "https://api.osv.dev";
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = new ObjectMapper()
+            .enable(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+            .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private static final int MAX_BATCH_SIZE = 1000;
     /** Default timeouts used by the no-arg/2-arg constructors (unit tests, and any caller not wired through Spring config). */
     private static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(5);
@@ -343,12 +345,12 @@ public class OsvClient {
             log.debug("[OsvClient] querybatch request size={} valid={}",
                     queries.size(), validIndices.size());
 
-            Map<String, Object> response = restClient.post()
+            Map<String, Object> response = readResponse(restClient.post()
                     .uri("/v1/querybatch")
                     .header("Content-Type", "application/json")
                     .body(Map.of("queries", requestBody))
                     .retrieve()
-                    .body(Map.class);
+                    .body(byte[].class));
             recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
 
             if (response == null || !(response.get("results") instanceof List<?> rawResults)) {
@@ -456,11 +458,11 @@ public class OsvClient {
             }
             try {
                 details.continuations++;
-                Map<String, Object> response = restClient.post().uri("/v1/querybatch")
+                Map<String, Object> response = readResponse(restClient.post().uri("/v1/querybatch")
                         .header("Content-Type", "application/json")
                         .body(Map.of("queries", List.of(Map.of("version", query.version(),
                                 "package", Map.of("name", query.name(), "ecosystem", query.ecosystem()), "page_token", token))))
-                        .retrieve().body(Map.class);
+                        .retrieve().body(byte[].class));
                 recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
                 if (response == null || !(response.get("results") instanceof List<?> results)
                         || results.size() != 1 || !(results.getFirst() instanceof Map<?, ?> next)) {
@@ -571,13 +573,23 @@ public class OsvClient {
     }
 
     @SuppressWarnings("unchecked")
+    private static Map<String, Object> readResponse(byte[] raw) {
+        if (raw == null) return null;
+        try {
+            return JSON.readValue(raw, Map.class);
+        } catch (java.io.IOException invalid) {
+            throw new RestClientException("Invalid or ambiguous OSV response JSON", invalid);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
     private Map<String, Object> loadDetail(String id, DetailBudget budget) {
         if (budget.cache.containsKey(id)) return budget.cache.get(id);
         if (budget.deadline == 0) budget.deadline = System.nanoTime() + Duration.ofSeconds(30).toNanos();
         if (budget.cache.size() >= 256 || System.nanoTime() >= budget.deadline || Thread.currentThread().isInterrupted()) return null;
         Map<String, Object> detail = null;
         try {
-            var response = restClient.get().uri("/v1/vulns/{id}", id).retrieve().body(Map.class);
+            var response = readResponse(restClient.get().uri("/v1/vulns/{id}", id).retrieve().body(byte[].class));
             if (response != null && id.equals(response.get("id"))) detail = response;
         } catch (RestClientException e) {
             recordApiCall(isRateLimited(e) ? OswlMetrics.OUTCOME_RATE_LIMITED : OswlMetrics.OUTCOME_FAILURE);

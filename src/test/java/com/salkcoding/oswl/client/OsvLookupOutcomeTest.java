@@ -16,6 +16,38 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class OsvLookupOutcomeTest {
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"batch,false", "batch,true", "detail,false", "detail,true", "continuation,false", "continuation,true"})
+    void ambiguousJsonCannotConfirmCoverageOrCommonFix(String stage, boolean trailing) {
+        var builder = RestClient.builder().baseUrl("https://api.osv.dev");
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new OsvClient();
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        String first = "{\"results\":[{\"vulns\":[{\"id\":\"OSV-fixture\",\"modified\":\"2026-01-01T00:00:00Z\"}]"
+                + (stage.equals("continuation") ? ",\"next_page_token\":\"next\"" : "") + "}]}";
+        if (stage.equals("batch")) first = trailing ? "{\"results\":[{}]} {}" : "{\"results\":null,\"results\":[{}]}";
+        server.expect(requestTo("https://api.osv.dev/v1/querybatch")).andRespond(withSuccess(first, MediaType.APPLICATION_JSON));
+        if (!stage.equals("batch")) {
+            String detail = "{\"id\":\"OSV-fixture\",\"modified\":\"2026-01-01T00:00:00Z\",\"affected\":[{\"package\":{\"ecosystem\":\"npm\",\"name\":\"fixture\"},"
+                    + "\"ranges\":[{\"type\":\"SEMVER\",\"events\":[{\"introduced\":\"0\"},{\"fixed\":\"2.0.0\"}]}]}]}";
+            if (stage.equals("detail")) detail = trailing ? detail + " {}" : detail.replace("\"affected\":", "\"affected\":null,\"affected\":");
+            server.expect(requestTo("https://api.osv.dev/v1/vulns/OSV-fixture")).andRespond(withSuccess(detail, MediaType.APPLICATION_JSON));
+        }
+        if (stage.equals("continuation")) {
+            String next = trailing ? "{\"results\":[{}]} {}" : "{\"results\":null,\"results\":[{}]}";
+            server.expect(requestTo("https://api.osv.dev/v1/querybatch")).andRespond(withSuccess(next, MediaType.APPLICATION_JSON));
+        }
+        var result = client.queryBatch(List.of(new OsvClient.OsvQuery("npm", "fixture", "1.0.0"))).getFirst();
+        assertThat(result.resolved()).isFalse();
+        assertThat(result.commonFix().version()).isNull();
+        if (stage.equals("batch")) assertThat(result.vulns()).isEmpty();
+        else assertThat(result.vulns()).singleElement().satisfies(v -> {
+            assertThat(v.osvId()).isEqualTo("OSV-fixture");
+            assertThat(v.fixVersion()).isEqualTo(stage.equals("detail") ? null : "2.0.0");
+        });
+        server.verify();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.MethodSource("incompleteQueries")
     void incompleteIdentityRemainsUnresolvedInBothModes(OsvClient.OsvQuery incomplete) {
         var builder = RestClient.builder().baseUrl("https://api.osv.dev");
