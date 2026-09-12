@@ -977,6 +977,8 @@
 - 선행: 5·10~38번 중 지원 프로파일의 필수 기능, 42번 정답 집합.
 - DoD: 동일 지원 범위의 설명되지 않는 판정 차이가 없다. 실제 서로 다른 데이터 세대의 차이는 freshness/coverage로 설명한다. 반입 뒤 공개된 취약점·미공개 취약점까지 기존 DB가 탐지한다고 약속하지 않는다.
 
+- **2026-09-13 GHSA 수정 후보의 DB 반입·오프라인 조회 검증:** 합성 GraphQL 중첩 범위를 실제 온라인 client로 판정해 3.0.0을 선택한 뒤, 테스트가 명시적으로 formatVersion 2·파일 SHA-256·행 수·원천 기준일을 갖춘 ZIP을 생성했다. 실제 H2 반입과 오프라인 GitHub client/source를 통과시켜 공지 ID·CVE·심각도·수정 후보를 대조했다. 최신 기준일은 3.0.0을 유지하고 8일 경과/날짜 없음은 조회 미완료·안내 후보 없음으로 처리하면서 DB의 원래 3.0.0 및 취약점은 유지한다. 미수집 버전 키도 완료 결과에 포함하지 않는다. 기준일은 모의 조건이며 공급자 revision 날짜가 아니다. 신규 3조건 및 SnapshotImportTransactionTest/GitHubAdvisoryRangeTest 전체 216건 통과·실패/skip 0(33초). 새 외부 자료/라이브러리·제품 코드/UI 변경 없음. 세 언어 문서 반영. 현재 CLI에는 GHSA 수집기가 연결돼 있지 않으므로 이 검사를 CLI collection/export 왕복으로 부르지 않는다. 실제 GitHub·PostgreSQL·전체 build/UI 및 전체 동일 revision 동등성 검증은 잔여다. 로그 `build/ghsa-range-snapshot.log`, `build/ghsa-range-snapshot-checked.log`. 커밋 제목 `test: verify github fix candidates through snapshot import`.
+
 ### 44. PostgreSQL 업그레이드·복구·지원 용량 — P1 · [실환경 필요]
 
 - 현재·대상: 단일 조직 self-hosted를 우선한다. H2 검증은 PostgreSQL 복구/가용성 보증이 아니다.

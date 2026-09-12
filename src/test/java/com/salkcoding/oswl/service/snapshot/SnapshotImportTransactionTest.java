@@ -553,6 +553,61 @@ class SnapshotImportTransactionTest {
                 "[{\"osvId\":\"GHSA-fixture\",\"fixVersionConflictCandidates\":" + candidates + "}]").build());
         assertThat(service.findOsvVulns(List.of(key))).doesNotContainKey(key);
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {0, 8, 999})
+    void githubRangeFixSurvivesDatabaseImportWithExplicitFreshness(int age) throws Exception {
+        var builder = org.springframework.web.client.RestClient.builder();
+        var server = org.springframework.test.web.client.MockRestServiceServer.bindTo(builder).build();
+        var live = new com.salkcoding.oswl.client.GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
+                java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1));
+        org.springframework.test.util.ReflectionTestUtils.setField(live, "restClient", builder.build());
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var nodes = new ArrayList<Map<String, Object>>();
+        for (String[] interval : List.of(new String[]{"< 2.0.0", "2.0.0"}, new String[]{">= 2.0.0, < 3.0.0", "3.0.0"})) {
+            nodes.add(Map.of("package", Map.of("name", "fixture", "ecosystem", "NPM"),
+                    "vulnerableVersionRange", interval[0], "firstPatchedVersion", Map.of("identifier", interval[1]),
+                    "severity", "HIGH", "advisory", Map.of("identifiers", List.of(
+                            Map.of("type", "GHSA", "value", "GHSA-fixture"), Map.of("type", "CVE", "value", "CVE-2026-123450")))));
+        }
+        String response = json.writeValueAsString(Map.of("data", Map.of("securityVulnerabilities",
+                Map.of("pageInfo", Map.of("hasNextPage", false), "nodes", nodes))));
+        server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo("https://api.github.com/graphql"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(response,
+                        org.springframework.http.MediaType.APPLICATION_JSON));
+        var online = live.findByPackage("npm", "fixture", "1.0.0");
+        assertThat(online).singleElement().satisfies(v -> assertThat(v.fixVersion()).isEqualTo("3.0.0"));
+        var finding = online.getFirst();
+        var stored = new AirgappedSnapshotService.SnapshotVuln(finding.ghsaId(), finding.cveId(), finding.summary(),
+                finding.fixVersion(), null, finding.severity().name(), finding.cvssScore(), finding.cvss3Vector(), null,
+                finding.fixVersionConflictCandidates());
+        String line = json.writeValueAsString(Map.of("ecosystem", "NPM", "name", "fixture", "version", "1.0.0", "vulns", List.of(stored)));
+        // These dates simulate bundle freshness; they are not provider revision dates.
+        Map<String, Object> date = age == 999 ? Map.of() : Map.of("asOf", java.time.LocalDate.now().minusDays(age).toString());
+        String hash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(line.getBytes(StandardCharsets.UTF_8)));
+        String manifest = json.writeValueAsString(Map.of("formatVersion", 2, "sources", Map.of("github-advisory", date),
+                "files", Map.of("github-advisory.jsonl", Map.of("sha256", hash, "lines", 1))));
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("github-advisory.jsonl", line, "meta.json", manifest))));
+        String key = AirgappedSnapshotService.componentKey("NPM", "fixture", "1.0.0");
+        String absent = AirgappedSnapshotService.componentKey("NPM", "fixture", "1.0.1");
+        var offline = new com.salkcoding.oswl.client.GitHubAdvisoryClient(service, true, null, null,
+                java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1));
+        var lookups = offline.findSnapshotByComponentKeys(List.of(key, absent));
+        assertThat(lookups).doesNotContainKey(absent);
+        var result = new com.salkcoding.oswl.service.vulnerability.sources.GitHubAdvisorySource(offline)
+                .lookupSnapshot("NPM", "fixture", "1.0.0", lookups.get(key));
+        assertThat(result.lookupFailed()).isEqualTo(age != 0);
+        assertThat(result.findings()).singleElement().satisfies(v -> {
+            assertThat(v.ghsaId()).isEqualTo(finding.ghsaId());
+            assertThat(v.cveId()).isEqualTo(finding.cveId());
+            assertThat(v.severity()).isEqualTo(finding.severity());
+            assertThat(v.fixVersion()).isEqualTo(age == 0 ? "3.0.0" : null);
+        });
+        assertThat(service.findGitHubAdvisoryVulns(List.of(key)).get(key).getFirst().fixVersion()).isEqualTo("3.0.0");
+        assertThat(metadata.findById("github-advisory").orElseThrow().getSourceAsOf())
+                .isEqualTo(age == 999 ? null : java.time.LocalDate.now().minusDays(age));
+        server.verify();
+    }
+
     @Autowired AirgappedSnapshotService service;
     @Autowired SnapshotEntryRepository entries;
     @Autowired SnapshotMetaRepository metadata;
