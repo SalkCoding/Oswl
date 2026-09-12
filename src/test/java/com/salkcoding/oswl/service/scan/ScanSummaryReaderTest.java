@@ -77,6 +77,28 @@ class ScanSummaryReaderTest {
         assertThat(old.getAssessmentJson()).isEqualTo(json);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void archiveExportRejectsPreservedLibrariesMissingFromInventory(boolean emptyInventory) throws Exception {
+        var project = projects.save(Project.builder().name("Lost-inventory-" + UUID.randomUUID()).build());
+        var first = libraries.saveAndFlush(Library.builder().name("first-" + UUID.randomUUID()).version("1").ecosystem("NPM").build());
+        var lost = Library.builder().name("lost-" + UUID.randomUUID()).version("1").ecosystem("NPM").build();
+        lost.getCves().add(Cve.builder().library(lost).cveId("CVE-2026-123452").severity(RiskLevel.CRITICAL).fixVersion("2").build());
+        lost = libraries.saveAndFlush(lost);
+        String json = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
+                new com.salkcoding.oswl.dto.scan.ScanAssessment(1, "2026-09-01T00:00:00Z",
+                        List.of(ScanAssessmentService.fromLibrary(first), ScanAssessmentService.fromLibrary(lost))));
+        var old = scans.saveAndFlush(ScanResult.builder().project(project).version("1.0")
+                .status(ScanStatus.COMPLETED).assessmentJson(json).build());
+        if (!emptyInventory) components.saveAndFlush(ScanComponent.builder().scanResult(old).library(first).build());
+        scans.saveAndFlush(ScanResult.builder().project(project).version("2.0").status(ScanStatus.COMPLETED).build());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> archive.exportPendingArchive(project.getId(), 1))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(old.getAssessmentJson()).isEqualTo(json);
+        assertThat(old.isArchived()).isFalse();
+        assertThat(components.countByScanResultId(old.getId())).isEqualTo(emptyInventory ? 0 : 1);
+    }
+
     @Test void duplicateComponentsDoNotMultiplyCountsAndArchivePreservesTrend() {
         var project = projects.save(Project.builder().name("Summary-" + UUID.randomUUID()).build());
         var library = Library.builder().name("lib-" + UUID.randomUUID()).version("1").ecosystem("NPM")

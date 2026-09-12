@@ -135,6 +135,10 @@ public class ScanArchivingService {
                 ? null : ScanAssessmentService.read(scan.getAssessmentJson()).libraries().stream()
                 .collect(Collectors.toMap(ScanAssessment.LibraryAssessment::libraryId,
                         java.util.function.Function.identity()));
+        if (preserved != null && !preserved.keySet().equals(components.stream()
+                .map(component -> component.getLibrary().getId()).collect(Collectors.toSet()))) {
+            throw new IllegalStateException("Preserved scan assessment and component inventory do not match");
+        }
         List<ScanArchiveExportDto.ComponentExportDto> componentDtos = components.stream()
                 .map(component -> toComponentExport(component, paths.getOrDefault(component.getId(), List.of()), preserved))
                 .toList();

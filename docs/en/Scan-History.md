@@ -1,6 +1,6 @@
 # Scan History
 
-Before archiving, the detail export uses the selected scan’s preserved assessment for vulnerability, fix-version and license values when one exists. A component missing from that assessment causes the export to fail instead of substituting current shared cache data. Legacy scans without a preserved assessment still export current shared data; that is not proof of their historic findings. Dependency paths remain the selected scan’s stored paths. The compact export does not contain the full assessment or all source evidence.
+Before archiving, the detail export uses the selected scan’s preserved assessment for vulnerability, fix-version and license values when one exists. The distinct library IDs in the assessment and component inventory must match in both directions. Missing entries on either side cause the export to fail, preventing both substitution with current shared cache data and silent loss of preserved findings. Duplicate occurrences of the same library remain supported. Legacy scans without a preserved assessment still export current shared data; that is not proof of their historic findings. Dependency paths remain the selected scan’s stored paths. The compact export does not contain the full assessment or all source evidence.
 
 The Scan History page lists all scans that have been submitted for a project, in reverse chronological order.
 
