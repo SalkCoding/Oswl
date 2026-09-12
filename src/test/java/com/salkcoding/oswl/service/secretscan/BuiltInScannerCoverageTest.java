@@ -73,6 +73,21 @@ class BuiltInScannerCoverageTest {
         assertThat(new IacScanner().scan(root)).isEmpty();
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"c328,true", "e282,true", "ff,true", "efbfbd,false", "ed959ceab880,false"})
+    void secretDecodingFailurePreservesOtherFindings(String hex, boolean incomplete) throws Exception {
+        java.nio.file.Files.write(root.resolve("encoded.txt"), java.util.HexFormat.of().parseHex(hex));
+        java.nio.file.Files.writeString(root.resolve("good.txt"), "AKIA1234567890ABCDEF");
+        var scanner = new SecretScanner();
+        scanner.loadRules();
+        var findings = scanner.scan(root);
+        assertThat(findings.stream().filter(f -> f.ruleId().equals("secret-scan-incomplete")).count())
+                .isEqualTo(incomplete ? 1 : 0);
+        assertThat(findings.stream().filter(f -> !f.ruleId().equals("secret-scan-incomplete")).count())
+                .isEqualTo(1);
+        assertThat(findings).allMatch(f -> !f.description().contains("AKIA1234567890ABCDEF"));
+    }
+
     @Test void emptyReadableSourceRemainsAValidEmptyResult() {
         var secrets = new SecretScanner();
         secrets.loadRules();

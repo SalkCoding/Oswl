@@ -61,6 +61,27 @@ class CustomRulePublicationTest {
     @Autowired SourceFindingStore findingStore;
     @Autowired SecretIacScanService builtInScans;
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void secretDecodingStateReachesStoredGateCoverage(boolean malformed,
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path root) throws Exception {
+        java.nio.file.Files.write(root.resolve("encoded.txt"), java.util.HexFormat.of()
+                .parseHex(malformed ? "c328" : "efbfbd"));
+        var project = projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder()
+                .name("Decoding coverage " + java.util.UUID.randomUUID()).build());
+        var scan = scans.save(com.salkcoding.oswl.domain.entity.scan.ScanResult.builder().project(project)
+                .version("fixture").status(ScanStatus.COMPLETED).build());
+        assertThat(builtInScans.scanAndPersist(root, scan.getId())).isTrue();
+        var stored = findings.findByScanResultIdAndProjectId(scan.getId(), project.getId());
+        if (malformed) assertThat(stored).extracting(com.salkcoding.oswl.domain.entity.scan.ScanFinding::getRuleId)
+                .containsExactly("secret-scan-incomplete");
+        else assertThat(stored).isEmpty();
+        var result = gate.evaluate(project.getId(), new com.salkcoding.oswl.service.gate.GatePolicyService.GateOptions(
+                scan.getId(), null, null, null, null, true, true, false));
+        assertThat(result.coverage().complete()).isEqualTo(!malformed);
+        assertThat(result.passed()).isEqualTo(!malformed);
+    }
+
     @Test void findingLimitRemainsIncompleteAfterPersistence(@org.junit.jupiter.api.io.TempDir java.nio.file.Path root) throws Exception {
         java.nio.file.Files.writeString(root.resolve("many.tf"), "acl = \"public-read\"\n".repeat(301));
         var project = projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder()

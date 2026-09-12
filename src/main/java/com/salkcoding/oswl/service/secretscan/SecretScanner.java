@@ -15,6 +15,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.charset.CodingErrorAction;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -128,7 +129,9 @@ public class SecretScanner {
         String relPath = root.relativize(fileReal).toString().replace('\\', '/');
 
         try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(Files.newInputStream(fileReal), StandardCharsets.UTF_8))) {
+                new InputStreamReader(Files.newInputStream(fileReal), StandardCharsets.UTF_8.newDecoder()
+                        .onMalformedInput(CodingErrorAction.REPORT)
+                        .onUnmappableCharacter(CodingErrorAction.REPORT)))) {
             String line;
             int lineNo = 0;
             while ((line = reader.readLine()) != null) {
