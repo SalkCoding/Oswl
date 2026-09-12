@@ -182,6 +182,9 @@ public class ComponentDetailService {
         model.addAttribute("projectName", project.getName());
         model.addAttribute("projectVersion", version);
         model.addAttribute("componentId", componentId);
+        model.addAttribute("evidenceScan", sc.getScanResult());
+        model.addAttribute("evidenceRepo", project.getGithubRepo());
+
 
         model.addAttribute("componentName", lib.getName());
         model.addAttribute("vulnerabilitiesAnalyzed", lib.isVulnerabilitiesAnalyzed());

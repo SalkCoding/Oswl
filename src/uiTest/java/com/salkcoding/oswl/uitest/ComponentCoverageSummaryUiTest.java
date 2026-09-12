@@ -32,6 +32,36 @@ class ComponentCoverageSummaryUiTest extends UiTestBase {
     private final ScanComponentRepository components;
     private final MessageSource messages;
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false,true})
+    void storedScanEvidenceIsDistinguishedFromCurrentLookupCache(boolean preserved) throws Exception {
+        var project = projects.save(Project.builder().name("Evidence origin fixture "+preserved).githubRepo("fixture/repository-"+preserved).build());
+        var library = libraries.save(Library.builder().name("origin-"+preserved).version("1").ecosystem("NPM")
+                .licenseStatus(LicenseStatus.UNKNOWN).build());
+        String assessment = preserved ? new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
+                new com.salkcoding.oswl.dto.scan.ScanAssessment(1,LocalDateTime.now().toString(),java.util.List.of(
+                        com.salkcoding.oswl.service.scan.ScanAssessmentService.fromLibrary(library)))) : null;
+        var scan = scans.save(ScanResult.builder().project(project).version("1").status(ScanStatus.COMPLETED)
+                .assessmentJson(assessment).build());
+        var component = components.save(ScanComponent.builder().scanResult(scan).library(library).build());
+        loginAsTestAdmin();
+        Path output = Path.of("build/reports/scan-evidence-ui"); Files.createDirectories(output);
+        for (String lang : new String[]{"ko","en","ja"}) {
+            Locale locale = Locale.forLanguageTag(lang);
+            String expected = messages.getMessage("scanEvidence."+(preserved ? "preserved" : "unverified"),null,locale);
+            for (String route : new String[]{"security-center", "components/"+component.getId()}) {
+                page.navigate(url("/projects/"+project.getId()+"/"+route+"?lang="+lang));
+                var note = page.locator("[data-scan-evidence]");
+                com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat(note).containsText(expected);
+                assertThat(note.innerText()).contains("fixture/repository",String.valueOf(scan.getId()));
+                assertThat(note.locator("a").getAttribute("href")).isEqualTo("/projects/"+project.getId()+"/scan-history");
+                if (route.startsWith("components/")) assertThat(page.locator("#component-detail-content").innerText())
+                        .contains(messages.getMessage("securityCenter.table.notAnalyzed",null,locale));
+                page.screenshot(new Page.ScreenshotOptions().setPath(output.resolve(preserved+"-"+lang+"-"+route.split("/")[0]+".png")));
+            }
+        }
+    }
+
     @org.junit.jupiter.api.Test
     void sourceAndLookupEvidenceHaveSectionSpacingAndReadableDates() throws Exception {
         var project = projects.save(Project.builder().name("Detail evidence layout").build());

@@ -128,6 +128,12 @@
 
 - **2026-09-12 상세 화면 조회 근거 배치 수정:** 소스 분석 안내가 섹션 밖에 붙어 여백이 사라진 사용자 제보를 Chromium에서 재현했다. 기존 상세 섹션 여백으로 묶고 출처별 조회 상태를 행으로 구분하며 시각을 초 단위로 표시한다. 시각 누락은 별도 안내하고 세 언어를 반영했다. 실제 앱 상세 페이지와 HTMX 슬라이드 패널의 한국어/영어/일본어 표시 및 패널 넘침을 확인했다. `ComponentCoverageSummaryUiTest` 4건 통과(각 세 언어), 로그 `build/detail-layout-before.log`, `build/detail-layout-after.log`, `build/detail-layout-drawer.log`, 화면 `build/reports/component-detail-layout-ui/`. 기존 완료 대조군에는 새 조회 시각 계약에 맞는 실제 조회 시각 기록을 추가했으며 미조회/부분 실패 기대값은 유지했다. 커밋 제목 `fix: align component detail analysis and lookup sections`.
 
+
+- **2026-09-12 기존 자료의 스캔 근거 구분:** 첫 실행에 보이는 데이터가 하드코딩 샘플인지 실제 스캔인지 구분되지 않는 사용자 제보를 조사했다. 현재 startup에는 샘플 삽입이 없고 /data/test는 실제 Quick Import이며 파일 DB는 재시작 후 유지된다. 작업 DB를 읽기 전용으로 확인한 결과 동명 저장소의 서로 다른 날짜 기록과 취약점이 있었지만 당시 보존 판정은 없었다. 등록 저장소 이름이나 완료 상태만으로 생성 경로를 추정하지 않는다. 보안 센터·상세에 선택된 스캔 ID/기록 시각/등록 저장소와 당시 판정 보존 여부, 스캔 기록 링크를 표시하고 근거가 없으면 실제 저장소 Quick Import/CLI 새 스캔을 안내한다. 상세는 현재 공유 캐시임을 명시한다. 기존 자료 삭제·자동 재스캔·보존 근거 소급 생성은 수행하지 않았다.
+- **스캔 근거 UI 검증:** 보존 있음/없음, 조회 미완료 상태를 한국어·영어·일본어의 보안 센터/상세에서 Chromium으로 확인했다. 기존 조회 완료·부분 실패·미조회와 슬라이드 패널 배치 검사를 포함해 `ComponentCoverageSummaryUiTest` 6건 통과. 신규 안내의 최초 실행은 미구현 메시지 및 테스트의 중복 프로젝트 제약으로 실패했으며 제품 오류 재현으로 과장하지 않는다. 테스트 프로젝트 식별자를 분리하고 제약/기대값은 유지했다. 로그 `build/scan-evidence-before.log`, `build/scan-evidence-checked.log`, 화면 `build/reports/scan-evidence-ui/`. 새 외부 자료/라이브러리 도입 없음. 세 언어 Security-Center 문서 반영. 과거 자료의 정확한 생성 경로 복원은 근거 부족으로 불가능하며 이 변경은 판정 원문 서명/변조 방지나 과거 전체 데이터 정정을 구현한 것이 아니다. 커밋 제목 `feat: distinguish preserved scan evidence from legacy records`.
+
+- **상세 화면·스캔 근거 전체 검증:** `build verifyProdJar` 3분 33초 성공. 전체 4,552건 중 4,540건 통과·실패/오류 0·기존 skip 12건, 운영 JAR 로컬 클래스/fixture 제외 통과. 로그 `build/component-detail-evidence-build.log`. 별도 Chromium UI 6건 모두 통과·skip 0.
+
 ### 11. 범용 버전 비교기와 GHSA 비교 실패 처리 교체 — P0 · [코드 확인/진단]
 
 - **2026-09-11 NuGet 실제 테스트 DB 왕복:** 고정한 Microsoft/GHSA 공지를 실제 bulk 변환기로 처리하고 SHA-256/행 수/기준일 manifest가 포함된 ZIP을 snapshot service로 가져와 H2 DB에 저장한 뒤 실제 오프라인 OSV client로 조회했다. 최신·8일 경과·기준일 없음의 3조건에서 동일 CVE/공지 ID를 보존하고 최신 조건에서만 8.0.4를 안내했다. 오래된 조건에서도 저장 원본의 수정 후보는 유지되며, 수집하지 않은 8.0.2 key는 조회 완료로 분류하지 않는다. 기준일은 테스트 조건으로 생성했으며 원본 공지가 실제로 새로 갱신됐다는 주장이 아니다.

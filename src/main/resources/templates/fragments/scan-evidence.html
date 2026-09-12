@@ -1,0 +1,14 @@
+<aside th:fragment="notice" th:if="${evidenceScan != null}" data-scan-evidence
+       class="text-[13px] text-[var(--grayscale-80)] bg-[var(--grayscale-5)] border border-[var(--grayscale-15)] rounded-[8px] p-[16px]">
+    <div class="flex flex-wrap items-baseline justify-between gap-[8px] mb-[8px]">
+        <h2 class="font-bold" th:text="${evidenceScan.assessmentJson != null} ? #{scanEvidence.preserved} : #{scanEvidence.unverified}"></h2>
+        <a th:href="@{|/projects/${projectId}/scan-history|}" class="text-[var(--text-accent)] underline" th:text="#{topbar.nav.scanHistory}">Scan history</a>
+    </div>
+    <p class="mb-[8px]" th:text="${evidenceScan.assessmentJson != null} ? #{scanEvidence.preservedHint} : #{scanEvidence.unverifiedHint}"></p>
+    <dl class="flex flex-wrap gap-x-[24px] gap-y-[6px] text-[12px] text-[var(--grayscale-60)]">
+        <div class="flex gap-[8px]"><dt th:text="#{scanEvidence.id}"></dt><dd th:text="${evidenceScan.id}"></dd></div>
+        <div th:if="${evidenceScan.scannedAt != null}" class="flex gap-[8px]"><dt th:text="#{scanEvidence.time}"></dt>
+            <dd><time th:datetime="${evidenceScan.scannedAt}" th:text="${#temporals.format(evidenceScan.scannedAt, 'yyyy-MM-dd HH:mm:ss')}"></time></dd></div>
+        <div th:if="${evidenceRepo != null}" class="flex flex-wrap gap-[8px] min-w-0"><dt th:text="#{scanEvidence.repo}"></dt><dd class="break-all" th:text="${evidenceRepo}"></dd></div>
+    </dl>
+</aside>

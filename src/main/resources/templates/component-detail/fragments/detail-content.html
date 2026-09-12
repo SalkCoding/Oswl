@@ -228,6 +228,11 @@
             </span>
         </div>
     </section>
+    <div th:if="${evidenceScan != null}" class="px-[40px] py-[20px] border-b border-[var(--grayscale-15)]">
+        <div th:replace="~{fragments/scan-evidence :: notice}"></div>
+        <p class="mt-[8px] text-[12px] text-[var(--grayscale-60)]" th:text="#{scanEvidence.currentDetail}"></p>
+    </div>
+
 
     <!-- Deferral Banner -->
     <div th:if="${isDeferred}"
