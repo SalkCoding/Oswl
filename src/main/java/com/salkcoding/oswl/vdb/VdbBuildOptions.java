@@ -45,12 +45,12 @@ public record VdbBuildOptions(
                 case "--out" -> { out = Path.of(require(v, "--out")); i++; }
                 case "--wanted" -> { wanted = Path.of(require(v, "--wanted")); i++; }
                 case "--sources" -> {
-                    sources = new java.util.LinkedHashSet<>(java.util.Arrays.asList(require(v, "--sources").split(",")));
+                    sources = parseSelection(v, "--sources");
                     i++;
                 }
                 case "--ecosystems" -> {
                     ecosystems = new java.util.LinkedHashSet<>();
-                    for (String e : require(v, "--ecosystems").split(",")) ecosystems.add(e.strip().toUpperCase(java.util.Locale.ROOT));
+                    for (String e : parseSelection(v, "--ecosystems")) ecosystems.add(e.toUpperCase(java.util.Locale.ROOT));
                     i++;
                 }
                 case "--cache-dir" -> { cacheDir = Path.of(require(v, "--cache-dir")); i++; }
@@ -93,6 +93,16 @@ public record VdbBuildOptions(
 
     boolean isDelta() {
         return since != null;
+    }
+
+    private static Set<String> parseSelection(String value, String flag) {
+        Set<String> selection = new java.util.LinkedHashSet<>();
+        for (String entry : require(value, flag).split(",", -1)) {
+            String item = entry.strip();
+            if (item.isEmpty()) throw new IllegalArgumentException(flag + " requires a non-empty list without empty entries");
+            selection.add(item);
+        }
+        return selection;
     }
 
     private static String require(String v, String flag) {

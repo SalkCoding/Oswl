@@ -809,6 +809,8 @@
 
 ### 32. 원천별 수집 파이프라인·경로·완전성 관리 — P0 · [코드 확인/설계]
 
+- **2026-09-13 빈 CLI 수집 목록 차단:** Java split의 끝 빈 항목 생략 때문에 쉼표만 있는 `--sources`가 빈 출처 집합으로 성공하고 기존 번들을 교체하던 경로를 재현했다. 출처·생태계 목록의 빈 값/빈 구간/앞뒤 쉼표를 거절하고 정상 항목의 주변 공백 제거·중복 순서 보존을 적용했다. 신규 15조건과 기존 8조건 중 수정 전 11실패, 수정 후 VDB/OSV 벌크/스냅샷 관련 258건 통과·실패/오류/skip 0 및 `bootJar verifyProdJar` 성공(38초). 세 언어 Administration 문서 반영. 로그 `build/vdb-list-before.log`, `build/vdb-list-checked.log`. 커밋 제목 `fix: reject empty vdb collection selections`. 자체 합성 자료로 확인했으며 새 외부 자료·라이브러리·DB schema·UI 변경 없음. 전체 build·PG·실제 API·브라우저는 이번에 미검증. 수집기 연결·원천별 권한·범위 근거 보존의 잔여 범위는 유지한다.
+
 - **2026-09-13 미연결 CLI 출처의 거짓 성공 차단:** VdbBuildOptions가 `github-advisory`·`nvd`를 기본/명시적 출처로 받아들이지만 VdbBuilderCli에는 해당 수집 경로가 없음을 확인했다. 명시적 단독/혼합 요청은 수집 전에 오류로 종료하고 기존 출력 번들을 보존한다. 기본값은 실제 연결된 네 출처로 맞췄고 미사용 GitHub/NVD 옵션 세 개도 거절한다. 수정 전 8조건 실패를 재현했으며 수정 후 VDB/OSV 벌크/스냅샷 검사 243건 통과·실패/오류/skip 0, `bootJar verifyProdJar` 성공(38초). 세 언어 Administration 문서 반영. 자체 합성 자료이며 외부 자료/라이브러리 도입·운영 DB·UI 변경 없음. 전체 build·PG·실제 API·브라우저는 이번에 미검증. 기존 번들의 누락 데이터 보충, 두 수집기 구현·권한 검증·원문 보존은 아직 미완료다. 로그 `build/vdb-source-selection-before.log`, `build/vdb-source-selection-checked.log`. 커밋 제목 `fix: reject disconnected vdb source selections`.
 
 - 현재·대상: [VdbBuilderCli](src/main/java/com/salkcoding/oswl/vdb/VdbBuilderCli.java), [OsvBulkSource.resolveBucket](src/main/java/com/salkcoding/oswl/vdb/OsvBulkSource.java), 기존 client/checkpoint 경로.
