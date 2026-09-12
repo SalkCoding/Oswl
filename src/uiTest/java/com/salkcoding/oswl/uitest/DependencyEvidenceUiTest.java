@@ -27,6 +27,45 @@ class DependencyEvidenceUiTest extends UiTestBase {
     private final LibraryRepository libraries;
     private final ScanComponentRepository components;
     private final com.salkcoding.oswl.repository.vulnerability.CveRepository cves;
+    private final org.springframework.context.MessageSource messages;
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"missing,true","missing,false","partial,true","partial,false"})
+    void incompleteCoverageCannotClaimPatchabilityButKeepsFindingDetails(String state, boolean hasFix) throws Exception {
+        String name = "patch-coverage-"+state+hasFix;
+        var project = projects.save(Project.builder().name(name).build());
+        var scan = scans.save(ScanResult.builder().project(project).version("1").status(ScanStatus.COMPLETED).build());
+        var library = Library.builder().name(name).version("1.0.0").ecosystem("NPM").licenseStatus(LicenseStatus.UNKNOWN).build();
+        if (state.equals("partial")) {
+            library.recordLookupOutcomes(java.util.Map.of("OSV","RESOLVED","DEPS_DEV","UNAVAILABLE"));
+            library.markFetched();
+        }
+        library = libraries.save(library);
+        var component = components.save(ScanComponent.builder().scanResult(scan).library(library).build());
+        cves.save(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder().library(library).cveId("CVE-2026-123450")
+                .severity(com.salkcoding.oswl.domain.enums.RiskLevel.HIGH).fixVersion(hasFix ? "2.0.0" : null).build());
+        loginAsTestAdmin();
+        Path output=Path.of("build/reports/patch-coverage-ui"); Files.createDirectories(output);
+        for (String lang : new String[]{"en","ko","ja"}) {
+            page.navigate(url("/projects/"+project.getId()+"/components/"+component.getId()+"?lang="+lang));
+            var locale = java.util.Locale.forLanguageTag(lang);
+            String header = page.locator("#component-detail-content > section").first().innerText();
+            assertThat(header).contains(messages.getMessage("common.unknown",null,locale))
+                    .doesNotContain(messages.getMessage("common.patchable",null,locale),messages.getMessage("common.nonPatchable",null,locale));
+            var toggle = page.getByRole(com.microsoft.playwright.options.AriaRole.BUTTON,
+                    new Page.GetByRoleOptions().setName("CVE-2026-123450").setExact(true));
+            com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat(toggle).hasAttribute("aria-expanded","false");
+            toggle.click();
+            com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat(toggle).hasAttribute("aria-expanded","true");
+            var detail=page.locator("#component-detail-content");
+            assertThat(detail.innerText()).contains("CVE-2026-123450");
+            if (hasFix) assertThat(detail.innerText()).contains("2.0.0");
+            if (hasFix) com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat(
+                    detail.getByText("2.0.0",new com.microsoft.playwright.Locator.GetByTextOptions().setExact(true))).isVisible();
+            page.evaluate("window.scrollTo(0, 0)");
+            page.screenshot(new Page.ScreenshotOptions().setPath(output.resolve(name+"-"+lang+".png")).setFullPage(true));
+        }
+    }
 
     @Test void unknownSecurityFixDoesNotOfferLatestAsPatchPr() throws Exception {
         var project = projects.save(Project.builder().name("Unknown fix fixture")
@@ -56,6 +95,8 @@ class DependencyEvidenceUiTest extends UiTestBase {
         var project = projects.save(Project.builder().name("Unscored patch fixture").build());
         var scan = scans.save(ScanResult.builder().project(project).version("1.0").status(ScanStatus.COMPLETED).build());
         var library = libraries.save(Library.builder().name("unscored-patch-fixture-" + scoreState).version("1.0.0")
+                .vulnerabilityLookupOutcomes(java.util.Map.of("OSV","RESOLVED"))
+                .vulnerabilityLookupAt(java.time.LocalDateTime.now()).fetchedAt(java.time.LocalDateTime.now())
                 .ecosystem("NUGET").licenseStatus(LicenseStatus.UNKNOWN).build());
         var component = components.save(ScanComponent.builder().scanResult(scan).library(library).build());
         cves.save(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder().library(library)

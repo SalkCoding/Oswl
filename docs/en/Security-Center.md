@@ -1,5 +1,7 @@
 # Security Center
 
+Patchability remains Unknown while vulnerability lookup coverage is incomplete; individual findings and stored fix versions remain visible. With completed coverage, Patchable means at least one active finding has a stored fix, not that a single version resolves every finding. Non-Patchable means no fix is recorded for the active findings, not proof that no upstream fix exists. The common upgrade recommendation is assessed separately.
+
 The scan-evidence notice identifies the selected scan, its recorded time and registered repository. An older scan without a preserved assessment cannot establish whether its input was a sample, manual submission or a real repository scan. Do not infer a clean scan from zero findings; use Quick Import on the actual repository or submit a new CLI scan. Component details show the current shared lookup cache, which can differ from the original scan. A preserved assessment is a historical record, not a guarantee that every source completed successfully.
 
 The Security Center is the primary vulnerability management interface in OsWL. It provides a filterable, sortable list of every CVE affecting the components detected in the latest scan for a project.

@@ -134,6 +134,12 @@
 
 - **상세 화면·스캔 근거 전체 검증:** `build verifyProdJar` 3분 33초 성공. 전체 4,552건 중 4,540건 통과·실패/오류 0·기존 skip 12건, 운영 JAR 로컬 클래스/fixture 제외 통과. 로그 `build/component-detail-evidence-build.log`. 별도 Chromium UI 6건 모두 통과·skip 0.
 
+
+- **2026-09-13 조회 미완료 시 패치 가능성 보류:** 개별 CVE의 fix 문자열만 보고 조회 미완료 상태를 PATCHABLE/NON_PATCHABLE로 확정하던 공통 Library 계산에 조회 완료 조건을 연결했다. 미완료이면 UNKNOWN이며 개별 취약점·수정 문자열을 삭제하지 않는다. 완료 조회의 기존 '하나 이상 기록된 fix' 계산은 유지하고, 이 배지가 모든 발견을 해결하는 공통 후보나 공급자에 fix가 전혀 없다는 증명이 아님을 세 언어 Security-Center 문서에 명시했다. 공통 추천·PR 대상 검증과 별개의 표시라는 의미도 유지한다.
+- **패치 가능성 회귀:** 미조회/일부 출처 실패/정상 완료 × fix 있음/없음 6건 중 수정 전 4건이 잘못된 패치 가능성 분류로 실패했다. 기존 정상 patchability와 미채점 advisory 대조군은 완료 조회 근거를 갖도록 구성하고 원래 기대값을 유지했다. 관련 Library/상세/보안 센터 검증 통과. 로그 `build/patch-coverage-before.log`, `build/patch-coverage-after.log`. Chromium에서 미조회/부분 실패 × fix 유무와 기존 미채점/개별 fix/긴 근거 검사 9건이 통과했다(`build/patch-coverage-ui.log`). 펼친 개별 취약점에 수정 버전이 계속 표시됨을 세 언어로 확인했다. 새 외부 자료·라이브러리·DB migration 및 UI 템플릿/스타일 변경 없음. 커밋 제목 `fix: withhold patchability when lookup coverage is incomplete`.
+
+- **패치 가능성 전체 검증:** Windows/Java 25 `build verifyProdJar` 3분 13초 성공. 전체 4,597건 중 4,585건 통과·실패/오류 0·기존 skip 12건. 운영 JAR 로컬 클래스/fixture 제외 검사 통과. 로그 `build/patch-coverage-build.log`. 마지막 Chromium 재검증은 Alpine 초기화 완료를 기다린 뒤 펼침 상태와 수정 버전의 실제 가시성을 확인하도록 강화했으며, 미조회/부분 실패 × fix 유무 4건이 세 언어에서 통과했다(`build/patch-coverage-ui-visible.log`). 스크롤을 초기화한 최신 한국어 캡처에서 미완료 배지와 펼친 개별 수정 버전 표시를 확인했다.
+
 ### 11. 범용 버전 비교기와 GHSA 비교 실패 처리 교체 — P0 · [코드 확인/진단]
 
 - **2026-09-11 NuGet 실제 테스트 DB 왕복:** 고정한 Microsoft/GHSA 공지를 실제 bulk 변환기로 처리하고 SHA-256/행 수/기준일 manifest가 포함된 ZIP을 snapshot service로 가져와 H2 DB에 저장한 뒤 실제 오프라인 OSV client로 조회했다. 최신·8일 경과·기준일 없음의 3조건에서 동일 CVE/공지 ID를 보존하고 최신 조건에서만 8.0.4를 안내했다. 오래된 조건에서도 저장 원본의 수정 후보는 유지되며, 수집하지 않은 8.0.2 key는 조회 완료로 분류하지 않는다. 기준일은 테스트 조건으로 생성했으며 원본 공지가 실제로 새로 갱신됐다는 주장이 아니다.

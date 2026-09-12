@@ -17,6 +17,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 class LibraryTest {
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"missing,true", "missing,false", "failed,true", "failed,false", "complete,true", "complete,false"})
+    void patchabilityRequiresCompletedLookupWithoutErasingIndividualFixes(String state, boolean hasFix) {
+        var finding = Cve.builder().cveId("CVE-2026-123450").severity(RiskLevel.HIGH)
+                .fixVersion(hasFix ? "2.0.0" : null).build();
+        var library = lib(finding);
+        if (!state.equals("missing")) library.recordLookupOutcomes(java.util.Map.of("OSV","RESOLVED",
+                "DEPS_DEV",state.equals("failed") ? "UNAVAILABLE" : "RESOLVED"));
+        library.markFetched();
+        assertThat(library.computePatchability()).isEqualTo(state.equals("complete")
+                ? hasFix ? Patchability.PATCHABLE : Patchability.NON_PATCHABLE : Patchability.UNKNOWN);
+        assertThat(finding.getFixVersion()).isEqualTo(hasFix ? "2.0.0" : null);
+        assertThat(library.getCves()).containsExactly(finding);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"complete", "missing", "uncovered", "conflict", "expired", "partial"})
     void recommendationUsesCompleteCurrentCommonEvidenceInsteadOfSeverity(String state) {
         var first = Cve.builder().ghsaId("OSV-first").severity(RiskLevel.CRITICAL).fixVersion("2.0.0").build();
@@ -160,12 +175,19 @@ class LibraryTest {
     @Nested
     @DisplayName("computePatchability()")
     class ComputePatchability {
+        private Library analyzed(Cve... findings) {
+            Library library = lib(findings);
+            library.recordLookupOutcomes(java.util.Map.of("OSV","RESOLVED"));
+            library.markFetched();
+            return library;
+        }
+
 
         @org.junit.jupiter.params.ParameterizedTest
         @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
         void anUnscoredFindingStillContributesItsKnownFix(boolean includeScoredFinding) {
             var unscored = Cve.builder().cveId("CVE-2026-0001").severity(null).fixVersion("2.0.0").build();
-            var library = includeScoredFinding ? lib(unscored, cve("CVE-2026-0002", RiskLevel.HIGH)) : lib(unscored);
+            var library = includeScoredFinding ? analyzed(unscored, cve("CVE-2026-0002", RiskLevel.HIGH)) : analyzed(unscored);
             assertThat(library.computePatchability()).isEqualTo(Patchability.PATCHABLE);
             assertThat(library.bestFixVersion()).isNull();
             assertThat(unscored.getFixVersion()).isEqualTo("2.0.0");
@@ -174,13 +196,13 @@ class LibraryTest {
         @Test
         @DisplayName("CVE가 없으면 UNKNOWN을 반환한다")
         void returnsUnknown_whenNoCves() {
-            assertThat(lib().computePatchability()).isEqualTo(Patchability.UNKNOWN);
+            assertThat(analyzed().computePatchability()).isEqualTo(Patchability.UNKNOWN);
         }
 
         @Test
         @DisplayName("모든 CVE의 severity가 NONE이면 UNKNOWN을 반환한다")
         void returnsUnknown_whenOnlyNoneSeverityCves() {
-            Library lib = lib(cve("CVE-1", RiskLevel.NONE));
+            Library lib = analyzed(cve("CVE-1", RiskLevel.NONE));
             assertThat(lib.computePatchability()).isEqualTo(Patchability.UNKNOWN);
         }
 
@@ -191,7 +213,7 @@ class LibraryTest {
                     .fixVersion("2.0.0").library(null).build();
             Cve noFix   = Cve.builder().cveId("CVE-2").severity(RiskLevel.MEDIUM)
                     .fixVersion(null).library(null).build();
-            Library lib = lib(withFix, noFix);
+            Library lib = analyzed(withFix, noFix);
             assertThat(lib.computePatchability()).isEqualTo(Patchability.PATCHABLE);
         }
 
@@ -202,7 +224,7 @@ class LibraryTest {
                     .fixVersion(null).library(null).build();
             Cve noFix2 = Cve.builder().cveId("CVE-2").severity(RiskLevel.CRITICAL)
                     .fixVersion("").library(null).build();
-            Library lib = lib(noFix1, noFix2);
+            Library lib = analyzed(noFix1, noFix2);
             assertThat(lib.computePatchability()).isEqualTo(Patchability.NON_PATCHABLE);
         }
     }
