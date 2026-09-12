@@ -38,15 +38,17 @@ final class KevSource {
                 ids.add(cveId.strip().toUpperCase(Locale.ROOT));
             }
         }
-        LocalDate asOf = LocalDate.now();
-        String dateReleased = root.path("dateReleased").asText(null);
-        if (dateReleased != null && dateReleased.length() >= 10) {
-            try {
-                asOf = LocalDate.parse(dateReleased.substring(0, 10));
-            } catch (Exception ignored) {
-                // fall back to today
-            }
+        JsonNode dateReleased = root.path("dateReleased");
+        if (!dateReleased.isTextual() || dateReleased.asText().length() > 64) {
+            throw new java.io.IOException("KEV requires a valid release timestamp");
         }
-        return new Result(ids, asOf);
+        java.time.Instant released;
+        try {
+            released = java.time.Instant.parse(dateReleased.asText());
+        } catch (java.time.format.DateTimeParseException invalid) {
+            throw new java.io.IOException("KEV requires a valid release timestamp", invalid);
+        }
+        if (released.isAfter(java.time.Instant.now())) throw new java.io.IOException("KEV release timestamp is in the future");
+        return new Result(ids, released.atOffset(java.time.ZoneOffset.UTC).toLocalDate());
     }
 }

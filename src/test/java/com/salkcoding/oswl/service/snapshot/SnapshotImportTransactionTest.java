@@ -37,7 +37,7 @@ class SnapshotImportTransactionTest {
         Files.write(base, baseline);
         service.importBundle(new ByteArrayInputStream(baseline));
         var priorEpssStatus = service.status().stream().filter(status -> status.source().equals("epss")).findFirst().orElseThrow();
-        Files.writeString(directory.resolve("kev.json"), "{\"dateReleased\":\"2026-01-01\",\"vulnerabilities\":[{\"cveID\":\"CVE-2026-1001\"}]}");
+        Files.writeString(directory.resolve("kev.json"), "{\"dateReleased\":\"2026-01-01T00:00:00Z\",\"vulnerabilities\":[{\"cveID\":\"CVE-2026-1001\"}]}");
         Path output = directory.resolve("delta.zip");
         Integer exit = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
                 new com.salkcoding.oswl.vdb.VdbBuilderCli(), "run", (Object) new String[]{"build", "--sources", "kev",
