@@ -9,6 +9,8 @@ Run the commands below from the repository root.
 
 ## Build an image
 
+Before deploying notice-preserving snapshot imports, apply [`V39__snapshot_data_notices.sql`](../src/main/resources/db/migration/V39__snapshot_data_notices.sql). The nullable `airgapped_snapshot_meta.data_notices` text column retains supplied notice objects; old rows remain null and previously discarded notices cannot be reconstructed. Merge retains previous notices, while Replace adopts the supplied notices for each replaced source. Rollback may leave this additive column in place, but older application versions do not maintain its contents; reimport the authoritative source bundles after upgrading again. This migration does not authorize redistribution of the stored data.
+
 ```sh
 docker build -f deploy/docker/Dockerfile -t oswl:local .
 ```

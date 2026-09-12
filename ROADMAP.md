@@ -37,6 +37,11 @@
 
 ### 2. 데이터 provenance와 고지의 배포·내보내기 전파 — P0 · [설계]
 
+- **고지 전파 검증 결과:** Windows/Java 25에서 `build verifyProdJar` 최종 성공. 일반 검사 4,352건 중 4,340건 통과·기존 환경 의존/선택 실행 skip 12건·실패/오류 0. 실제 H2 저장·번들 export/import를 통한 MERGE/REPLACE와 반복 전달, 잘못된 고지 6종의 기존 데이터 보존, 저장 고지 손상 시 export 차단, 누적 512 KiB 초과의 데이터/고지 롤백, 자체 고지를 포함한 재반입 용량 제한을 검증했다. 압축률 차단에 먼저 걸렸던 반복 문자 fixture는 비반복 입력으로 고쳐 기존 압축률 제한과 누적 고지 제한을 모두 유지했다. H2 및 로컬 PostgreSQL 15.19에서 V39를 두 번 적용하고 기존 NULL/긴 다국어 고지 보존을 확인했다. PostgreSQL 검증용 스키마는 rollback 후 0건, 서버 종료를 확인했으며 운영 DB는 변경하지 않았다. 로그 `build/roadmap-notice-retention-before.log`, `build/roadmap-notice-retention-checked.log`, `build/roadmap-notice-retention-budget.log`, `build/roadmap-notice-retention-final-boundary.log`(최종), `build/pg-verification/notice-migration-result.log`. UI 변경이 없어 브라우저 검사는 재실행하지 않았다. 배포 안내와 세 언어 관리 문서를 갱신했다.
+
+- **2026-09-12 반입 고지의 저장·재내보내기:** 반입 meta.json의 dataNotices가 저장되지 않아 재내보내기에서 사라지는 문제를 MERGE/REPLACE 두 실패로 재현했다. V39의 nullable `airgapped_snapshot_meta.data_notices` TEXT에 공급된 고지를 보존한다. MERGE는 기존 고지와 합집합, REPLACE는 교체되는 출처의 반입 고지로 갱신하며, 내보내기는 `upstreamDataNotices`의 평평한 목록으로 전달한다. 같은 JSON 객체를 중복하지 않아 반복 반입 시 중첩이 늘지 않는다. 미지원 고지 구조·읽을 수 없는 저장 고지는 조용히 버리지 않으며, 서로 다른 고지의 누적 512 KiB 초과는 트랜잭션 전체를 롤백한다. 이 목록은 반입 출처 전체의 고지를 보수적으로 전달하며 레코드별 귀속 관계·원문 수집·재배포 권한을 확정하지 않는다. 과거에 소실된 고지는 원본 번들의 재반입이 필요하다. 커밋 제목 `feat: retain imported snapshot notices across exports`.
+- **고지 보존의 권한 근거·한계:** [CC-BY 4.0 공식 안내](https://creativecommons.org/licenses/by/4.0/)에서 공급된 저작자/귀속 대상, 저작권·라이선스·면책 고지와 자료 링크, 기존 변경 표시의 보존 조건을 재확인했다. 이번 법적 원문 URL 재조회는 timeout으로 실패했으므로 공식 요약 확인을 새 법률 검토로 표현하지 않는다. 새 외부 취약점 원문·라이브러리를 반입하거나 원천별 미확인 재배포를 승인한 변경은 아니다. 공급된 고지를 손실 없이 전달하는 기반이며 전체 데이터의 권리 및 레코드별 provenance는 잔여 과제다.
+
 - 현재·대상: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md), [배포 고지](src/main/resources/META-INF/THIRD_PARTY_LICENSES.txt), [내장 매핑 원문](src/main/resources/META-INF/licenses/conda-forge-bot-data-LICENSE.txt)과 3개 언어 화면은 일부 보완됐다. VDB/보고서 전체 전파는 미구현이다.
 - [ ] 수정: record에 원출처·revision·URL·SPDX/LicenseRef·공급된 attribution·변경 이력을 연결한다. JAR/CLI/컨테이너/데이터 팩/보고서마다 포함 데이터의 LICENSE/NOTICE를 추출하고 망분리 배포에는 원문을 동봉한다. Ubuntu ShareAlike와 RustSec GHSA 예외를 유지한다.
 - 선행: 1번의 권리 분류. 번들 연계는 34~37번에서 완료.

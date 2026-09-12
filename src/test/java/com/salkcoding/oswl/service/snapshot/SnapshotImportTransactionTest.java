@@ -22,6 +22,101 @@ import static org.assertj.core.api.Assertions.*;
 @SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:snapshot-budget;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT")
 class SnapshotImportTransactionTest {
 
+    @Test void exportIncludesItsOwnNoticesInTheRoundTripBudget() {
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("epss")
+                .recordCount(1).importedAt(java.time.LocalDateTime.now())
+                .dataNotices("[{\"credit\":\"" + "x".repeat(512 * 1024 - 100) + "\"}]").build());
+        assertThatThrownBy(service::exportBundle).isInstanceOf(InvalidRequestException.class).hasMessageContaining("512 KiB");
+    }
+
+    @Test void cumulativeNoticeBudgetRollsBackTheMergeInsteadOfDroppingOldNotices() throws Exception {
+        byte[] noticeBytes = new byte[150_000];
+        new java.util.Random(17).nextBytes(noticeBytes);
+        String credit = "credit-" + java.util.HexFormat.of().formatHex(noticeBytes);
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("meta.json", json.writeValueAsString(Map.of("dataNotices", Map.of("credit", credit))),
+                "epss.jsonl", "{\"cveId\":\"CVE-KEPT\",\"score\":0.4}"))));
+        String more = json.writeValueAsString(Map.of("dataNotices", Map.of("credit", "different-" + credit)));
+        assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of("meta.json", more,
+                "epss.jsonl", "{\"cveId\":\"CVE-REJECTED\",\"score\":0.6}"))), AirgappedSnapshotService.ImportMode.MERGE))
+                .isInstanceOf(InvalidRequestException.class).hasMessageContaining("512 KiB");
+        assertThat(service.findEpssScores(List.of("CVE-KEPT", "CVE-REJECTED"))).containsOnlyKeys("CVE-KEPT");
+        assertThat(exportedMeta(service.exportBundle()).path("upstreamDataNotices").get(0).path("credit").asText()).isEqualTo(credit);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"\"dataNotices\":null", "\"dataNotices\":[]",
+            "\"dataNotices\":\"notice\"", "\"upstreamDataNotices\":{}", "\"upstreamDataNotices\":[null]",
+            "\"upstreamDataNotices\":[\"notice\"]"})
+    void invalidNoticesCannotEraseExistingSourceData(String notice) throws Exception {
+        assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of("meta.json", "{" + notice + "}",
+                "epss.jsonl", "{\"cveId\":\"CVE-NEW\",\"score\":0.4}")))))
+                .isInstanceOf(InvalidRequestException.class);
+        assertOldSource();
+    }
+
+    @Test void unreadableStoredNoticesPreventExportInsteadOfSilentlyDroppingCredits() {
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("epss")
+                .recordCount(1).importedAt(java.time.LocalDateTime.now()).dataNotices("broken").build());
+        assertThatThrownBy(service::exportBundle).isInstanceOf(InvalidRequestException.class);
+    }
+
+    @Test void noticeMigrationIsAdditiveAndPreservesLongUnicodePayloadsWhenRepeated() throws Exception {
+        try (var connection = java.sql.DriverManager.getConnection("jdbc:h2:mem:notice-migration-" + java.util.UUID.randomUUID())) {
+            try (var statement = connection.createStatement()) {
+                statement.execute("CREATE TABLE airgapped_snapshot_meta(source VARCHAR(20) PRIMARY KEY)");
+                statement.execute("INSERT INTO airgapped_snapshot_meta VALUES('osv')");
+                String migration = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/resources/db/migration/V39__snapshot_data_notices.sql"));
+                statement.execute(migration);
+                try (var rows = statement.executeQuery("SELECT data_notices FROM airgapped_snapshot_meta")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getString(1)).isNull();
+                }
+                String notice = "[{\"credit\":\"" + "© 원문 고지 日本語 ".repeat(1000) + "\"}]";
+                try (var update = connection.prepareStatement("UPDATE airgapped_snapshot_meta SET data_notices=?")) {
+                    update.setString(1, notice);
+                    assertThat(update.executeUpdate()).isEqualTo(1);
+                }
+                statement.execute(migration);
+                try (var rows = statement.executeQuery("SELECT data_notices FROM airgapped_snapshot_meta")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getString(1)).isEqualTo(notice);
+                }
+            }
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"MERGE", "REPLACE"})
+    void importedNoticesSurvivePersistenceAndRepeatedExportsWithoutNesting(String mode) throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        for (String owner : List.of("first", "second")) {
+            String meta = json.writeValueAsString(Map.of("dataNotices", Map.of("credit", owner, "notice", "원문 고지 © " + owner)));
+            service.importBundle(new ByteArrayInputStream(bundle(Map.of("meta.json", meta, "epss.jsonl",
+                    "{\"cveId\":\"CVE-" + owner + "\",\"score\":0.4}"))), AirgappedSnapshotService.ImportMode.valueOf(mode));
+        }
+        byte[] exported = service.exportBundle();
+        var notices = exportedMeta(exported).path("upstreamDataNotices");
+        assertThat(notices.size()).isEqualTo(mode.equals("MERGE") ? 2 : 1);
+        assertThat(notices.toString()).contains("second", "원문 고지 ©");
+        if (mode.equals("MERGE")) assertThat(notices.toString()).contains("first");
+        service.importBundle(new ByteArrayInputStream(exported));
+        byte[] next = service.exportBundle();
+        var afterOne = exportedMeta(next).path("upstreamDataNotices");
+        assertThat(afterOne.size()).isEqualTo(notices.size() + 1);
+        service.importBundle(new ByteArrayInputStream(next));
+        assertThat(exportedMeta(service.exportBundle()).path("upstreamDataNotices")).isEqualTo(afterOne);
+    }
+
+    private com.fasterxml.jackson.databind.JsonNode exportedMeta(byte[] content) throws Exception {
+        try (var zip = new java.util.zip.ZipInputStream(new ByteArrayInputStream(content))) {
+            java.util.zip.ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) if (entry.getName().equals("meta.json"))
+                return new com.fasterxml.jackson.databind.ObjectMapper().readTree(zip.readAllBytes());
+        }
+        throw new AssertionError("meta.json absent");
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(ints = {0, 6, 7, 8, -1, 999})
     void candidateExpiryUsesTheOriginalSourceDateRatherThanTheLookupDate(int age) {

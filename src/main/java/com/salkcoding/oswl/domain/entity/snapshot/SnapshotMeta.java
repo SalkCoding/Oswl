@@ -57,4 +57,8 @@ public class SnapshotMeta {
     /** meta.json {@code formatVersion}; null means a v1 (or missing-meta) bundle. */
     @Column(name = "format_version")
     private Integer formatVersion;
+
+    /** Distinct supplied bundle notices as a JSON array; not a redistribution authorization. */
+    @Column(name = "data_notices", columnDefinition = "TEXT")
+    private String dataNotices;
 }

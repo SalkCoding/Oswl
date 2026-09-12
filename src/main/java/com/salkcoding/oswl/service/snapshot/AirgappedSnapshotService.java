@@ -465,7 +465,9 @@ public class AirgappedSnapshotService {
             Map<String, Path> rawFiles = new LinkedHashMap<>(staged.files());
             Path metaFile = rawFiles.remove("meta.json");
             if (rawFiles.isEmpty()) throw new InvalidRequestException("Snapshot bundle contains no recognized data files.");
-            BundleMetaV2 meta = metaFile == null ? null : parseMetaV2(Files.readAllBytes(metaFile));
+            byte[] metaBytes = metaFile == null ? null : Files.readAllBytes(metaFile);
+            BundleMetaV2 meta = metaBytes == null ? null : parseMetaV2(metaBytes);
+            Set<JsonNode> notices = incomingNotices(metaBytes);
             if (rawFiles.containsKey("cocoapods-specs.jsonl") && meta == null)
                 throw new InvalidRequestException("CocoaPods specs require a version 2 bundle with checksums");
             if (meta != null) {
@@ -486,13 +488,13 @@ public class AirgappedSnapshotService {
             SnapshotBundleStager.checkInterrupted();
             TransactionTemplate transaction = new TransactionTemplate(transactionManager);
             transaction.setTimeout(300);
-            return transaction.execute(status -> applyBundle(rawFiles, meta, mode));
+            return transaction.execute(status -> applyBundle(rawFiles, meta, mode, notices));
         } catch (IOException e) {
             throw new InvalidRequestException("Snapshot bundle is not a readable zip: " + e.getMessage());
         }
     }
 
-    private SnapshotImportResult applyBundle(Map<String, Path> rawFiles, BundleMetaV2 meta, ImportMode mode) {
+    private SnapshotImportResult applyBundle(Map<String, Path> rawFiles, BundleMetaV2 meta, ImportMode mode, Set<JsonNode> notices) {
         Map<String, LocalDate> retainedDates = new LinkedHashMap<>();
         if (mode == ImportMode.MERGE) {
             for (String source : SOURCES) {
@@ -577,6 +579,11 @@ public class AirgappedSnapshotService {
                     .source(source)
                     .recordCount(actualCount)
                     .importedAt(now);
+            Set<JsonNode> retainedNotices = new LinkedHashSet<>();
+            if (mode == ImportMode.MERGE) snapshotMetaRepository.findById(source)
+                    .ifPresent(previous -> retainedNotices.addAll(storedNotices(previous.getDataNotices())));
+            retainedNotices.addAll(notices);
+            builder.dataNotices(retainedNotices.isEmpty() ? null : writeJson(objectMapper.valueToTree(retainedNotices)));
             if (meta != null) {
                 BundleSourceMeta sourceMeta = meta.sources() != null ? meta.sources().get(source) : null;
                 LocalDate asOf = sourceMeta != null ? sourceMeta.asOf() : null;
@@ -593,6 +600,7 @@ public class AirgappedSnapshotService {
             }
             snapshotMetaRepository.save(builder.build());
         }
+        checkNoticeBudget(allStoredNotices());
         log.info("[Snapshot] Imported offline snapshot ({} mode): {} records across {}", mode, total, counts);
         return new SnapshotImportResult(counts, total, mode.name());
     }
@@ -602,6 +610,50 @@ public class AirgappedSnapshotService {
             return ImportMode.MERGE;
         }
         return ImportMode.REPLACE;
+    }
+
+    private Set<JsonNode> incomingNotices(byte[] metaBytes) throws IOException {
+        Set<JsonNode> notices = new LinkedHashSet<>();
+        if (metaBytes == null) return notices;
+        JsonNode root = objectMapper.readTree(metaBytes);
+        if (root.has("dataNotices")) {
+            if (!root.path("dataNotices").isObject()) throw new InvalidRequestException("Snapshot dataNotices must be an object");
+            notices.add(root.path("dataNotices"));
+        }
+        if (root.has("upstreamDataNotices")) notices.addAll(noticeArray(root.path("upstreamDataNotices")));
+        checkNoticeBudget(notices);
+        return notices;
+    }
+
+    private Set<JsonNode> allStoredNotices() {
+        Set<JsonNode> notices = new LinkedHashSet<>();
+        snapshotMetaRepository.findAll().forEach(source -> notices.addAll(storedNotices(source.getDataNotices())));
+        return notices;
+    }
+
+    private void checkNoticeBudget(Set<JsonNode> notices) {
+        // Leave space for provenance and checksums under the importer's 1 MiB metadata limit.
+        if (writeJson(objectMapper.valueToTree(notices)).getBytes(StandardCharsets.UTF_8).length > 512 * 1024)
+            throw new InvalidRequestException("Snapshot notices exceed the 512 KiB retention limit; no notices were discarded");
+    }
+
+    private Set<JsonNode> storedNotices(String payload) {
+        if (payload == null) return Set.of();
+        try {
+            return noticeArray(objectMapper.readTree(payload));
+        } catch (IOException invalid) {
+            throw new InvalidRequestException("Stored snapshot notices are unreadable; refusing to discard them");
+        }
+    }
+
+    private Set<JsonNode> noticeArray(JsonNode array) {
+        if (array == null || !array.isArray()) throw new InvalidRequestException("Snapshot upstreamDataNotices must be an array");
+        Set<JsonNode> notices = new LinkedHashSet<>();
+        for (JsonNode notice : array) {
+            if (!notice.isObject()) throw new InvalidRequestException("Snapshot upstream notices must be objects");
+            notices.add(notice);
+        }
+        return notices;
     }
 
     /**
@@ -1074,6 +1126,9 @@ public class AirgappedSnapshotService {
         meta.put("builtAt", builtAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         meta.put("builder", "oswl-airgapped-export");
         ObjectNode dataNotices = meta.putObject("dataNotices");
+        Set<JsonNode> upstreamNotices = allStoredNotices();
+        checkNoticeBudget(upstreamNotices);
+        meta.set("upstreamDataNotices", objectMapper.valueToTree(upstreamNotices));
         dataNotices.put("scope", "These notices are not a redistribution clearance for the bundle or its other data sources. "
                 + "The OsWL software license does not relicense third-party data. Retain supplied record-level credits and notices.");
         dataNotices.put("changes", "Exported records are selected and normalized from OsWL scan data; "
@@ -1086,6 +1141,9 @@ public class AirgappedSnapshotService {
         githubNotice.put("licenseUrl", "https://creativecommons.org/licenses/by/4.0/");
         githubNotice.put("disclaimer", "No endorsement is implied. Licensed material is supplied without warranties; "
                 + "see the license for its disclaimer and limitations. Linked external content is not covered by this notice.");
+        Set<JsonNode> roundTripNotices = new LinkedHashSet<>(upstreamNotices);
+        roundTripNotices.add(dataNotices);
+        checkNoticeBudget(roundTripNotices);
         ObjectNode sources = meta.putObject("sources");
         putSourceMeta(sources, SOURCE_OSV, osvRecords, null);
         putSourceMeta(sources, SOURCE_UNRESOLVED, unresolvedRecords, null);

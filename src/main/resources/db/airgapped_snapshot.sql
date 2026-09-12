@@ -12,5 +12,6 @@ CREATE INDEX IF NOT EXISTS idx_snapshot_entries_source_key ON airgapped_snapshot
 CREATE TABLE IF NOT EXISTS airgapped_snapshot_meta (
     source       VARCHAR(20) PRIMARY KEY,
     record_count BIGINT      NOT NULL DEFAULT 0,
-    imported_at  TIMESTAMP   NOT NULL
+    imported_at  TIMESTAMP   NOT NULL,
+    data_notices TEXT
 );
