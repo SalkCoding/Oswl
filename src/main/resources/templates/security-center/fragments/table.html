@@ -185,7 +185,10 @@
             </div>
         </div>
 
-        <div class="flex h-[48px] items-center gap-[6px] px-[16px] w-[230px] min-w-[230px]">
+        <div class="flex flex-wrap content-center h-[48px] items-center gap-[6px] px-[16px] w-[230px] min-w-[230px]">
+            <span th:if="${comp.matchReviewCount > 0}" data-match-review-count
+                  class="text-[11px] text-[var(--grayscale-60)] whitespace-nowrap"
+                  th:text="#{scanSummary.matchReviewShort(${comp.matchReviewCount})}">Candidates: 1</span>
             <span th:if="${comp.securityCritical > 0}"
                   class="h-[20px] min-w-[26px] px-[6px] flex bg-[var(--risk-critical)] rounded-[4px] items-center justify-center text-[11px] font-medium text-white tracking-[-0.11px]"
                   th:text="${comp.securityCritical >= 1000} ? ${#numbers.formatDecimal(comp.securityCritical / 1000.0, 1, 1)} + 'k' : ${comp.securityCritical}">8</span>
@@ -202,7 +205,7 @@
                   class="h-[20px] min-w-[26px] px-[6px] flex bg-[var(--risk-unknown)] rounded-[4px] items-center justify-center text-[11px] font-medium text-[var(--grayscale-60)] tracking-[-0.11px]"
                   th:text="${comp.securityUnscored}">3</span>
             <!-- Zero CVEs but never actually queried (unmapped ecosystem): distinguish from "clean". -->
-            <span th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored == 0 and !comp.vulnerabilitiesAnalyzed}"
+            <span th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored + comp.matchReviewCount == 0 and !comp.vulnerabilitiesAnalyzed}"
                   class="h-[20px] px-[6px] flex bg-[var(--grayscale-15)] rounded-[4px] items-center justify-center text-[11px] font-medium text-[var(--grayscale-60)] tracking-[-0.11px] whitespace-nowrap"
                   th:title="#{securityCenter.table.notAnalyzedTooltip}"
                   th:text="#{securityCenter.table.notAnalyzed}">Not analyzed</span>
@@ -210,7 +213,7 @@
 
         <div class="flex h-[48px] items-center gap-[8px] px-[16px] w-[140px] min-w-[140px]">
             <!-- Has CVEs: show patchability (+ fix target when known) -->
-            <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored > 0}">
+            <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored + comp.matchReviewCount > 0}">
                 <span class="flex flex-col gap-[2px] min-w-0">
                     <span class="flex items-center gap-[6px]">
                         <span th:classappend="${
@@ -228,7 +231,7 @@
                 </span>
             </th:block>
             <!-- No CVEs: show version currency status -->
-            <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored == 0}">
+            <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored + comp.matchReviewCount == 0}">
                 <span th:if="${comp.deprecated != null}"
                       class="flex items-center gap-[6px]">
                     <span class="w-[8px] h-[8px] rounded-full bg-[var(--grayscale-70)]"></span>

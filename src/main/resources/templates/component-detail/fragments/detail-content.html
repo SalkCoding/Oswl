@@ -195,11 +195,14 @@
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--grayscale-30)]"></span>
                 <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="#{securityCenter.table.notAnalyzed}">Not analyzed</span>
             </span>
-            <span th:if="${vulnerabilitiesAnalyzed and securityCritical + securityHigh + securityMedium + securityLow + securityUnscored == 0}"
+            <span th:if="${vulnerabilitiesAnalyzed and securityCritical + securityHigh + securityMedium + securityLow + securityUnscored + matchReviewCount == 0}"
                   class="bg-[rgba(0,215,97,0.05)] border border-[rgba(0,215,97,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--semantic-patchable)]"></span>
                 <span class="text-[11px] text-[var(--grayscale-80)] tracking-[-0.11px]" th:text="#{componentDetail.security.none}">None found</span>
             </span>
+            <span th:if="${matchReviewCount > 0}" data-match-review-count
+                  class="text-[13px] text-[var(--grayscale-60)]"
+                  th:text="#{scanSummary.matchReviewShort(${matchReviewCount})}">Candidates: 1</span>
             <span th:if="${securityCritical > 0}"
                   class="bg-[rgba(230,39,39,0.05)] border border-[rgba(230,39,39,0.2)] flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px]">
                 <span class="w-[6px] h-[6px] rounded-full bg-[var(--risk-critical)]"></span>
@@ -378,6 +381,7 @@
                         <span th:text="${securityHigh}">0</span> <th:block th:text="#{riskTrend.legend.high}">High</th:block>,
                         <span th:text="${securityMedium}">0</span> <th:block th:text="#{riskTrend.legend.medium}">Medium</th:block>,
                         <span th:text="${securityLow}">0</span> <th:block th:text="#{riskTrend.legend.low}">Low</th:block>.
+                        <span th:if="${matchReviewCount > 0}" th:text="#{scanSummary.matchReviewShort(${matchReviewCount})}"></span>
                     </span>
                 </li>
                 <li th:if="${licenseRisk == 'CAUTION' or licenseRisk == 'RESTRICTED'}" class="flex items-start gap-[8px]">
@@ -865,13 +869,14 @@
                 <th:block th:if="${componentVersion != null and !#strings.isEmpty(componentVersion)}" th:text="#{componentDetail.desc.inUse(${componentVersion}, ${projectsCount})}">v2.2.0 in use across 7 projects</th:block>
             </p>
 
-            <p th:if="${hasVulnerabilities}">
+            <p th:if="${hasConfirmedVulnerabilities}">
                 <th:block th:text="#{componentDetail.desc.hasVulnerabilities}">This version has known security vulnerabilities.</th:block>
                 <span th:if="${securityFixVersion != null}">
                     <th:block th:text="#{componentDetail.desc.upgradeRecommended}">OSV common fix candidate:</th:block> <span class="font-medium text-[var(--text-accent)]" th:text="${securityFixVersion}">-</span> <th:block th:text="#{componentDetail.desc.upgradeRecommended2}">— requires target verification before PR creation.</th:block>
                 </span>
                 <span th:if="${securityFixVersion == null}" th:text="#{componentDetail.desc.noFix}">A current common fix candidate has not been verified.</span>
             </p>
+            <p th:if="${matchReviewCount > 0}" th:text="#{scanSummary.matchReview(${matchReviewCount})}"></p>
             <p th:if="${!hasVulnerabilities and vulnerabilitiesAnalyzed}" th:text="#{componentDetail.desc.noVulns}">No known security vulnerabilities have been detected for this version.</p>
             <p th:if="${!hasVulnerabilities and !vulnerabilitiesAnalyzed}" th:text="#{securityCenter.table.notAnalyzedTooltip}">Vulnerability lookup has not completed successfully.</p>
         </div>

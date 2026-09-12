@@ -197,19 +197,20 @@ public class ComponentDetailService {
                 lib.getLicenseName() != null && !lib.getLicenseName().isBlank()
                 && lib.getLicenseStatus() == LicenseStatus.UNKNOWN));
 
-        int secCritical = (int) lib.countBySeverity("CRITICAL");
-        int secHigh     = (int) lib.countBySeverity("HIGH");
-        int secMedium   = (int) lib.countBySeverity("MEDIUM");
-        int secLow      = (int) lib.countBySeverity("LOW");
-        int secUnscored = (int) lib.getCves().stream()
-                .filter(cve -> cve.getSeverity() == null || cve.getSeverity() == com.salkcoding.oswl.domain.enums.RiskLevel.NONE)
-                .count();
+        int secCritical = (int) lib.countNonCandidateBySeverity("CRITICAL");
+        int secHigh     = (int) lib.countNonCandidateBySeverity("HIGH");
+        int secMedium   = (int) lib.countNonCandidateBySeverity("MEDIUM");
+        int secLow      = (int) lib.countNonCandidateBySeverity("LOW");
+        int secUnscored = (int) lib.countNonCandidateBySeverity("NONE");
+        int matchReviewCount = (int) lib.countMatchReviewCandidates();
+        model.addAttribute("matchReviewCount", matchReviewCount);
+        model.addAttribute("hasConfirmedVulnerabilities", secCritical + secHigh + secMedium + secLow + secUnscored > 0);
         model.addAttribute("securityCritical", secCritical);
         model.addAttribute("securityHigh",     secHigh);
         model.addAttribute("securityMedium",   secMedium);
         model.addAttribute("securityLow",      secLow);
         model.addAttribute("securityUnscored", secUnscored);
-        model.addAttribute("hasVulnerabilities", secCritical + secHigh + secMedium + secLow + secUnscored > 0);
+        model.addAttribute("hasVulnerabilities", secCritical + secHigh + secMedium + secLow + secUnscored + matchReviewCount > 0);
         model.addAttribute("dependencyInfo", sc.getDependencyInfo() != null ? sc.getDependencyInfo() : "-");
         model.addAttribute("ecosystem", lib.getEcosystem());
 

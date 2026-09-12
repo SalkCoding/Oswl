@@ -111,6 +111,9 @@
 
 ### 10. 확정 영향·후보·미확인과 매칭 증거 모델 — P0 · [부분 구현]
 
+- **2026-09-13 컴포넌트 후보 집계 분리:** 표·상세 헤더·인쇄 표·CSV도 CPE 매칭 검토 후보를 심각도 합계에서 제외하고 후보 수를 별도로 표시한다. 같은 발견에 OSV 등 패키지 근거가 있으면 기존 분류를 유지한다. null 심각도와 NONE의 미평가 집계를 통일했고, 후보만 있는 항목은 취약점 없음/최신 버전 분기로 떨어지지 않게 했다. 원래 CVE 상세와 개별 수정 정보는 유지한다. CSV 끝에 후보 수 열을 추가했으며 세 언어 문서에 열 개수 호환성과 공유 캐시/과거 보존 요약의 차이를 명시했다. 관련 행 회귀는 수정 전 실패했다. 전체 매칭 모델, 필터·정렬의 후보 의미 및 과거 상세의 독립 판정 전환은 잔여다. 새 외부 자료·라이브러리·DB migration 없음. 커밋 제목 `fix: separate cpe candidates in component views and csv`. 관련 서비스·엔티티 검사 103건, 번역 일관성 3건, 브라우저 검사 13건 모두 통과했다. 후보 화면 검사는 세 언어의 표·상세·인쇄 및 기존 요약 45개 페이지 조합을 확인하며, 화면 밖 행의 content-visibility 최적화 때문에 행을 스크롤하여 별도 캡처했다. 상세·표 행·인쇄 이미지를 직접 확인했다. bootJar/verifyProdJar 통과, 전체 build는 이번 범위에서 재실행하지 않았다. 로그 `build/component-candidate-checked.log`(초기 브라우저 대기 실패 포함), `build/component-candidate-ui-final.log`, `build/component-candidate-final.log`; 이미지 `build/reports/candidate-summary-ui/`.
+
+
 - **CSV 변경 누적 빌드:** Windows/Java 25에서 `build verifyProdJar` 성공. 최근 상세/인쇄 템플릿과 CSV 변경을 포함해 전체 4,193건 중 4,182건 통과·11건 skip·실패/오류 0. skip은 기존 환경 의존 9건과 기본 비활성 OSV live/PostgreSQL 각 1건이다. 운영 JAR local 전용 클래스/검증 fixture 제외 검사도 통과했다. 로그 `build/roadmap-csv-coverage-build.log`. 별도 uiTest는 이번 빌드에 포함되지 않으며 각 UI 변경의 앞선 실행 결과를 참조한다. CSV를 통한 실제 외부 소비자 호환·스프레드시트 앱 열기·운영 PostgreSQL 검증은 잔여다.
 
 - **2026-09-11 CSV 조회 상태 보존:** 컴포넌트 CSV가 CVE 개수만 내보내 미조회/부분 실패의 0건과 완료 조회의 0건을 구분할 수 없음을 확인했다. 기존 16개 열 뒤에 완료 여부·이름순 출처별 결과·저장된 조회 시각을 추가한다. 시각/출처 metadata가 없으면 빈 값으로 유지하고 데이터 기준일을 생성하지 않는다. 완료 여부는 화면과 같은 Library 판정을 사용하므로 레거시 캐시의 기존 완료 취급도 유지한다. 이 호환 동작이 원천별 coverage의 입증을 대신하지 않음을 세 언어 Security-Center 문서에 명시했다. CSV 고정 열 개수 소비자의 변경 필요성과 조회 시각/원천 기준일의 차이도 안내했다. 새 회귀 6건이 수정 전 실패했고 수정 후 SecurityCenterService/Controller 27건 통과·실패/오류/skip 0. 로그 `build/roadmap-csv-coverage-before.log`, `build/roadmap-csv-coverage-after.log`. 커밋 제목 `feat: include lookup coverage in component csv exports`. 자체 메모리 fixture로 검증했으며 외부 자료·라이브러리를 추가하지 않았다.

@@ -355,10 +355,11 @@
                         <div class="comp-dep" th:if="${comp.dependencyInfo != null}" th:text="${comp.dependencyInfo}">Direct (1)</div>
                     </td>
                     <td>
-                        <span th:if="${comp.securityCritical == 0 and comp.securityHigh == 0 and comp.securityMedium == 0 and comp.securityLow == 0 and comp.securityUnscored == 0 and comp.vulnerabilitiesAnalyzed}" class="cve-none">—</span>
-                        <span th:if="${comp.securityCritical == 0 and comp.securityHigh == 0 and comp.securityMedium == 0 and comp.securityLow == 0 and comp.securityUnscored == 0 and !comp.vulnerabilitiesAnalyzed}"
+                        <span th:if="${comp.securityCritical == 0 and comp.securityHigh == 0 and comp.securityMedium == 0 and comp.securityLow == 0 and comp.securityUnscored == 0 and comp.matchReviewCount == 0 and comp.vulnerabilitiesAnalyzed}" class="cve-none">—</span>
+                        <span th:if="${comp.securityCritical == 0 and comp.securityHigh == 0 and comp.securityMedium == 0 and comp.securityLow == 0 and comp.securityUnscored == 0 and comp.matchReviewCount == 0 and !comp.vulnerabilitiesAnalyzed}"
                               class="cve-none" th:title="#{securityCenter.table.notAnalyzedTooltip}" th:text="#{securityCenter.table.notAnalyzed}">Not analyzed</span>
-                        <div class="cve-badges" th:unless="${comp.securityCritical == 0 and comp.securityHigh == 0 and comp.securityMedium == 0 and comp.securityLow == 0 and comp.securityUnscored == 0}">
+                        <span th:if="${comp.matchReviewCount > 0}" data-match-review-count class="cve-none" th:text="#{scanSummary.matchReviewShort(${comp.matchReviewCount})}"></span>
+                        <div class="cve-badges" th:unless="${comp.securityCritical == 0 and comp.securityHigh == 0 and comp.securityMedium == 0 and comp.securityLow == 0 and comp.securityUnscored == 0 and comp.matchReviewCount == 0}">
                             <span class="cve-badge c" th:if="${comp.securityCritical > 0}" th:text="${comp.securityCritical}"></span>
                             <span class="cve-badge h" th:if="${comp.securityHigh > 0}"     th:text="${comp.securityHigh}"></span>
                             <span class="cve-badge m" th:if="${comp.securityMedium > 0}"   th:text="${comp.securityMedium}"></span>
@@ -367,7 +368,7 @@
                         </div>
                     </td>
                     <td>
-                        <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored > 0}">
+                        <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored + comp.matchReviewCount > 0}">
                             <div class="patch-cell">
                                 <span class="patch-dot" th:classappend="${comp.patchability == 'patchable' ? 'patchable' : (comp.patchability == 'non-patchable' ? 'non-patchable' : 'unknown')}"></span>
                                 <span th:if="${comp.patchability == 'patchable'}" class="patch-text" th:text="#{securityCenter.filter.patchable}">Patchable</span>
@@ -375,7 +376,7 @@
                                 <span th:if="${comp.patchability != 'patchable' and comp.patchability != 'non-patchable'}" class="patch-text">—</span>
                             </div>
                         </th:block>
-                        <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored == 0}">
+                        <th:block th:if="${comp.securityCritical + comp.securityHigh + comp.securityMedium + comp.securityLow + comp.securityUnscored + comp.matchReviewCount == 0}">
                             <div class="patch-cell" th:if="${comp.deprecated != null}">
                                 <span class="patch-dot deprecated"></span>
                                 <span class="patch-text" th:text="#{securityCenter.filter.deprecated}">Deprecated</span>

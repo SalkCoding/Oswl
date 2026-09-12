@@ -53,6 +53,8 @@ public class ComponentRowDto {
     @Schema(description = "Number of Unscored CVEs (no CVSS score, severity = NONE)", example = "4")
     private final int securityUnscored;
 
+    private final int matchReviewCount;
+
     @Schema(description = "False when the vulnerability pipeline never answered for this component "
             + "(e.g. its ecosystem has no OSV mapping) — zero CVEs then means 'not analyzed', not 'clean'", example = "true")
     private final boolean vulnerabilitiesAnalyzed;
