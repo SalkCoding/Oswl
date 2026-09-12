@@ -431,6 +431,8 @@
 
 - **모호성 전체 검증:** Windows/Java 25 `build verifyProdJar` 3분 35초 성공. 전체 4,552건 중 4,540건 통과·실패/오류 0·기존 skip 12건이며 운영 JAR 제외 검사도 통과했다. 로그 `build/roadmap-nvd-ambiguous-build.log`. UI 변경이 없어 브라우저 검증은 재실행하지 않았다. 커밋 제목 `fix: reject ambiguous nvd json before lifecycle decisions`.
 
+- **2026-09-13 GitHub Advisory 응답의 중복 필드 거절:** GraphQL 응답을 곧바로 Map으로 변환해 중복 errors/nodes/hasNextPage의 마지막 값을 채택하는 경로를 첫 페이지·후속 페이지 6조건의 수정 전 실패로 재현했다. 후속 JSON 2조건은 기존에도 거절되는 대조군으로 유지했다. 원문 바이트를 중복 필드·후속 토큰 검사 후 해석하여 모호한 페이지를 조회 미완료로 처리한다. 이전 페이지의 독립적인 취약점은 유지하고 미완료 상태에서는 수정 후보를 보류한다. 관련 수집·OSV parity·게이트 일반 검사 278건 통과. 전체 `build verifyProdJar` 3분 성공: 4,674건 중 4,662 통과·기존 skip 12·실패/오류 0. 빌드 중 회귀의 앞선 페이지에 실제 수정 후보 2.0.0을 넣는 단언 강화를 추가했고, 이후 GitHubAdvisoryRangeTest 52건을 다시 통과하여 후보 보류도 확인했다. 세 언어 Security-Center 문서 반영. 합성 mock HTTP 응답만 사용했으며 새 외부 자료·라이브러리·DB/UI 변경 없음. 실제 GitHub 접속·PostgreSQL·브라우저는 이번에 재실행하지 않았다. 오프라인 snapshot 해석은 변경하지 않았고 전체 모드 동등성·revision 충돌 처리 잔여는 유지한다. 로그 `build/ghsa-ambiguous-before.log`, `build/ghsa-ambiguous-checked.log`, `build/ghsa-ambiguous-build.log`, `build/ghsa-ambiguous-final.log`. 커밋 제목 `fix: reject ambiguous github advisory response pages`.
+
 ### 14. CPE 추정을 확정 취약·게이트에서 분리 — P0 · [부분 구현]
 
 - 현재·대상: [CpeNameMapper](src/main/java/com/salkcoding/oswl/client/CpeNameMapper.java), [NvdClient](src/main/java/com/salkcoding/oswl/client/NvdClient.java)의 이름 추정과 configuration 맥락 손실, 게이트의 신뢰도 처리.

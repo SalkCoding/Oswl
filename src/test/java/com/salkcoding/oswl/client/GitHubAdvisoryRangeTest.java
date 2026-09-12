@@ -236,6 +236,38 @@ class GitHubAdvisoryRangeTest {
         server.verify();
     }
 
+    @ParameterizedTest
+    @CsvSource({"errors,false", "errors,true", "nodes,false", "nodes,true",
+            "pagination,false", "pagination,true", "trailing,false", "trailing,true"})
+    void ambiguousPageCannotBecomeCompleteOrEraseEarlierFindings(String ambiguity, boolean laterPage) throws Exception {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
+                Duration.ofSeconds(1), Duration.ofSeconds(1));
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        if (laterPage) {
+            String first = page("GHSA-first", true, "next").replace("\"vulnerableVersionRange\":",
+                    "\"firstPatchedVersion\":{\"identifier\":\"2.0.0\"},\"vulnerableVersionRange\":");
+            server.expect(requestTo("https://api.github.com/graphql"))
+                    .andRespond(withSuccess(first, MediaType.APPLICATION_JSON));
+        }
+        String body = page("GHSA-ambiguous", false, "end");
+        body = switch (ambiguity) {
+            case "errors" -> "{\"errors\":[{\"message\":\"failed\"}],\"errors\":[]," + body.substring(1);
+            case "nodes" -> body.replace("\"nodes\":", "\"nodes\":[],\"nodes\":");
+            case "pagination" -> body.replace("\"hasNextPage\":false", "\"hasNextPage\":true,\"hasNextPage\":false");
+            case "trailing" -> body + " {}";
+            default -> throw new IllegalArgumentException(ambiguity);
+        };
+        server.expect(requestTo("https://api.github.com/graphql")).andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+        var result = new GitHubAdvisorySource(client).lookup("npm", "fixture", "1.0.0", List.of());
+        assertThat(result.lookupFailed()).isTrue();
+        assertThat(result.findings()).extracting(GitHubAdvisoryClient.GitHubAdvisory::ghsaId)
+                .containsExactlyElementsOf(laterPage ? List.of("GHSA-first") : List.of());
+        assertThat(result.findings()).allSatisfy(finding -> assertThat(finding.fixVersion()).isNull());
+        server.verify();
+    }
+
     private String page(String id, boolean more, String cursor) throws Exception {
         return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(Map.of("data", Map.of("securityVulnerabilities",
                 Map.of("pageInfo", Map.of("hasNextPage", more, "endCursor", cursor), "nodes", List.of(Map.of(

@@ -67,7 +67,9 @@ public class GitHubAdvisoryClient {
     private final String token;
     private final AirgappedSnapshotService snapshotService;
     private final boolean airgapped;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .enable(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+            .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     /** Null until wired by Spring config (unit tests construct the client directly) — every use is guarded. */
     private volatile OswlMetrics oswlMetrics;
 
@@ -292,7 +294,7 @@ public class GitHubAdvisoryClient {
                                 Map<String, List<String>> ranges) { }
 
     @SuppressWarnings("unchecked")
-    private AdvisoryPage queryPage(String ghEcosystem, String name, String version, String cursor) {
+    private AdvisoryPage queryPage(String ghEcosystem, String name, String version, String cursor) throws java.io.IOException {
         Map<String, Object> variables = new LinkedHashMap<>(Map.of(
                 "ecosystem", ghEcosystem,
                 "package", AdvisoryPackageNames.canonical(ghEcosystem, name),
@@ -300,7 +302,7 @@ public class GitHubAdvisoryClient {
         if (cursor != null) variables.put("after", cursor);
         Map<String, Object> body = Map.of("query", QUERY, "variables", variables);
 
-        Map<String, Object> response = restClient.post()
+        byte[] responseBody = restClient.post()
                 .uri(graphqlUrl)
                 .header("Authorization", "Bearer " + token)
                 .header("Accept", "application/vnd.github+json")
@@ -308,8 +310,10 @@ public class GitHubAdvisoryClient {
                 .header("Content-Type", "application/json")
                 .body(body)
                 .retrieve()
-                .body(Map.class);
+                .body(byte[].class);
 
+        if (responseBody == null) throw new IllegalStateException("Empty GraphQL response");
+        Map<String, Object> response = objectMapper.readValue(responseBody, Map.class);
         if (response == null) throw new IllegalStateException("Empty GraphQL response");
         Object errors = response.get("errors");
         boolean incomplete = errors != null && (!(errors instanceof List<?> errorList) || !errorList.isEmpty());
