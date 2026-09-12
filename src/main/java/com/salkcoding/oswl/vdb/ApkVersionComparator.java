@@ -20,8 +20,7 @@ import java.util.regex.Pattern;
  *   <li>the trailing letter, if any — absent sorts below present ({@code 1.0 < 1.0a})</li>
  *   <li>the {@code _suffix}'s rank: alpha &lt; beta &lt; pre &lt; rc &lt; (no suffix) &lt; cvs
  *       &lt; svn &lt; git &lt; hg &lt; p, then its optional trailing number</li>
- *   <li>the {@code -rN} revision (defaults to 0 when omitted, so {@code 1.1.1l} and
- *       {@code 1.1.1l-r0} compare equal)</li>
+ *   <li>the {@code -rN} revision; absence sorts before an explicit zero revision</li>
  * </ol>
  *
  * <p>Any version this grammar doesn't match throws {@link IllegalArgumentException} — callers
@@ -75,15 +74,15 @@ final class ApkVersionComparator {
     }
 
     private static int compareNums(List<String> a, List<String> b) {
-        int n = Math.max(a.size(), b.size());
+        int n = Math.min(a.size(), b.size());
         for (int i = 0; i < n; i++) {
-            String va = i < a.size() ? a.get(i) : "0";
-            String vb = i < b.size() ? b.get(i) : "0";
+            String va = a.get(i);
+            String vb = b.get(i);
             int cmp = i > 0 && (va.startsWith("0") || vb.startsWith("0"))
                     ? va.compareTo(vb) : Integer.compare(Integer.parseInt(va), Integer.parseInt(vb));
             if (cmp != 0) return cmp;
         }
-        return 0;
+        return Integer.compare(a.size(), b.size());
     }
 
     private record Parsed(List<String> nums, Character letter, int suffixRank, int suffixNum, int revision) {}
@@ -108,10 +107,10 @@ final class ApkVersionComparator {
         String suffix = m.group("suffix");
         int suffixRank = suffix == null ? NO_SUFFIX_RANK : SUFFIX_RANK.get(suffix);
         String suffixNumGroup = m.group("suffixnum");
-        int suffixNum = (suffixNumGroup == null || suffixNumGroup.isEmpty()) ? 0 : Integer.parseInt(suffixNumGroup);
+        int suffixNum = (suffixNumGroup == null || suffixNumGroup.isEmpty()) ? -1 : Integer.parseInt(suffixNumGroup);
 
         String revGroup = m.group("rev");
-        int revision = revGroup == null ? 0 : Integer.parseInt(revGroup);
+        int revision = revGroup == null ? -1 : Integer.parseInt(revGroup);
 
         return new Parsed(nums, letter, suffixRank, suffixNum, revision);
     }

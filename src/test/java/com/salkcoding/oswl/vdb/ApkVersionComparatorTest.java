@@ -6,15 +6,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ApkVersionComparatorTest {
     @ParameterizedTest
-    @CsvSource({"1.01,1.1,-1", "1.02,1.010,1", "1.0,1.00,-1", "01.2,1.2,0", "1.2,1.10,-1", "1.02,1.02,0"})
-    void leadingZeroSegmentsRetainTheirOrdering(String left, String right, int sign) {
+    @CsvSource({"1.01,1.1,-1", "1.02,1.010,1", "1.0,1.00,-1", "01.2,1.2,0", "1.2,1.10,-1", "1.02,1.02,0",
+            "1,1.0,-1", "1.0,1.0.0,-1", "1.0,1.0-r0,-1", "1.0_p,1.0_p0,-1",
+            "1.0_rc,1.0_rc0,-1", "1.0-r0,1.0-r00,0", "1.0_p0,1.0_p00,0"})
+    void numericSpellingAndPresenceRetainTheirOrdering(String left, String right, int sign) {
         assertThat(Integer.signum(ApkVersionComparator.compare(left, right))).isEqualTo(sign);
         assertThat(Integer.signum(ApkVersionComparator.compare(right, left))).isEqualTo(-sign);
     }
 
     @ParameterizedTest
-    @CsvSource({"1.01,1.1,true", "1.02,1.010,false", "1.0,1.00,true", "1.2,1.10,true"})
-    void leadingZerosReachRangeAndBulkFixDecisions(String installed, String fixed, boolean affected) throws Exception {
+    @CsvSource({"1.01,1.1,true", "1.02,1.010,false", "1.0,1.00,true", "1.2,1.10,true",
+            "1,1.0,true", "1.0,1.0.0,true", "1.0,1.0-r0,true", "1.0_p,1.0_p0,true", "1.0_rc,1.0_rc0,true"})
+    void numericSpellingAndPresenceReachRangeAndBulkFixDecisions(String installed, String fixed, boolean affected) throws Exception {
         String original = """
                 {"id":"OSV-fixture","modified":"2026-01-01T00:00:00Z","affected":[{
                 "package":{"ecosystem":"Alpine:v3.18","name":"example"},

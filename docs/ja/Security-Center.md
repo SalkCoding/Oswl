@@ -225,3 +225,5 @@ OSV bulk収集も照会と同じ識別子検証を使い、npm/Cargo・Go・Pyth
 リリース別Alpineの照会とbulk収集も、空の結果を完了とする前に既存のAPKバージョンパーサーを適用します。*やlatestなど未対応の入力は未解決とし、対応するrevision・プレリリース形式は引き続き許可します。キャッシュの検出IDは保持しますが、不正な入力には修正バージョンを案内しません。既存パーサーの対応範囲を使う変更であり、Debian・RPMのバージョン比較を追加するものではありません。
 
 APKの数字部分の表記を保持し、最初の部分以降に先頭ゼロがある場合の順序を反映します。[apk-toolsのバージョン実装](https://raw.githubusercontent.com/alpinelinux/apk-tools/master/src/version.c)と[文字列整列実装](https://raw.githubusercontent.com/alpinelinux/apk-tools/master/src/blob.c)で確認した動作に基づきます。比較器はAlpine:と内部ALPINE:の両方を認識し、パッケージ・リリース照合は別に維持します。合成テストで比較・影響範囲・bulk修正候補の選択を検証しました。GPL-2.0-onlyの上流ソースは動作確認のみで複製・同梱せず、native apk実行や全体の文法同等性を検証したものではありません。
+
+APK比較では数字部分・suffix番号・revisionの省略と明示的な0も区別します。例えば1は1.0より、1.0は1.0-r0より前になります。明示されたrevision番号0と00は数値的に同じままです。上記の上流実装のトークン順序を基に、直接比較とアドバイザリ範囲・修正候補の選択を検証しました。native APKとの完全な同等性は未検証です。

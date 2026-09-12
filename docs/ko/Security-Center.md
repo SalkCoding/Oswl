@@ -225,3 +225,5 @@ OSV bulk 수집도 조회와 같은 식별자 검증을 사용해 npm/Cargo·Go�
 버전별 Alpine 조회와 bulk 수집도 빈 결과를 완료로 받아들이기 전에 기존 APK 버전 파서를 적용합니다. *·latest 같은 미지원 입력은 미확인으로 유지하고 지원되는 revision·사전 배포 형식은 계속 허용합니다. 캐시의 발견 ID는 보존하지만 잘못된 입력에는 수정 버전을 안내하지 않습니다. 기존 파서의 지원 범위를 사용하는 변경이며 Debian·RPM 버전 비교를 추가하지 않습니다.
 
 APK 숫자 구간의 원래 표기를 보존해 첫 구간 이후 선행 0이 있는 경우의 순서를 반영합니다. [apk-tools 버전 구현](https://raw.githubusercontent.com/alpinelinux/apk-tools/master/src/version.c)과 [문자열 정렬 구현](https://raw.githubusercontent.com/alpinelinux/apk-tools/master/src/blob.c)에서 확인한 동작을 기준으로 합니다. 비교기는 Alpine:과 내부 ALPINE: 표기를 모두 인식하며 패키지·배포판 버전 매칭은 별도로 유지합니다. 합성 테스트로 비교·취약 범위·bulk 수정 후보 선택을 검증했습니다. GPL-2.0-only 상위 소스는 동작 확인에만 사용하고 복제·번들에 포함하지 않았으며 native apk 실행이나 전체 문법 동등성을 검증한 것은 아닙니다.
+
+APK 비교는 숫자 구간·suffix 번호·revision의 생략과 명시적인 0도 구분합니다. 예를 들어 1은 1.0보다, 1.0은 1.0-r0보다 앞섭니다. 명시된 revision 번호 0과 00은 수치상 같은 값으로 유지합니다. 위에 연결한 상위 구현의 토큰 순서를 기준으로 직접 비교와 공지 범위·수정 후보 선택을 검증했습니다. native APK와의 전체 동등성은 아직 미검증입니다.
