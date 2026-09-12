@@ -1,5 +1,7 @@
 # CLI Integration
 
+Preserved scan assessments reject duplicate JSON object fields and any trailing JSON value. Ambiguous stored evidence causes the read to fail; gates, reports, summaries and archive exports do not fall back to current shared findings. The stored record is not rewritten. This checks JSON structure, not provider authenticity or the truth of its contents; embedded source text retains its separate validation rules.
+
 Lookup coverage recognizes OSV, DEPS_DEV, GITHUB_ADVISORY and NVD, with the exact states RESOLVED, UNSUPPORTED and NOT_CONFIGURED eligible for completion. At least one RESOLVED result is required; UNAVAILABLE, unknown sources/states and the SNAPSHOT unresolved marker prevent completion. Original values remain stored for diagnosis. This rule is shared by live caches and preserved assessments and does not prove that every applicable source was queried.
 
 New analyses record DEPS_DEV separately: a supported version lookup must resolve and every requested advisory must be present and current. Missing or stale version/advisory evidence remains UNAVAILABLE even if OSV succeeds, blocking complete coverage and the common patch recommendation. Supported ecosystems whose old cache lacks this source outcome are refreshed on the next analysis, including with permanent caching. Unsupported deps.dev ecosystems remain UNSUPPORTED. Earlier preserved assessments are not rewritten; this does not validate all source revisions or resolve conflicts between duplicate advisories.

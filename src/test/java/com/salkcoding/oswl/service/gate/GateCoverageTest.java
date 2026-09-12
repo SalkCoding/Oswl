@@ -57,6 +57,26 @@ class GateCoverageTest {
         ReflectionTestUtils.setField(target,"assessmentJson",new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value));
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"outcome", "findings", "format", "trailing"})
+    void ambiguousPreservedJsonCannotBecomeAPassingGate(String state) throws Exception {
+        var library = evidenceLibrary();
+        preserve(scan, library);
+        String json = scan.getAssessmentJson();
+        json = switch (state) {
+            case "outcome" -> json.replace("\"OSV\":\"RESOLVED\"", "\"OSV\":\"UNAVAILABLE\",\"OSV\":\"RESOLVED\"");
+            case "findings" -> json.replace("\"findings\":[]", "\"findings\":[{\"cveId\":\"CVE-2026-123450\",\"severity\":\"CRITICAL\"}],\"findings\":[]");
+            case "format" -> json.replace("\"formatVersion\":1", "\"formatVersion\":999,\"formatVersion\":1");
+            default -> json + " {}";
+        };
+        ReflectionTestUtils.setField(scan, "assessmentJson", json);
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.evaluate(1L, GatePolicyService.GateOptions.defaults()))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(scan.getAssessmentJson()).isEqualTo(json);
+        assertThat(library.isVulnerabilitiesAnalyzed()).isTrue();
+    }
+
     static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> malformedOutcomes() {
         return java.util.stream.Stream.of(false,true).flatMap(preserved -> java.util.stream.Stream.of(
                 "unknown-status","empty-status","lowercase-status","unknown-source","padded-source","snapshot-resolved","valid","deps-only")

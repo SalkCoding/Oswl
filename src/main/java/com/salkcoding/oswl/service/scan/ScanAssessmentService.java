@@ -14,7 +14,9 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ScanAssessmentService {
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = new ObjectMapper()
+            .enable(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+            .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private final ScanResultRepository scans;
 
     /** First published data phase wins. Later entity saves cannot erase or replace it. */

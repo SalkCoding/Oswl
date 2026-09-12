@@ -469,6 +469,8 @@
 
 - **2026-09-13 내보내기 실제 HTTP 계약 검증:** 무작위 포트의 실제 앱·격리 H2·Chromium 로그인 세션으로 보존/legacy/구성 불일치 3조건을 조회했다. 일반 사용자는 모두 403이며 취약점/판정이 노출되지 않는다. 관리자 보존 판정 문자열과 출처·실패 상태·수정 충돌은 응답에서 유지됐다. legacy에서는 전역 non_null 설정으로 필드가 사라지는 실제 실패를 재현해 해당 필드에 ALWAYS 포함 규칙을 추가했다. 구성 불일치 400은 기존 GlobalExceptionHandler 계약으로 확인했고 초기 테스트의 500 기대를 이 근거에 맞췄다. HTTP 조회 후 판정/구성/보관 상태 보존도 검증한다. OpenAPI에 구성 불일치 응답을 설명하고 세 언어 문서에 null 필드의 존재를 명시했다. 새 외부 데이터/라이브러리·DB migration·UI 변경 없음. 커밋 제목 `fix: expose missing archive assessments consistently over http`. `uiTest --tests *ScanArchiveEvidenceHttpTest bootJar verifyProdJar` 50초 성공, 실제 HTTP 3건 통과·실패/skip 0. 로그 `build/archive-evidence-http.log`, `build/archive-evidence-http-checked.log`. 전체 일반 suite는 이번에 재실행하지 않았다.
 
+- **2026-09-13 보존 판정 JSON의 모호성 거절:** 조회 결과/취약점 목록/형식 버전의 중복 필드와 뒤에 붙은 추가 객체 4종을 게이트가 거절하지 않는 수정 전 실패를 재현했다. 공통 ScanAssessmentService reader에 중복 필드 탐지와 trailing token 거절을 적용하여 어느 필드 값을 고를지 추정하지 않는다. 게이트·보고서·스캔 요약·보관 내보내기가 동일 reader를 사용하며 실패 시 현재 공유 데이터로 대체하지 않는다. 회귀 검사는 정상 공유 캐시가 있어도 예외가 나고 저장 JSON이 그대로 남음을 확인한다. 문자열 형태의 공급자 원문 내용까지 검증하거나 원천 진위·기존 기록의 의미를 인증하는 변경은 아니다. 새 외부 자료/라이브러리·DB migration·UI 변경 없음. 세 언어 CLI 문서 갱신. 커밋 제목 `fix: reject ambiguous preserved scan assessment json`. 관련 일반 검사 93건 통과·실패/skip 0(`build/assessment-json-after.log`), 수정 전 4건 실패(`build/assessment-json-before.log`). 실제 앱/H2/Chromium 로그인 기반 HTTP 4조건에서 정상/legacy·구성 불일치·중복 판정의 응답과 일반 사용자 차단·원본 보존을 확인했다(`build/assessment-json-http.log`). `bootJar verifyProdJar` 통과. 전체 일반 suite는 이번에 재실행하지 않았다.
+
 ### 17. 소스·시크릿·IaC 등 분석기별 완전성 상태 — P0 · [코드 확인]
 
 - 현재·대상: [SecretIacScanService](src/main/java/com/salkcoding/oswl/service/secretscan/SecretIacScanService.java)의 반환/로그와 CLI manifest-only 제출. 공급원별 coverage 전체를 새로 만드는 작업은 아니다.
