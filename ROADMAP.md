@@ -515,6 +515,9 @@
 
 ### 19. 강제 게이트·baseline·예외와 참고 평가 분리 — P0 · [부분 구현]
 
+- **2026-09-13 저장 근거 JSON의 모호한 값 거절:** Library의 조회 결과/OSV 공통 수정 판정 변환기가 중복 키에서 마지막 값을 고르거나 뒤따르는 JSON 및 숫자 버전을 문자열로 받아들이는 문제를 변환기 회귀 8건의 수정 전 실패로 확인했다. 두 근거 변환기에 중복 키·후속 토큰 검사와 숫자/불리언→문자열 변환 거절을 적용했다. 모호한 조회는 STORAGE/UNAVAILABLE, 공통 수정 판정은 STORAGE_ERROR로 남긴다. 실제 DB에 중복/후속/숫자 버전 JSON을 넣는 5조건에서 공통 후보 보류·개별 수정 유지·원래 TEXT 보존을 확인했고 필터용 scalar projection의 조회 미완료도 단언했다. FixConflictPersistenceTest를 환경 변수로 별도 PostgreSQL에 연결할 수 있게 하여 해당 환경의 클래스 12건을 통과했다(기존 migration 메서드 자체는 H2 검사를 유지). H2 전체 build/verifyProdJar 3분 2초 성공: 일반 4,658건 중 4,646 통과·기존 skip 12·실패/오류 0. 읽기만으로 원문을 다시 저장하지 않으며 이후 실제 새 조회에 의한 캐시 갱신은 유지한다. 새 외부 자료·라이브러리·DB migration·UI 변경 없음. 브라우저 검사는 재실행하지 않았다. 전용 PG DB는 연결 0 확인 후 삭제하고 서버 종료. 로그 `build/stored-evidence-json-before.log`, `build/stored-evidence-json-checked.log`, `build/stored-evidence-json-build.log`, `build/stored-evidence-json-postgres.log`; XML `build/stored-evidence-json-h2.xml`, `build/stored-evidence-json-postgres.xml`. 커밋 제목 `fix: reject ambiguous stored vulnerability evidence`.
+
+
 - 현재·대상: [GatePolicyService](src/main/java/com/salkcoding/oswl/service/gate/GatePolicyService.java)의 요청 옵션 우선/최근 baseline, [PrGateService](src/main/java/com/salkcoding/oswl/service/gate/PrGateService.java)의 headSha 연결을 재확인한다. scanId 소유 검사는 이미 있다.
 - [ ] 수정: 조직 최소 정책을 요청으로 약화하지 못하게 조합 규칙을 만든다. 보호 브랜치 baselineScanId/commit/시점/policy revision을 고정한다. exact scan/artifact에 gate를 결합하고 what-if·VEX/예외·화면 필터를 구분한다.
 - 선행: 10·14·16~18번.
