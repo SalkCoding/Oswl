@@ -14,6 +14,7 @@ public record ScanArchiveExportDto(
         LocalDateTime scannedAt,
         List<ComponentExportDto> components,
         /** Exact stored assessment JSON; null for legacy scans. Never synthesized from shared cache. */
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS)
         String assessmentJson
 ) {
 

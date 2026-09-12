@@ -32,6 +32,7 @@ public interface ScanArchivingControllerSpec {
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Scans pending archival, in full detail",
             content = @Content(array = @ArraySchema(schema = @Schema(implementation = ScanArchiveExportDto.class)))),
+        @ApiResponse(responseCode = "400", description = "Preserved assessment cannot be read or does not match the component inventory", content = @Content),
         @ApiResponse(responseCode = "403", description = "Not a SYSTEM_ADMIN", content = @Content),
         @ApiResponse(responseCode = "404", description = "Project not found", content = @Content)
     })

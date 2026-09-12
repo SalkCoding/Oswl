@@ -467,6 +467,8 @@
 
 - **2026-09-13 보관 내보내기의 저장 판정 전달:** 간략 CVE DTO가 조회 미완료·출처·수정 버전 충돌 정보를 전달하지 않는 문제를 보완해 `assessmentJson`에 저장 판정 문자열을 그대로 내보낸다. legacy는 null이고 현재 캐시로 합성하지 않는다. 원문에 없던 근거나 공급자 진위/재배포 허용을 추정하지 않는다. 실제 H2 자료를 서비스에서 내보낸 뒤 JSON 직렬화하여 원래 문자열 동일성, 조회 실패, 출처, 충돌 후보와 fix 보류를 검증한다. 수정 전 3조건 중 보존/legacy 필드 검사 2건이 실패했다. 새 응답 필드와 내부 formatVersion을 지원하지 않는 구버전 소비자는 수정이 필요하며 복원 API는 제공하지 않는다. 세 언어 사용 문서와 OpenAPI 설명을 갱신했다. 외부 자료/라이브러리·DB migration·UI 변경 없음. 전체 원천 원문·고지 수집과 후보 집계, 별도 재평가 revision은 여전히 잔여다. 커밋 제목 `feat: include preserved assessments in scan archive exports`. 관련 통합·직렬화 검사 12건 통과·실패/skip 0, `bootJar verifyProdJar` 포함 36초 성공. 로그 `build/archive-full-evidence-before.log`, `build/archive-full-evidence-after.log`. 전체 suite·브라우저·실제 HTTP 응답 검사는 이번에 재실행하지 않았다.
 
+- **2026-09-13 내보내기 실제 HTTP 계약 검증:** 무작위 포트의 실제 앱·격리 H2·Chromium 로그인 세션으로 보존/legacy/구성 불일치 3조건을 조회했다. 일반 사용자는 모두 403이며 취약점/판정이 노출되지 않는다. 관리자 보존 판정 문자열과 출처·실패 상태·수정 충돌은 응답에서 유지됐다. legacy에서는 전역 non_null 설정으로 필드가 사라지는 실제 실패를 재현해 해당 필드에 ALWAYS 포함 규칙을 추가했다. 구성 불일치 400은 기존 GlobalExceptionHandler 계약으로 확인했고 초기 테스트의 500 기대를 이 근거에 맞췄다. HTTP 조회 후 판정/구성/보관 상태 보존도 검증한다. OpenAPI에 구성 불일치 응답을 설명하고 세 언어 문서에 null 필드의 존재를 명시했다. 새 외부 데이터/라이브러리·DB migration·UI 변경 없음. 커밋 제목 `fix: expose missing archive assessments consistently over http`. `uiTest --tests *ScanArchiveEvidenceHttpTest bootJar verifyProdJar` 50초 성공, 실제 HTTP 3건 통과·실패/skip 0. 로그 `build/archive-evidence-http.log`, `build/archive-evidence-http-checked.log`. 전체 일반 suite는 이번에 재실행하지 않았다.
+
 ### 17. 소스·시크릿·IaC 등 분석기별 완전성 상태 — P0 · [코드 확인]
 
 - 현재·대상: [SecretIacScanService](src/main/java/com/salkcoding/oswl/service/secretscan/SecretIacScanService.java)의 반환/로그와 CLI manifest-only 제출. 공급원별 coverage 전체를 새로 만드는 작업은 아니다.
