@@ -983,6 +983,8 @@
 
 - **2026-09-13 GHSA 수정 후보의 DB 반입·오프라인 조회 검증:** 합성 GraphQL 중첩 범위를 실제 온라인 client로 판정해 3.0.0을 선택한 뒤, 테스트가 명시적으로 formatVersion 2·파일 SHA-256·행 수·원천 기준일을 갖춘 ZIP을 생성했다. 실제 H2 반입과 오프라인 GitHub client/source를 통과시켜 공지 ID·CVE·심각도·수정 후보를 대조했다. 최신 기준일은 3.0.0을 유지하고 8일 경과/날짜 없음은 조회 미완료·안내 후보 없음으로 처리하면서 DB의 원래 3.0.0 및 취약점은 유지한다. 미수집 버전 키도 완료 결과에 포함하지 않는다. 기준일은 모의 조건이며 공급자 revision 날짜가 아니다. 신규 3조건 및 SnapshotImportTransactionTest/GitHubAdvisoryRangeTest 전체 216건 통과·실패/skip 0(33초). 새 외부 자료/라이브러리·제품 코드/UI 변경 없음. 세 언어 문서 반영. 현재 CLI에는 GHSA 수집기가 연결돼 있지 않으므로 이 검사를 CLI collection/export 왕복으로 부르지 않는다. 실제 GitHub·PostgreSQL·전체 build/UI 및 전체 동일 revision 동등성 검증은 잔여다. 로그 `build/ghsa-range-snapshot.log`, `build/ghsa-range-snapshot-checked.log`. 커밋 제목 `test: verify github fix candidates through snapshot import`.
 
+- **2026-09-13 GHSA 반입의 PostgreSQL 대조:** SnapshotImportTransactionTest의 DB 연결을 OSWL_SNAPSHOT_IMPORT_TEST_URL/DRIVER/USER/PASSWORD/DIALECT로 선택할 수 있게 하고 기본 H2는 종료 시 해제하도록 설정했다. 별도 PostgreSQL 15.19 DB에서 GHSA의 최신/8일 경과/기준일 없음 3조건을 실행해 온라인 mock client가 선택한 공지·CVE·심각도·3.0.0의 반입·저장·오프라인 조회와 오래된 안내 보류·미수집 버전 부재를 확인했다. PG 3건 통과(35초), 기본 H2 SnapshotImportTransactionTest 전체 156건 통과(32초), 실패/skip 0. 합성 자료와 기존 PG runtime을 사용했고 새 외부 자료/라이브러리·제품/UI 변경 없음. 검증 DB 연결 0을 확인한 뒤 해당 DB 삭제·부재 확인·서버 종료를 완료했다. 세 언어 문서에 실제 검증 범위를 반영했다. 실제 GitHub 접속·CLI 수집·전체 migration/운영 복구 검증은 여전히 잔여다. 전체 build/UI는 이번에 재실행하지 않았다. 로그 `build/ghsa-range-snapshot-postgres.log`, `build/ghsa-range-snapshot-h2.log`; XML `build/ghsa-range-snapshot-postgres.xml`, `build/ghsa-range-snapshot-h2.xml`. 커밋 제목 `test: verify github snapshot imports on postgres and h2`.
+
 ### 44. PostgreSQL 업그레이드·복구·지원 용량 — P1 · [실환경 필요]
 
 - 현재·대상: 단일 조직 self-hosted를 우선한다. H2 검증은 PostgreSQL 복구/가용성 보증이 아니다.

@@ -19,7 +19,13 @@ import java.util.zip.*;
 
 import static org.assertj.core.api.Assertions.*;
 
-@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:snapshot-budget;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT")
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
+@SpringBootTest(properties = {
+        "spring.datasource.url=${OSWL_SNAPSHOT_IMPORT_TEST_URL:jdbc:h2:mem:snapshot-budget;DB_CLOSE_DELAY=0;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT}",
+        "spring.datasource.driver-class-name=${OSWL_SNAPSHOT_IMPORT_TEST_DRIVER:org.h2.Driver}",
+        "spring.datasource.username=${OSWL_SNAPSHOT_IMPORT_TEST_USER:sa}",
+        "spring.datasource.password=${OSWL_SNAPSHOT_IMPORT_TEST_PASSWORD:}",
+        "spring.jpa.database-platform=${OSWL_SNAPSHOT_IMPORT_TEST_DIALECT:org.hibernate.dialect.H2Dialect}"})
 class SnapshotImportTransactionTest {
 
     @Autowired com.salkcoding.oswl.repository.vulnerability.LibraryRepository libraries;
