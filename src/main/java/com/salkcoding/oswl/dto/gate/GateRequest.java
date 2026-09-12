@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 /**
  * Body for {@code POST /api/scan/gate}. All fields are optional:
- * threshold fields override the server defaults, and the {@code github} block is
+ * threshold fields may strengthen the effective policy/defaults, and the {@code github} block is
  * present only when the caller wants the result posted back to a pull request.
  */
 @Schema(description = "PR/CI security-gate evaluation request")
@@ -12,18 +12,18 @@ public record GateRequest(
         @Schema(description = "Scan to gate; omit for the latest completed scan of the API key's project", example = "42")
         Long scanId,
         @Schema(description = "Fail on CVEs at this severity or higher", example = "HIGH",
-                allowableValues = {"CRITICAL", "HIGH", "MEDIUM", "LOW"})
+                allowableValues = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "NONE"})
         String failOnSeverity,
         @Schema(description = "Fail on any CISA KEV-listed CVE", example = "true")
         Boolean failOnKev,
-        @Schema(description = "Fail on CVEs with EPSS ≥ this finite value in [0,1]; finite negative disables; invalid values return 400", example = "0.5")
+        @Schema(description = "Fail on CVEs with EPSS ≥ this finite value in [0,1]; finite negative disables only if policy allows; invalid values return 400", example = "0.5")
         Double failOnEpss,
         @Schema(description = "Fail on RESTRICTED-license components", example = "true")
         Boolean failOnLicenseViolation,
         @Schema(description = "Consider only findings absent from the previous completed scan", example = "true")
         Boolean onlyNew,
         @Schema(description = "Opt-in CVE filter: evaluate libraries referenced by bytecode or supported source imports. " +
-                "UNKNOWN is excluded; static references do not prove runtime execution. Default false includes UNKNOWN.",
+                "Only honored when the effective policy allows this filter. UNKNOWN is excluded; static references do not prove runtime execution.",
                 example = "false")
         Boolean onlyReachable,
         @Schema(description = "Fail on any CRITICAL/HIGH-severity secret finding", example = "false")

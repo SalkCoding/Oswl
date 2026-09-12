@@ -10,7 +10,12 @@ Gate baseline selection uses the closest completed scan before the target scan w
 A missing severity does not disable independent KEV or EPSS gate rules. A finding that triggers either rule is reported as `UNSCORED`; no severity is inferred. EPSS compares against the configured inclusive threshold. This does not supply missing severity or threat-intelligence evidence.
 
 
-The effective EPSS gate threshold is validated after request, policy and instance-default resolution: it must be finite and at most 1. Values in [0,1] enable the rule; finite negative values retain the explicit disable behavior. NaN, infinities and values above 1 return an invalid-request error instead of producing a gate result. This validation does not yet enforce an organization minimum against request overrides.
+The effective EPSS gate threshold is validated after request, policy and instance-default resolution: it must be finite and at most 1. Values in [0,1] enable the rule; finite negative values disable only when the enforced baseline permits it. NaN, infinities and values above 1 return an invalid-request error instead of producing a gate result. Request strengthening follows the enforced-baseline rules below.
+
+
+Enforced gate requests can strengthen, but cannot relax, the effective org/team/project policy and instance defaults. Severity uses the broader blocking range (for example LOW over HIGH), enabled KEV/license/secret rules stay enabled, and EPSS uses the lower enabled threshold. Negative EPSS or NONE severity cannot disable an enabled baseline. A policy with NONE disables severity comparisons while preserving independent KEV/EPSS checks; a request may enable severity checks again. Unknown severity names are rejected. Requests may widen finding scope by turning onlyNew/onlyReachable off; they cannot turn these filters on unless the baseline permits them. The response reports the applied values.
+
+The existing hierarchy still lets unlocked lower-level policy fields override higher levels; locked fields retain their current behavior. This change prevents request relaxation of that effective policy. Protected-branch baseline/revision pinning and a separate reference-only evaluation remain pending.
 
 
 ## Retrying an upload
@@ -260,7 +265,7 @@ echo "$verdict"
 exit "$(echo "$verdict" | jq -r .exitCode)"
 ```
 
-Server-side defaults (all overridable per request):
+Server-side defaults (requests can only strengthen the effective baseline):
 
 | Field | Env | Default |
 |---|---|---|
@@ -276,7 +281,7 @@ Server-side defaults (all overridable per request):
 
 A confirmed-malicious package (an OSV `MAL-` advisory) always blocks, regardless of every threshold above and regardless of `onlyNew`/`onlyReachable` — the only way to unblock one is an approved policy exception (waiver, **v1.0.5**, see `/api/policies/exceptions`).
 
-`failOnSecrets` (**v1.0.5**) blocks on any CRITICAL/HIGH-severity secret finding from the Quick Import clone scan (regex + entropy rules — AWS keys, GitHub/GitLab/Slack/npm tokens, embedded private key blocks, etc.). Like every other threshold above, it resolves through the request override, then the org/team/project policy hierarchy, then the instance default.
+`failOnSecrets` (**v1.0.5**) blocks on any CRITICAL/HIGH-severity secret finding from the Quick Import clone scan (regex + entropy rules — AWS keys, GitHub/GitLab/Slack/npm tokens, embedded private key blocks, etc.). Like the other thresholds, the effective policy/default is enforced and requests can only strengthen it.
 
 ---
 

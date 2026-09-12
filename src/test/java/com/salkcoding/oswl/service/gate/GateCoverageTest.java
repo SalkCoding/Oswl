@@ -34,6 +34,8 @@ class GateCoverageTest {
 
     @BeforeEach void setup() {
         ReflectionTestUtils.setField(service, "defaultFailOnSeverity", "HIGH");
+        // Individual rule tests opt into EPSS; policy-floor tests set their enforced baseline explicitly.
+        ReflectionTestUtils.setField(service, "defaultFailOnEpss", -1.0);
         project = Project.builder().id(1L).name("Coverage").build();
         scan = ScanResult.builder().id(2L).project(project).scannedAt(java.time.LocalDateTime.of(2026,9,12,12,0))
                 .status(ScanStatus.COMPLETED).build();
@@ -189,6 +191,70 @@ class GateCoverageTest {
         assertThat(result.passed()).isTrue();
         if (value < 0) assertThat(result.thresholds().failOnEpss()).isNull();
         else assertThat(result.thresholds().failOnEpss()).isEqualTo(value);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"unknown",""})
+    void invalidSeverityIsNotSilentlyReplaced(String severity) {
+        org.mockito.Mockito.reset(scans);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.evaluate(1L,
+                new GatePolicyService.GateOptions(null,severity,null,null,null,null,null,null)))
+                .isInstanceOf(com.salkcoding.oswl.exception.InvalidRequestException.class);
+        org.mockito.Mockito.verifyNoInteractions(scans);
+    }
+
+    @Test void requestCannotDisableInstanceDefaultsWhenThereIsNoPolicyRow() {
+        ReflectionTestUtils.setField(service,"defaultFailOnKev",true);
+        ReflectionTestUtils.setField(service,"defaultFailOnEpss",0.5);
+        var result = service.evaluate(1L,new GatePolicyService.GateOptions(null,"CRITICAL",false,-1.0,false,true,true,false));
+        assertThat(result.thresholds().failOnSeverity()).isEqualTo("HIGH");
+        assertThat(result.thresholds().failOnKev()).isTrue();
+        assertThat(result.thresholds().failOnEpss()).isEqualTo(0.5);
+        assertThat(result.onlyNew()).isFalse();
+        assertThat(result.onlyReachable()).isFalse();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"CRITICAL","NONE"})
+    void requestCannotWeakenEffectivePolicy(String severity) {
+        when(policies.resolveGateOptions(1L)).thenReturn(new GatePolicyService.GateOptions(null,"HIGH",true,0.3,true,false,false,true));
+        var library = evidenceLibrary();
+        findings(library);
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        var result = service.evaluate(1L,new GatePolicyService.GateOptions(null,severity,false,-1.0,false,true,true,false));
+        assertThat(result.passed()).isFalse();
+        assertThat(result.violations()).extracting(v -> v.type()).contains("CVE");
+        assertThat(result.thresholds().failOnSeverity()).isEqualTo("HIGH");
+        assertThat(result.thresholds().failOnKev()).isTrue();
+        assertThat(result.thresholds().failOnEpss()).isEqualTo(0.3);
+        assertThat(result.thresholds().failOnLicenseViolation()).isTrue();
+        assertThat(result.thresholds().failOnSecrets()).isTrue();
+        assertThat(result.onlyNew()).isFalse();
+        assertThat(result.onlyReachable()).isFalse();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"NONE,true","HIGH,false"})
+    void disabledPolicySeverityCanBeEnabledByRequest(String severity, boolean passed) {
+        when(policies.resolveGateOptions(1L)).thenReturn(new GatePolicyService.GateOptions(null,"NONE",false,-1.0,false,false,false,false));
+        var library = evidenceLibrary();
+        findings(library);
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        var result = service.evaluate(1L,new GatePolicyService.GateOptions(null,severity,null,null,null,null,null,null));
+        assertThat(result.passed()).isEqualTo(passed);
+        assertThat(result.thresholds().failOnSeverity()).isEqualTo(severity);
+    }
+
+    @Test void requestCanStrengthenEffectivePolicy() {
+        when(policies.resolveGateOptions(1L)).thenReturn(new GatePolicyService.GateOptions(null,"HIGH",false,0.7,false,true,true,false));
+        var result = service.evaluate(1L,new GatePolicyService.GateOptions(null,"LOW",true,0.2,true,false,false,true));
+        assertThat(result.thresholds().failOnSeverity()).isEqualTo("LOW");
+        assertThat(result.thresholds().failOnKev()).isTrue();
+        assertThat(result.thresholds().failOnEpss()).isEqualTo(0.2);
+        assertThat(result.thresholds().failOnLicenseViolation()).isTrue();
+        assertThat(result.thresholds().failOnSecrets()).isTrue();
+        assertThat(result.onlyNew()).isFalse();
+        assertThat(result.onlyReachable()).isFalse();
     }
 
     @Test void missingLookupCannotPassEvenWhenIgnoredOrFiltered() {

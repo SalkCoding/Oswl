@@ -46,8 +46,8 @@ import java.util.Set;
  * and never fail the gate, and so are findings covered by an approved, unexpired
  * {@link PolicyException}.
  *
- * Threshold resolution order is request override → {@link PolicyService} org/team/project
- * policy hierarchy → {@code oswl.gate.*} instance defaults.
+ * The policy hierarchy and instance defaults establish the enforced baseline.
+ * Requests may strengthen its thresholds or widen its finding scope, but cannot weaken it.
  */
 @Slf4j
 @Service
@@ -80,9 +80,8 @@ public class GatePolicyService {
     private boolean defaultFailOnSecrets;
 
     /**
-     * Per-request overrides; null fields fall back to the org/team/project policy hierarchy
-     * ({@link PolicyService}), and fields the hierarchy also leaves null fall through to the
-     * configured {@code oswl.gate.*} instance defaults.
+     * Optional request constraints. The effective policy (or instance default for unset
+     * fields) is enforced; requests may only strengthen thresholds or widen finding scope.
      */
     public record GateOptions(
             Long scanId,
@@ -103,24 +102,25 @@ public class GatePolicyService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
 
-        // Tier 2 of the resolution order — org/team/project policy hierarchy.
+        // Resolve the enforced policy before applying any request constraints.
         // Fields the hierarchy leaves null (no policy row, or policy exists but doesn't set
         // that field) fall through to the oswl.gate.* instance defaults below.
         GateOptions policyOptions = policyService.resolveGateOptions(projectId);
 
-        RiskLevel failOnSeverity = parseSeverity(firstNonNull(
-                options.failOnSeverity(), policyOptions.failOnSeverity(), defaultFailOnSeverity));
-        boolean failOnKev = firstNonNull(options.failOnKev(), policyOptions.failOnKev(), defaultFailOnKev);
-        double failOnEpss = firstNonNull(options.failOnEpss(), policyOptions.failOnEpss(), defaultFailOnEpss);
-        if (!Double.isFinite(failOnEpss) || failOnEpss > 1.0) {
-            throw new com.salkcoding.oswl.exception.InvalidRequestException(messageSource.getMessage(
-                    "gate.error.invalidEpssThreshold", null, org.springframework.context.i18n.LocaleContextHolder.getLocale()));
-        }
-        boolean failOnLicense = firstNonNull(options.failOnLicenseViolation(),
-                policyOptions.failOnLicenseViolation(), defaultFailOnLicenseViolation);
-        boolean onlyNew = firstNonNull(options.onlyNew(), policyOptions.onlyNew(), defaultOnlyNew);
-        boolean onlyReachable = firstNonNull(options.onlyReachable(), policyOptions.onlyReachable(), defaultOnlyReachable);
-        boolean failOnSecrets = firstNonNull(options.failOnSecrets(), policyOptions.failOnSecrets(), defaultFailOnSecrets);
+        RiskLevel policySeverity = parseSeverity(firstNonNull(policyOptions.failOnSeverity(), defaultFailOnSeverity));
+        RiskLevel requestedSeverity = options.failOnSeverity() == null ? policySeverity : parseSeverity(options.failOnSeverity());
+        RiskLevel failOnSeverity = policySeverity == RiskLevel.NONE ? requestedSeverity
+                : requestedSeverity == RiskLevel.NONE ? policySeverity
+                : requestedSeverity.ordinal() > policySeverity.ordinal() ? requestedSeverity : policySeverity;
+        boolean failOnKev = firstNonNull(policyOptions.failOnKev(), defaultFailOnKev) || Boolean.TRUE.equals(options.failOnKev());
+        double policyEpss = validEpss(firstNonNull(policyOptions.failOnEpss(), defaultFailOnEpss));
+        double requestEpss = options.failOnEpss() == null ? policyEpss : validEpss(options.failOnEpss());
+        double failOnEpss = policyEpss < 0 ? requestEpss : requestEpss < 0 ? policyEpss : Math.min(policyEpss, requestEpss);
+        boolean failOnLicense = firstNonNull(policyOptions.failOnLicenseViolation(), defaultFailOnLicenseViolation)
+                || Boolean.TRUE.equals(options.failOnLicenseViolation());
+        boolean onlyNew = firstNonNull(policyOptions.onlyNew(), defaultOnlyNew) && !Boolean.FALSE.equals(options.onlyNew());
+        boolean onlyReachable = firstNonNull(policyOptions.onlyReachable(), defaultOnlyReachable) && !Boolean.FALSE.equals(options.onlyReachable());
+        boolean failOnSecrets = firstNonNull(policyOptions.failOnSecrets(), defaultFailOnSecrets) || Boolean.TRUE.equals(options.failOnSecrets());
 
         List<PolicyException> activeExceptions = policyService.findActiveExceptions(projectId);
 
@@ -213,7 +213,7 @@ public class GatePolicyService {
                     if (isNew) newVulnCount++;
 
                     List<String> reasons = new ArrayList<>();
-                    boolean sevFail = cve.severity() != null && cve.severity().ordinal() <= failOnSeverity.ordinal()
+                    boolean sevFail = failOnSeverity != RiskLevel.NONE && cve.severity() != null && cve.severity().ordinal() <= failOnSeverity.ordinal()
                             && cve.severity() != RiskLevel.NONE;
                     if (sevFail) reasons.add("severity " + cve.severity() + " ≥ " + failOnSeverity.name());
                     if (failOnKev && Boolean.TRUE.equals(cve.kevListed())) reasons.add("CISA KEV listed");
@@ -420,12 +420,23 @@ public class GatePolicyService {
         return md.toString();
     }
 
-    private RiskLevel parseSeverity(String s) {
-        try {
-            return RiskLevel.valueOf(s.trim().toUpperCase());
-        } catch (Exception e) {
-            return RiskLevel.HIGH;
+    private double validEpss(double value) {
+        if (!Double.isFinite(value) || value > 1.0) {
+            throw new com.salkcoding.oswl.exception.InvalidRequestException(messageSource.getMessage(
+                    "gate.error.invalidEpssThreshold", null, org.springframework.context.i18n.LocaleContextHolder.getLocale()));
         }
+        return value;
+    }
+
+    private RiskLevel parseSeverity(String value) {
+        try {
+            RiskLevel level = RiskLevel.valueOf(value.trim().toUpperCase(java.util.Locale.ROOT));
+            return level;
+        } catch (IllegalArgumentException | NullPointerException ignored) {
+            // Invalid configuration must not silently select a different threshold.
+        }
+        throw new com.salkcoding.oswl.exception.InvalidRequestException(messageSource.getMessage(
+                "gate.error.invalidSeverityThreshold", null, org.springframework.context.i18n.LocaleContextHolder.getLocale()));
     }
 
     // ── Waivers ────────────────────────────────────────────
@@ -451,15 +462,15 @@ public class GatePolicyService {
 
     // ── Tiered default resolution ────────────────────────────────────────
 
-    private static String firstNonNull(String request, String policy, String instanceDefault) {
-        return request != null ? request : policy != null ? policy : instanceDefault;
+    private static String firstNonNull(String policy, String instanceDefault) {
+        return policy != null ? policy : instanceDefault;
     }
 
-    private static boolean firstNonNull(Boolean request, Boolean policy, boolean instanceDefault) {
-        return request != null ? request : policy != null ? policy : instanceDefault;
+    private static boolean firstNonNull(Boolean policy, boolean instanceDefault) {
+        return policy != null ? policy : instanceDefault;
     }
 
-    private static double firstNonNull(Double request, Double policy, double instanceDefault) {
-        return request != null ? request : policy != null ? policy : instanceDefault;
+    private static double firstNonNull(Double policy, double instanceDefault) {
+        return policy != null ? policy : instanceDefault;
     }
 }
