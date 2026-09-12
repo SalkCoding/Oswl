@@ -125,18 +125,18 @@ class ScanSummaryReaderTest {
         var project = projects.save(Project.builder().name("Patch-filter-" + UUID.randomUUID()).build());
         var scan = scans.save(ScanResult.builder().project(project).status(ScanStatus.COMPLETED).build());
         java.util.Map<String, Long> ids = new java.util.HashMap<>();
-        for (String state : List.of("fixed", "unfixed", "failed", "candidate", "missingSeverity", "deprecated", "outdated", "latest", "candidateLatest")) {
+        for (String state : List.of("fixed", "unfixed", "failed", "candidate", "missingSeverity", "deprecated", "outdated", "latest", "candidateLatest", "blankFix", "future", "unknownSource", "noneSeverity")) {
             var lib = Library.builder().name(state + UUID.randomUUID()).version("1").ecosystem("NPM")
-                    .fetchedAt(LocalDateTime.now()).vulnerabilityLookupAt(LocalDateTime.now())
-                    .vulnerabilityLookupOutcomes(java.util.Map.of("OSV", state.equals("failed") ? "UNAVAILABLE" : "RESOLVED"))
+                    .fetchedAt(LocalDateTime.now()).vulnerabilityLookupAt(state.equals("future") ? LocalDateTime.now().plusDays(1) : LocalDateTime.now())
+                    .vulnerabilityLookupOutcomes(java.util.Map.of(state.equals("unknownSource") ? "SNAPSHOT" : "OSV", state.equals("failed") ? "UNAVAILABLE" : "RESOLVED"))
                     .deprecated(state.equals("deprecated") ? "retired" : null)
                     .isLatestVersion(state.equals("latest") || state.equals("candidateLatest"))
                     .build();
             if (!List.of("deprecated", "outdated", "latest").contains(state)) {
                 lib.getCves().add(Cve.builder().library(lib).cveId("CVE-2026-123451")
                         .sources(java.util.Set.of(state.startsWith("candidate") ? CveSource.NVD : CveSource.OSV))
-                        .severity(state.equals("missingSeverity") ? null : RiskLevel.HIGH)
-                        .fixVersion(state.equals("unfixed") ? null : "2").build());
+                        .severity(state.equals("missingSeverity") ? null : state.equals("noneSeverity") ? RiskLevel.NONE : RiskLevel.HIGH)
+                        .fixVersion(state.equals("unfixed") ? null : state.equals("blankFix") ? "\t\n" : "2").build());
             }
             libraries.save(lib);
             ids.put(state, components.save(ScanComponent.builder().scanResult(scan).library(lib).build()).getId());
@@ -149,7 +149,7 @@ class ScanSummaryReaderTest {
                 filter.equals("outdated"), filter.equals("latest"), "name");
         var expected = switch (filter) {
             case "patchable" -> List.of(ids.get("fixed"), ids.get("missingSeverity"));
-            case "nonPatchable" -> List.of(ids.get("unfixed"));
+            case "nonPatchable" -> List.of(ids.get("unfixed"), ids.get("blankFix"));
             default -> List.of(ids.get(filter));
         };
         var result = securityCenter.queryRows(project.getId(), scan.getId(), f, 0);

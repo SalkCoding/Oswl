@@ -88,6 +88,7 @@ class PerformanceBudgetUiTest extends UiTestBase {
             measure(size + "-patch-page-" + pageIndex, 1, () -> {
                 var result = security.queryRows(project.getId(), scan.getId(), filter, pageIndex);
                 assertThat(result.getTotalElements()).isEqualTo(matching);
+                assertThat(emf.unwrap(SessionFactory.class).getStatistics().getEntityLoadCount()).isLessThan(1000);
                 assertThat(result.getContent()).hasSize(pageIndex == beyondPage ? 0 : 100);
                 assertThat(result.hasNext()).isEqualTo(pageIndex == 0);
                 assertThat(result.getContent()).allSatisfy(row -> {

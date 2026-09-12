@@ -17,8 +17,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import static org.assertj.core.api.Assertions.assertThat;
 
+@org.springframework.test.annotation.DirtiesContext(classMode = org.springframework.test.annotation.DirtiesContext.ClassMode.AFTER_CLASS)
 @SpringBootTest(properties = {
-        "spring.datasource.url=jdbc:h2:mem:nuget-declaration-persistence;DB_CLOSE_DELAY=-1;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT",
+        "spring.datasource.url=jdbc:h2:mem:nuget-declaration-persistence;DB_CLOSE_DELAY=0;INIT=CREATE DOMAIN IF NOT EXISTS JSONB AS TEXT",
         "oswl.quick-import.allow-build-exec=false", "oswl.ingest.allow-external-resolution=false"})
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 @RequiredArgsConstructor
