@@ -809,6 +809,8 @@
 
 ### 32. 원천별 수집 파이프라인·경로·완전성 관리 — P0 · [코드 확인/설계]
 
+- **2026-09-13 미연결 CLI 출처의 거짓 성공 차단:** VdbBuildOptions가 `github-advisory`·`nvd`를 기본/명시적 출처로 받아들이지만 VdbBuilderCli에는 해당 수집 경로가 없음을 확인했다. 명시적 단독/혼합 요청은 수집 전에 오류로 종료하고 기존 출력 번들을 보존한다. 기본값은 실제 연결된 네 출처로 맞췄고 미사용 GitHub/NVD 옵션 세 개도 거절한다. 수정 전 8조건 실패를 재현했으며 수정 후 VDB/OSV 벌크/스냅샷 검사 243건 통과·실패/오류/skip 0, `bootJar verifyProdJar` 성공(38초). 세 언어 Administration 문서 반영. 자체 합성 자료이며 외부 자료/라이브러리 도입·운영 DB·UI 변경 없음. 전체 build·PG·실제 API·브라우저는 이번에 미검증. 기존 번들의 누락 데이터 보충, 두 수집기 구현·권한 검증·원문 보존은 아직 미완료다. 로그 `build/vdb-source-selection-before.log`, `build/vdb-source-selection-checked.log`. 커밋 제목 `fix: reject disconnected vdb source selections`.
+
 - 현재·대상: [VdbBuilderCli](src/main/java/com/salkcoding/oswl/vdb/VdbBuilderCli.java), [OsvBulkSource.resolveBucket](src/main/java/com/salkcoding/oswl/vdb/OsvBulkSource.java), 기존 client/checkpoint 경로.
 - [ ] 수정: OSV 상위 Alpine/Debian/Ubuntu dump를 가져와 정확한 distro ecosystem으로 필터링한다. 소스별 수정 cursor·페이지·retry/rate limit·철회·손상 격리·수집 checkpoint를 관리한다. 코드에 남은 버전 접미사 bucket과 공식 안내를 실제 대조한다.
 - 선행: 1~2·5·12~13번.

@@ -474,3 +474,5 @@ SCIM을 사용하면 IdP의 사용자 생명주기를 OsWL과 동기화할 수 �
 **감사 액션:** SCIM 작업은 `SCIM.USER_CREATE`, `SCIM.USER_UPDATE`, `SCIM.USER_DEACTIVATE`, `SCIM.GROUP_CREATE`, `SCIM.GROUP_UPDATE`, `SCIM.GROUP_DELETE`, `SCIM.GROUP_MEMBER_ADD`, `SCIM.GROUP_MEMBER_REMOVE`, `SCIM.AUTH_FAILURE`, `SCIM_KEY.CREATE`로 기록됩니다. SAML 로그인 이벤트는 `SAML.LOGIN_SUCCESS` 및 `SAML.LOGIN_FAILURE`로 기록됩니다.
 
 CLI 전체·증분 번들에도 `meta.json.dataNotices`를 포함합니다. GitHub Advisory Database 자료가 있을 때의 출처 표시, CC-BY-4.0 및 출처 링크, 보증 부인, 선별·정규화·증분 처리 사실을 안내합니다. 반입과 재내보내기는 기존 고지 저장 경로로 이 고지를 유지합니다. CLI 메타데이터 누락을 보완한 것이며, 원문의 모든 크레딧 보존·레코드별 권리 식별·다른 원천의 이용 허가를 뜻하지 않습니다. [공식 데이터베이스 라이선스](https://raw.githubusercontent.com/github/advisory-database/main/LICENSE.md)는 2026-09-13에 확인했습니다. OSV 벌크 수집은 아직 원문 범위 근거를 생략하므로, 이 고지만으로 기존 요약 레코드에서 공통 수정 버전을 선택할 수는 없습니다.
+
+VDB 빌더의 기본 출처는 실제 연결된 `osv,epss,kev,depsdev`입니다. `--sources github-advisory` 또는 `--sources nvd`를 명시하면 혼합 선택을 포함해 수집·출력 교체 전에 실패합니다. 사용되지 않던 `--github-advisory-token`, `--github-api-base`, `--nvd-api-key` 옵션도 거절합니다. 이 수집기는 아직 CLI에 연결되지 않았으며, 앱의 온라인 클라이언트와 스냅샷 반입 지원이 CLI 수집 지원을 뜻하지 않습니다. 이전에는 요청 출처가 빠진 번들도 성공할 수 있었습니다. 기존 번들은 실제 포함 출처를 확인해야 하며 이 변경이 누락 레코드를 보충하지는 않습니다.

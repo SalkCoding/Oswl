@@ -24,7 +24,7 @@ public record VdbBuildOptions(
         String githubApiBase,
         String nvdApiKey
 ) {
-    static final List<String> ALL_SOURCES = List.of("osv", "epss", "kev", "depsdev", "github-advisory", "nvd");
+    static final List<String> ALL_SOURCES = List.of("osv", "epss", "kev", "depsdev");
 
     static VdbBuildOptions parse(List<String> args) {
         Path out = null;
@@ -63,9 +63,9 @@ public record VdbBuildOptions(
                 }
                 case "--since" -> { since = Path.of(require(v, "--since")); i++; }
                 case "--offline-sources" -> { offlineSources = Path.of(require(v, "--offline-sources")); i++; }
-                case "--github-advisory-token" -> { githubAdvisoryToken = require(v, "--github-advisory-token"); i++; }
-                case "--github-api-base" -> { githubApiBase = require(v, "--github-api-base"); i++; }
-                case "--nvd-api-key" -> { nvdApiKey = require(v, "--nvd-api-key"); i++; }
+                case "--github-advisory-token" -> throw new IllegalArgumentException("--github-advisory-token is unavailable: its collector is not connected to the bundle builder");
+                case "--github-api-base" -> throw new IllegalArgumentException("--github-api-base is unavailable: its collector is not connected to the bundle builder");
+                case "--nvd-api-key" -> throw new IllegalArgumentException("--nvd-api-key is unavailable: its collector is not connected to the bundle builder");
                 default -> throw new IllegalArgumentException("Unknown option: " + a);
             }
         }
@@ -73,6 +73,9 @@ public record VdbBuildOptions(
             out = Path.of("oswl-vdb-" + java.time.LocalDate.now() + ".zip");
         }
         for (String s : sources) {
+            if (s.equals("github-advisory") || s.equals("nvd")) {
+                throw new IllegalArgumentException("Source '" + s + "' is unavailable: its collector is not connected to the bundle builder");
+            }
             if (!ALL_SOURCES.contains(s)) {
                 throw new IllegalArgumentException("Unknown source '" + s + "' — expected one of " + ALL_SOURCES);
             }
