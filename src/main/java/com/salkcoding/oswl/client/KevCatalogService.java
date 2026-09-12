@@ -77,11 +77,15 @@ public class KevCatalogService {
             return;
         }
         try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> body = restClient.get()
+            byte[] payload = restClient.get()
                     .uri(KEV_FEED_URL)
                     .retrieve()
-                    .body(Map.class);
+                    .body(byte[].class);
+            Map<String, Object> body = payload == null ? null : new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readerFor(new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {})
+                    .with(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                    .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                    .readValue(payload);
             recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
             if (body == null) return;
             Object vulns = body.get("vulnerabilities");

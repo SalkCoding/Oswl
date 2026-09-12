@@ -13,6 +13,32 @@ import static org.assertj.core.api.Assertions.*;
 
 class KevSourceDateTest {
     @ParameterizedTest
+    @ValueSource(strings = {"root-duplicate", "row-duplicate", "trailing", "valid"})
+    void ambiguousJsonIsRejectedAcrossLiveAndBulk(String kind, @TempDir Path directory) throws Exception {
+        String released = java.time.Instant.now().minusSeconds(60).toString();
+        String body = "{\"count\":1,\"catalogVersion\":\"fixture\",\"dateReleased\":\"" + released
+                + "\",\"vulnerabilities\":[{\"cveID\":\"CVE-2026-1000\"}]}";
+        if (kind.equals("root-duplicate")) body = body.replace("\"count\":1", "\"count\":1,\"count\":1");
+        if (kind.equals("row-duplicate")) body = body.replace("\"cveID\":\"CVE-2026-1000\"", "\"cveID\":\"CVE-2026-1000\",\"cveID\":\"CVE-2026-1000\"");
+        if (kind.equals("trailing")) body += " {}";
+        var builder = org.springframework.web.client.RestClient.builder();
+        var server = org.springframework.test.web.client.MockRestServiceServer.bindTo(builder).build();
+        var client = new com.salkcoding.oswl.client.KevCatalogService();
+        org.springframework.test.util.ReflectionTestUtils.setField(client, "restClient", builder.build());
+        server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo(
+                "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(body, org.springframework.http.MediaType.APPLICATION_JSON));
+        client.refresh();
+        assertThat(client.listingStatus("CVE-2026-1000")).isEqualTo(kind.equals("valid") ? Boolean.TRUE : null);
+        assertThat(client.listingStatus("CVE-2026-1001")).isEqualTo(kind.equals("valid") ? Boolean.FALSE : null);
+        server.verify();
+        Files.writeString(directory.resolve("kev.json"), body);
+        if (kind.equals("valid")) assertThat(new KevSource(new ObjectMapper()).fetch(new HttpCache(directory, true)).cveIds())
+                .containsExactly("CVE-2026-1000");
+        else assertThatThrownBy(() -> new KevSource(new ObjectMapper()).fetch(new HttpCache(directory, true))).isInstanceOf(IOException.class);
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"count", "no-count", "count-type", "no-version", "version-type", "blank-version",
             "no-list", "list-type", "row-type", "cve-type", "cve-format", "duplicate"})
     void incompleteCatalogCannotReplaceBundle(String damage, @TempDir Path directory) throws Exception {

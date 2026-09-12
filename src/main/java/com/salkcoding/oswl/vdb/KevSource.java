@@ -29,7 +29,10 @@ final class KevSource {
 
     Result fetch(HttpCache cache) throws Exception {
         byte[] body = cache.getOrFetch("kev.json", KEV_FEED_URL);
-        JsonNode root = mapper.readTree(body);
+        JsonNode root = mapper.reader()
+                .with(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                .readTree(body);
         if (root == null || !root.isObject() || !root.path("vulnerabilities").isArray()) {
             throw new java.io.IOException("KEV requires a vulnerability array");
         }
