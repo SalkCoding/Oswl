@@ -297,45 +297,9 @@ public final class VdbBuilderCli {
     // ── verify ───────────────────────────────────────────────────────────
 
     private int verify(Path bundle) throws Exception {
-        byte[] zipBytes = Files.readAllBytes(bundle);
-        Map<String, byte[]> filesByName = new java.util.LinkedHashMap<>();
-        byte[] metaBytes = null;
-        try (ZipInputStream zis = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
-            ZipEntry entry;
-            while ((entry = zis.getNextEntry()) != null) {
-                if (entry.isDirectory()) continue;
-                byte[] content = zis.readAllBytes();
-                if ("meta.json".equals(entry.getName())) metaBytes = content;
-                else filesByName.put(entry.getName(), content);
-            }
-        }
-        if (metaBytes == null) {
-            System.err.println("[oswl-vdb] verify: no meta.json — cannot check checksums (v1/meta-less bundle)");
-            return 1;
-        }
-        JsonNode meta = mapper.readTree(metaBytes);
-        JsonNode files = meta.path("files");
-        boolean ok = true;
-        var fieldNames = files.fieldNames();
-        while (fieldNames.hasNext()) {
-            String filename = fieldNames.next();
-            String expectedSha = files.path(filename).path("sha256").asText(null);
-            byte[] content = filesByName.get(filename);
-            if (content == null) {
-                System.err.println("[oswl-vdb] verify: FAIL — " + filename + " listed in meta.json but missing from the zip");
-                ok = false;
-                continue;
-            }
-            String actualSha = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
-            if (!actualSha.equalsIgnoreCase(expectedSha)) {
-                System.err.println("[oswl-vdb] verify: FAIL — " + filename + " checksum mismatch (expected " + expectedSha + ", got " + actualSha + ")");
-                ok = false;
-            } else {
-                System.err.println("[oswl-vdb] verify: OK — " + filename);
-            }
-        }
-        System.err.println(ok ? "[oswl-vdb] verify: bundle is valid" : "[oswl-vdb] verify: bundle FAILED checksum verification");
-        return ok ? 0 : 1;
+        PreviousBundleReader.verify(bundle, mapper);
+        System.err.println("[oswl-vdb] verify: archive and manifest integrity checks passed; source authenticity is not verified");
+        return 0;
     }
 
     // ── inspect ──────────────────────────────────────────────────────────

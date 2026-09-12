@@ -15,6 +15,30 @@ import static org.assertj.core.api.Assertions.*;
 
 class PreviousBundleIntegrityTest {
     @ParameterizedTest
+    @ValueSource(strings = {"{}", "null", "{\"files\":null}", "{\"files\":[]}"})
+    void verificationRequiresAnExplicitManifest(String meta, @TempDir Path directory) throws Exception {
+        Path bundle = directory.resolve("bundle.zip");
+        try (var zip = new ZipOutputStream(Files.newOutputStream(bundle))) {
+            zip.putNextEntry(new ZipEntry("meta.json"));
+            zip.write(meta.getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        assertThat(new VdbBuilderCli().run(new String[]{"verify", bundle.toString()})).isEqualTo(1);
+    }
+
+    @Test
+    void validDeltaCanBeVerifiedWithoutServingAsBaseline(@TempDir Path directory) throws Exception {
+        Path bundle = directory.resolve("delta.zip");
+        try (var zip = new ZipOutputStream(Files.newOutputStream(bundle))) {
+            zip.putNextEntry(new ZipEntry("meta.json"));
+            zip.write("{\"formatVersion\":2,\"mode\":\"delta\",\"files\":{}}".getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        assertThat(new VdbBuilderCli().run(new String[]{"verify", bundle.toString()})).isZero();
+        assertThatThrownBy(() -> PreviousBundleReader.read(bundle, new ObjectMapper())).isInstanceOf(IOException.class);
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"hash", "lines", "extra", "missing", "no-files", "null-files", "version", "valid"})
     void manifestMustDescribeBaselineBytes(String damage, @TempDir Path directory) throws Exception {
         byte[] content = "{\"cveId\":\"CVE-2026-1000\"}\n".getBytes(StandardCharsets.UTF_8);
@@ -44,6 +68,8 @@ class PreviousBundleIntegrityTest {
             zip.write(content);
             zip.closeEntry();
         }
+        assertThat(new VdbBuilderCli().run(new String[]{"verify", previous.toString()}))
+                .isEqualTo(damage.equals("valid") ? 0 : 1);
         if (damage.equals("valid")) {
             assertThat(PreviousBundleReader.read(previous, mapper).linesByFileAndKey().get("kev.jsonl"))
                     .containsOnlyKeys("CVE-2026-1000");

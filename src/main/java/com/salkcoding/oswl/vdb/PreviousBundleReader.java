@@ -28,6 +28,14 @@ final class PreviousBundleReader {
     record PreviousBundle(String bundleId, Map<String, Map<String, String>> linesByFileAndKey) {}
 
     static PreviousBundle read(Path bundlePath, ObjectMapper mapper) throws IOException {
+        return read(bundlePath, mapper, true);
+    }
+
+    static void verify(Path bundlePath, ObjectMapper mapper) throws IOException {
+        read(bundlePath, mapper, false);
+    }
+
+    private static PreviousBundle read(Path bundlePath, ObjectMapper mapper, boolean baseline) throws IOException {
         Map<String, byte[]> files = new LinkedHashMap<>();
         byte[] metaBytes = null;
         try (ZipFile zip = new ZipFile(bundlePath.toFile())) {
@@ -54,12 +62,17 @@ final class PreviousBundleReader {
                 .with(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
                 .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
         String bundleId = null;
+        if (!baseline && metaBytes == null) throw new IOException("Verification requires a files manifest");
         if (metaBytes != null) {
             JsonNode meta = strictReader.readTree(metaBytes);
             if (meta == null || !meta.isObject()) throw new IOException("Previous-bundle metadata must be an object");
-            if (meta.has("mode") && (!meta.path("mode").isTextual() || !meta.path("mode").asText().equals("full"))) {
-                throw new IOException("Delta generation requires a full baseline, not a delta or unknown bundle mode");
+            if (meta.has("mode")) {
+                JsonNode mode = meta.path("mode");
+                if (!mode.isTextual() || !(mode.asText().equals("full") || (!baseline && mode.asText().equals("delta")))) {
+                    throw new IOException("Unsupported bundle mode for this operation; delta generation requires a full baseline");
+                }
             }
+            if (!baseline && !meta.path("files").isObject()) throw new IOException("Verification requires a files manifest");
             verifyManifest(meta, files);
             bundleId = meta.path("bundleId").asText(null);
         }
