@@ -482,6 +482,12 @@
 
 - 요청 합성 검증: 수정 전 정책 완화 요청이 그대로 반영되는 실패를 재현했다. 강화·완화·기본값·NONE 동작·잘못된 심각도 검증을 포함해 전체 4,476개 중 4,464개 통과·12개 건너뜀, `build verifyProdJar` 통과. 이후 실제 HIGH 취약점 차단 검증을 보강한 게이트 테스트도 통과했다.
 
+
+- **2026-09-12 조회 시각의 게이트 근거 검증:** 공통 Library 완료 판정이 미래 fetchedAt/조회 시각 또는 결과만 있고 조회 시각이 없는 자료를 완료로 다루던 오류를 수정했다. 보존 판정에는 캡처 당시 `lookupTimesVerified`를 저장하여 이후 공유 캐시 갱신이나 시계 경과가 과거의 미확인 날짜를 검증 완료로 바꾸지 않도록 한다. 이전 보존 JSON의 플래그 누락은 미완료로 유지하고 새 분석을 요구한다. 소급 추정/기존 보존 JSON 재작성은 하지 않는다. DB 열 변경은 없으며 구버전의 엄격한 JSON 리더와 혼용할 수 없음을 배포 문서에 명시했다.
+- **조회 시각 검증 범위:** legacy 투영·보존 경로의 미래 fetchedAt/미래 조회 시각/조회 시각 누락과 정상 대조군 8건 중 수정 전 6건 실패했다. 보존 후 현재 Library 날짜를 정상화해도 원래 실패가 유지되는 것을 확인하고 이전 JSON의 플래그 부재 검사를 추가했다. 로그 `build/roadmap-lookup-time-before.log`, `build/roadmap-lookup-time-after.log`. 자체 합성 입력이며 새 외부 자료/라이브러리·UI 템플릿 변경 없음. 공급자 자료 기준일의 신선도, 서버 시계/시간대 정합성, 출처별 결과가 없는 legacy live 캐시의 기존 호환 동작은 별도 범위다. 이번 검증 플래그는 DB 변조 방지 수단이 아니다.
+
+- **조회 시각 최종 검증:** `build verifyProdJar` 2분 53초 성공, 전체 4,540건 중 4,528건 통과·실패/오류 0·기존 환경 조건 skip 12건. 운영 JAR의 로컬 전용 클래스/검증 fixture 제외도 통과했다. 로그 `build/roadmap-lookup-time-build.log`. 로컬 커밋 제목 `fix: validate lookup timestamps before gate completion`.
+
 ### 20. npm·Yarn·pnpm의 실제 패키지와 설치 트리 — P1 · [지원 범위별 필수]
 
 - 현재·대상: [NpmManifestParser](src/main/java/com/salkcoding/oswl/service/ingest/parser/NpmManifestParser.java), lockfile·workspace 해석.

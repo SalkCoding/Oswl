@@ -57,6 +57,35 @@ class GateCoverageTest {
         ReflectionTestUtils.setField(target,"assessmentJson",new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value));
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,fetched-future", "true,fetched-future", "false,lookup-future", "true,lookup-future", "false,lookup-missing", "true,lookup-missing", "false,valid", "true,valid"})
+    void completionRequiresUsableLookupTimes(boolean preserved, String state) throws Exception {
+        var library = evidenceLibrary();
+        if (state.equals("fetched-future")) ReflectionTestUtils.setField(library,"fetchedAt",java.time.LocalDateTime.of(2999,1,1,0,0));
+        if (state.equals("lookup-future")) ReflectionTestUtils.setField(library,"vulnerabilityLookupAt",java.time.LocalDateTime.of(2999,1,1,0,0));
+        if (state.equals("lookup-missing")) ReflectionTestUtils.setField(library,"vulnerabilityLookupAt",null);
+        if (preserved) {
+            preserve(scan,library);
+            library.recordLookupOutcomes(Map.of("OSV","RESOLVED"));
+            library.markFetched();
+        }
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        var result = service.evaluate(1L,GatePolicyService.GateOptions.defaults());
+        assertThat(result.passed()).isEqualTo(state.equals("valid"));
+        assertThat(result.coverage().complete()).isEqualTo(state.equals("valid"));
+    }
+
+    @Test void oldPreservedDatesCannotAcquireVerificationFromCurrentCache() throws Exception {
+        var library = evidenceLibrary();
+        preserve(scan,library);
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var tree = json.readTree(scan.getAssessmentJson());
+        ((com.fasterxml.jackson.databind.node.ObjectNode)tree.path("libraries").get(0)).remove("lookupTimesVerified");
+        ReflectionTestUtils.setField(scan,"assessmentJson",json.writeValueAsString(tree));
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        assertThat(service.evaluate(1L,GatePolicyService.GateOptions.defaults()).coverage().complete()).isFalse();
+    }
+
     private void findings(Library library) {
         library.getCves().add(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder()
                 .cveId("CVE-2026-123450").severity(com.salkcoding.oswl.domain.enums.RiskLevel.HIGH).build());

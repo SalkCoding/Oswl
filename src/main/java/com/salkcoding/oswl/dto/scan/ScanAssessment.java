@@ -17,7 +17,7 @@ public record ScanAssessment(int formatVersion, String capturedAt, List<LibraryA
                                     String licenseName, List<String> licenseExpressions, LicenseStatus licenseStatus,
                                     String vulnerabilityLookupAt, String fetchedAt, Boolean malicious,
                                     Map<String,String> lookupOutcomes, Library.OsvFixAssessment osvFixAssessment,
-                                    List<Finding> findings) {
+                                    List<Finding> findings, Boolean lookupTimesVerified) {
         public LibraryAssessment {
             licenseExpressions = licenseExpressions == null ? null : List.copyOf(licenseExpressions);
             licenseStatus = licenseStatus == null ? LicenseStatus.UNKNOWN : licenseStatus;
@@ -25,7 +25,8 @@ public record ScanAssessment(int formatVersion, String capturedAt, List<LibraryA
             findings = List.copyOf(findings);
         }
         public boolean lookupComplete() {
-            return fetchedAt != null && malicious != null && lookupOutcomes.containsValue("RESOLVED")
+            return Boolean.TRUE.equals(lookupTimesVerified) && fetchedAt != null && vulnerabilityLookupAt != null
+                    && malicious != null && lookupOutcomes.containsValue("RESOLVED")
                     && !lookupOutcomes.containsValue("UNAVAILABLE");
         }
     }

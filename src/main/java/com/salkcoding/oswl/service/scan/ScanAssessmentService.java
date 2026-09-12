@@ -49,6 +49,6 @@ public class ScanAssessmentService {
                 .map(c -> new ScanAssessment.Finding(c.getCveId(),c.getGhsaId(),c.getSeverity(),c.getCvssScore(),
                         c.getCvss3Vector(),c.getTitle(),c.getSummary(),c.getCweId(),c.getFixVersion(),
                         c.getFixVersionConflictCandidates(),c.getEpssScore(),c.getKevListed(),c.getSources(),
-                        c.isSeverityConflict(),c.getMatchConfidence(),c.getNvdApplicability())).toList());
+                        c.isSeverityConflict(),c.getMatchConfidence(),c.getNvdApplicability())).toList(),library.hasValidLookupTimes());
     }
 }
