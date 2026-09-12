@@ -34,10 +34,93 @@ class GateCoverageTest {
     @BeforeEach void setup() {
         ReflectionTestUtils.setField(service, "defaultFailOnSeverity", "HIGH");
         project = Project.builder().id(1L).name("Coverage").build();
-        scan = ScanResult.builder().id(2L).project(project).status(ScanStatus.COMPLETED).build();
+        scan = ScanResult.builder().id(2L).project(project).scannedAt(java.time.LocalDateTime.of(2026,9,12,12,0))
+                .status(ScanStatus.COMPLETED).build();
         when(projects.findById(1L)).thenReturn(Optional.of(project));
         when(scans.findRecentCompleted(1L, 1)).thenReturn(List.of(scan));
         when(policies.resolveGateOptions(1L)).thenReturn(GatePolicyService.GateOptions.defaults());
+    }
+
+    private Library evidenceLibrary() {
+        var library = Library.builder().id(3L).name("fixture").version("1").ecosystem("NPM").build();
+        library.recordLookupOutcomes(Map.of("OSV","RESOLVED"));
+        library.markFetched();
+        return library;
+    }
+
+    private void preserve(ScanResult target, Library library) throws Exception {
+        var value = new com.salkcoding.oswl.dto.scan.ScanAssessment(1,"fixture",List.of(
+                com.salkcoding.oswl.service.scan.ScanAssessmentService.fromLibrary(library)));
+        ReflectionTestUtils.setField(target,"assessmentJson",new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value));
+    }
+
+    private void findings(Library library) {
+        library.getCves().add(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder()
+                .cveId("CVE-2026-123450").severity(com.salkcoding.oswl.domain.enums.RiskLevel.HIGH).build());
+    }
+
+    @Test void preservedFindingsCannotDisappearWhenSharedLibraryIsRefreshed() throws Exception {
+        var library = evidenceLibrary();
+        findings(library);
+        library.updateLicense("restricted",List.of("restricted"),com.salkcoding.oswl.domain.enums.LicenseStatus.RESTRICTED);
+        preserve(scan,library);
+        library.getCves().clear();
+        library.updateLicense("MIT",List.of("MIT"),com.salkcoding.oswl.domain.enums.LicenseStatus.PERMITTED);
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        var result = service.evaluate(1L,new GatePolicyService.GateOptions(null,null,null,null,true,false,false,false));
+        assertThat(result.coverage().complete()).isTrue();
+        assertThat(result.violations()).extracting(v -> v.type()).containsExactlyInAnyOrder("CVE","LICENSE");
+    }
+
+    @Test void currentFindingsCannotBeAddedToAPreservedCleanScanOrItsBaseline() throws Exception {
+        var library = evidenceLibrary();
+        var baseline = ScanResult.builder().id(1L).project(project).status(ScanStatus.COMPLETED).build();
+        preserve(baseline,library);
+        preserve(scan,library);
+        findings(library);
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        assertThat(service.evaluate(1L,GatePolicyService.GateOptions.defaults()).passed()).isTrue();
+        preserve(scan,library);
+        when(scans.findPreviousCompleted(1L,scan.getScannedAt(),scan.getId())).thenReturn(Optional.of(baseline));
+        var result = service.evaluate(1L,new GatePolicyService.GateOptions(null,null,null,null,false,true,false,false));
+        assertThat(result.passed()).isFalse();
+        assertThat(result.newVulnerabilityCount()).isEqualTo(1);
+    }
+
+    @Test void unavailableStoredLookupCannotBeRenewedBySharedSuccessfulLookup() throws Exception {
+        var library = evidenceLibrary();
+        library.recordLookupOutcomes(Map.of("OSV","UNAVAILABLE"));
+        preserve(scan,library);
+        library.recordLookupOutcomes(Map.of("OSV","RESOLVED"));
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).ignored(true).build()));
+        assertThat(service.evaluate(1L,GatePolicyService.GateOptions.defaults()).coverage().complete()).isFalse();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans={true,false})
+    void malwareGateUsesPreservedFlagInBothDirections(boolean malicious) throws Exception {
+        var library = evidenceLibrary();
+        ReflectionTestUtils.setField(library,"malicious",malicious);
+        preserve(scan,library);
+        ReflectionTestUtils.setField(library,"malicious",!malicious);
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        var result = service.evaluate(1L,GatePolicyService.GateOptions.defaults());
+        assertThat(result.passed()).isEqualTo(!malicious);
+        if (malicious) assertThat(result.violations()).extracting(v -> v.type()).containsExactly("MALICIOUS");
+    }
+
+    @Test void missingStoredMalwareEvidenceAndMissingInventoryCannotPass() throws Exception {
+        var library = evidenceLibrary();
+        preserve(scan,library);
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var tree = json.readTree(scan.getAssessmentJson());
+        ((com.fasterxml.jackson.databind.node.ObjectNode)tree.path("libraries").get(0)).remove("malicious");
+        ReflectionTestUtils.setField(scan,"assessmentJson",json.writeValueAsString(tree));
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        assertThat(service.evaluate(1L,GatePolicyService.GateOptions.defaults()).passed()).isFalse();
+        preserve(scan,library);
+        when(components.findByScanResultId(2L)).thenReturn(List.of());
+        assertThat(service.evaluate(1L,GatePolicyService.GateOptions.defaults()).coverage().detailsAvailable()).isFalse();
     }
 
     @Test void missingLookupCannotPassEvenWhenIgnoredOrFiltered() {

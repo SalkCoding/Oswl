@@ -44,7 +44,7 @@ public class ScanAssessmentService {
         return new ScanAssessment.LibraryAssessment(library.getId(),library.getName(),library.getVersion(),
                 library.getEcosystem(),library.getLicenseName(),library.getLicenseExpressionRaw(),library.getLicenseStatus(),
                 library.getVulnerabilityLookupAt() == null ? null : library.getVulnerabilityLookupAt().toString(),
-                library.getFetchedAt() == null ? null : library.getFetchedAt().toString(),
+                library.getFetchedAt() == null ? null : library.getFetchedAt().toString(),library.isMalicious(),
                 library.getVulnerabilityLookupOutcomes(),library.getOsvFixAssessment(),library.getCves().stream()
                 .map(c -> new ScanAssessment.Finding(c.getCveId(),c.getGhsaId(),c.getSeverity(),c.getCvssScore(),
                         c.getCvss3Vector(),c.getTitle(),c.getSummary(),c.getCweId(),c.getFixVersion(),

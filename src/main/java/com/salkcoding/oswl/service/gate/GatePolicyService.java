@@ -1,8 +1,8 @@
 package com.salkcoding.oswl.service.gate;
 import com.salkcoding.oswl.service.policy.PolicyService;
 
-import com.salkcoding.oswl.domain.entity.vulnerability.Cve;
-import com.salkcoding.oswl.domain.entity.vulnerability.Library;
+import com.salkcoding.oswl.dto.scan.ScanAssessment;
+import com.salkcoding.oswl.service.scan.ScanAssessmentService;
 import com.salkcoding.oswl.domain.entity.policy.PolicyException;
 import com.salkcoding.oswl.domain.entity.project.Project;
 import com.salkcoding.oswl.domain.entity.scan.ScanComponent;
@@ -139,19 +139,26 @@ public class GatePolicyService {
                 .findPreviousCompleted(projectId, scan.getScannedAt(), scan.getId()).orElse(null);
         // Load the baseline components once — both key sets are derived from the same rows
         // (the fetch-joined query is heavy, so calling it twice doubled the baseline cost).
-        List<ScanComponent> baselineComponents = baseline != null
+        List<ScanComponent> baselineComponents = baseline != null && baseline.getAssessmentJson() == null
                 ? scanComponentRepository.findByScanResultId(baseline.getId())
                 : List.of();
-        Set<String> baselineVulnKeys = collectVulnKeys(baselineComponents);
-        Set<String> baselineLicenseKeys = collectLicenseViolationKeys(baselineComponents);
-        Set<String> baselineMaliciousKeys = collectMaliciousKeys(baselineComponents);
+        var baselineAssessments = assessments(baseline, baselineComponents);
+        Set<String> baselineVulnKeys = collectVulnKeys(baselineAssessments);
+        Set<String> baselineLicenseKeys = collectLicenseViolationKeys(baselineAssessments);
+        Set<String> baselineMaliciousKeys = collectMaliciousKeys(baselineAssessments);
 
         List<ScanComponent> components = scanComponentRepository.findByScanResultId(scan.getId());
 
+        var saved = new java.util.HashMap<Long, ScanAssessment.LibraryAssessment>();
+        assessments(scan, components).forEach(a -> saved.put(a.libraryId(),a));
+        boolean preserved = scan.getAssessmentJson() != null;
         List<Violation> violations = new ArrayList<>();
-        long unanalysed = components.stream().filter(c -> !c.getLibrary().isVulnerabilitiesAnalyzed()).count();
+        long unanalysed = components.stream().filter(c -> preserved
+                ? saved.get(c.getLibrary().getId()) == null || !saved.get(c.getLibrary().getId()).lookupComplete()
+                : !c.getLibrary().isVulnerabilitiesAnalyzed()).count();
         boolean scanCompleted = scan.getStatus() == ScanStatus.COMPLETED;
-        boolean detailsAvailable = !scan.isArchived();
+        boolean detailsAvailable = !scan.isArchived() && (!preserved || saved.keySet().equals(
+                components.stream().map(c -> c.getLibrary().getId()).collect(java.util.stream.Collectors.toSet())));
         boolean scannersComplete = !scanFindingRepository.hasIncompleteScanner(scan.getId(), projectId);
         Coverage coverage = new Coverage(components.size(), unanalysed, scanCompleted, detailsAvailable,
                 scanCompleted && detailsAvailable && unanalysed == 0 && scannersComplete);
@@ -168,19 +175,20 @@ public class GatePolicyService {
         for (ScanComponent sc : components) {
             // Accepted exceptions never fail the gate
             if (sc.isDeferred() || sc.isIgnored()) continue;
-            Library lib = sc.getLibrary();
-            String coord = lib.getName() + "@" + (lib.getVersion() != null ? lib.getVersion() : "");
+            var lib = saved.get(sc.getLibrary().getId());
+            if (lib == null) continue;
+            String coord = lib.name() + "@" + (lib.version() != null ? lib.version() : "");
 
             // Confirmed-malicious packages (OSV MAL- advisories) block unconditionally —
             // severity/KEV/EPSS thresholds and onlyNew/onlyReachable do not apply. The only release
             // valve is an approved policy exception (waiver).
-            if (lib.isMalicious()
+            if (Boolean.TRUE.equals(lib.malicious())
                     && !isWaived(activeExceptions, PolicyExceptionTargetType.MALICIOUS, null, coord)) {
                 boolean isNew = !baselineMaliciousKeys.contains(coord + "|MALICIOUS");
                 evaluated++;
                 if (isNew) newVulnCount++;
                 violations.add(new Violation(
-                        "MALICIOUS", lib.getName(), coord, "CRITICAL", null, false,
+                        "MALICIOUS", lib.name(), coord, "CRITICAL", null, false,
                         "package confirmed malicious (OSV MAL- advisory)", isNew));
             }
 
@@ -190,9 +198,9 @@ public class GatePolicyService {
             boolean reachabilityGatePasses = !onlyReachable || sc.getReachability() == Reachability.REACHABLE;
 
             if (reachabilityGatePasses) {
-                for (Cve cve : lib.getCves()) {
-                    if (cve.getSeverity() == null) continue;
-                    String vulnId = cve.getCveId() != null ? cve.getCveId() : cve.getGhsaId();
+                for (ScanAssessment.Finding cve : lib.findings()) {
+                    if (cve.severity() == null) continue;
+                    String vulnId = cve.cveId() != null ? cve.cveId() : cve.ghsaId();
                     if (vulnId == null) continue;
                     boolean isNew = !baselineVulnKeys.contains(coord + "|" + vulnId);
                     if (onlyNew && !isNew) continue;
@@ -201,24 +209,24 @@ public class GatePolicyService {
                     if (isNew) newVulnCount++;
 
                     List<String> reasons = new ArrayList<>();
-                    boolean sevFail = cve.getSeverity().ordinal() <= failOnSeverity.ordinal()
-                            && cve.getSeverity() != RiskLevel.NONE;
-                    if (sevFail) reasons.add("severity " + cve.getSeverity() + " ≥ " + failOnSeverity.name());
-                    if (failOnKev && Boolean.TRUE.equals(cve.getKevListed())) reasons.add("CISA KEV listed");
-                    if (failOnEpss >= 0 && cve.getEpssScore() != null && cve.getEpssScore() >= failOnEpss) {
-                        reasons.add(String.format("EPSS %.3f ≥ %.3f", cve.getEpssScore(), failOnEpss));
+                    boolean sevFail = cve.severity().ordinal() <= failOnSeverity.ordinal()
+                            && cve.severity() != RiskLevel.NONE;
+                    if (sevFail) reasons.add("severity " + cve.severity() + " ≥ " + failOnSeverity.name());
+                    if (failOnKev && Boolean.TRUE.equals(cve.kevListed())) reasons.add("CISA KEV listed");
+                    if (failOnEpss >= 0 && cve.epssScore() != null && cve.epssScore() >= failOnEpss) {
+                        reasons.add(String.format("EPSS %.3f ≥ %.3f", cve.epssScore(), failOnEpss));
                     }
                     if (!reasons.isEmpty()) {
                         violations.add(new Violation(
-                                "CVE", vulnId, coord, cve.getSeverity().name(),
-                                cve.getEpssScore(), Boolean.TRUE.equals(cve.getKevListed()),
+                                "CVE", vulnId, coord, cve.severity().name(),
+                                cve.epssScore(), Boolean.TRUE.equals(cve.kevListed()),
                                 String.join("; ", reasons), isNew));
                     }
                 }
             }
 
             // License policy violation (RESTRICTED)
-            if (failOnLicense && lib.getLicenseStatus() == LicenseStatus.RESTRICTED) {
+            if (failOnLicense && lib.licenseStatus() == LicenseStatus.RESTRICTED) {
                 String licKey = coord + "|LICENSE";
                 boolean isNew = !baselineLicenseKeys.contains(licKey);
                 boolean waived = isWaived(activeExceptions, PolicyExceptionTargetType.LICENSE, null, coord);
@@ -227,7 +235,7 @@ public class GatePolicyService {
                     if (isNew) newVulnCount++;
                     violations.add(new Violation(
                             "LICENSE",
-                            lib.getLicenseName() != null ? lib.getLicenseName() : "Unknown",
+                            lib.licenseName() != null ? lib.licenseName() : "Unknown",
                             coord, "RESTRICTED", null, false,
                             "license policy violation (RESTRICTED)", isNew));
                 }
@@ -281,39 +289,42 @@ public class GatePolicyService {
                 summary, comment, null, coverage);
     }
 
+    private static List<ScanAssessment.LibraryAssessment> assessments(ScanResult scan, List<ScanComponent> components) {
+        if (scan == null) return List.of();
+        if (scan.getAssessmentJson() != null) return ScanAssessmentService.read(scan.getAssessmentJson()).libraries();
+        return components.stream().map(c -> ScanAssessmentService.fromLibrary(c.getLibrary())).toList();
+    }
+
     // ── Baseline key collection ──────────────────────────────────────────
 
-    private Set<String> collectVulnKeys(List<ScanComponent> components) {
+    private Set<String> collectVulnKeys(List<ScanAssessment.LibraryAssessment> libraries) {
         Set<String> keys = new HashSet<>();
-        for (ScanComponent sc : components) {
-            Library lib = sc.getLibrary();
-            String coord = lib.getName() + "@" + (lib.getVersion() != null ? lib.getVersion() : "");
-            for (Cve cve : lib.getCves()) {
-                String vulnId = cve.getCveId() != null ? cve.getCveId() : cve.getGhsaId();
+        for (var lib : libraries) {
+            String coord = lib.name() + "@" + (lib.version() != null ? lib.version() : "");
+            for (ScanAssessment.Finding cve : lib.findings()) {
+                String vulnId = cve.cveId() != null ? cve.cveId() : cve.ghsaId();
                 if (vulnId != null) keys.add(coord + "|" + vulnId);
             }
         }
         return keys;
     }
 
-    private Set<String> collectLicenseViolationKeys(List<ScanComponent> components) {
+    private Set<String> collectLicenseViolationKeys(List<ScanAssessment.LibraryAssessment> libraries) {
         Set<String> keys = new HashSet<>();
-        for (ScanComponent sc : components) {
-            Library lib = sc.getLibrary();
-            if (lib.getLicenseStatus() == LicenseStatus.RESTRICTED) {
-                String coord = lib.getName() + "@" + (lib.getVersion() != null ? lib.getVersion() : "");
+        for (var lib : libraries) {
+            if (lib.licenseStatus() == LicenseStatus.RESTRICTED) {
+                String coord = lib.name() + "@" + (lib.version() != null ? lib.version() : "");
                 keys.add(coord + "|LICENSE");
             }
         }
         return keys;
     }
 
-    private Set<String> collectMaliciousKeys(List<ScanComponent> components) {
+    private Set<String> collectMaliciousKeys(List<ScanAssessment.LibraryAssessment> libraries) {
         Set<String> keys = new HashSet<>();
-        for (ScanComponent sc : components) {
-            Library lib = sc.getLibrary();
-            if (lib.isMalicious()) {
-                String coord = lib.getName() + "@" + (lib.getVersion() != null ? lib.getVersion() : "");
+        for (var lib : libraries) {
+            if (Boolean.TRUE.equals(lib.malicious())) {
+                String coord = lib.name() + "@" + (lib.version() != null ? lib.version() : "");
                 keys.add(coord + "|MALICIOUS");
             }
         }
