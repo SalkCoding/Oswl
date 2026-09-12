@@ -13,6 +13,25 @@ class ApkVersionComparatorTest {
         assertThat(OsvQueryIdentity.isConcrete("Alpine:v3.18", "example", value)).isFalse();
     }
 
+    @ParameterizedTest
+    @CsvSource({"100,false", "100,true", "1000,false", "1000,true", "1800,false", "1800,true"})
+    void longSuffixInputsStayWithinTheValidationContract(int count, boolean malformed) {
+        String value = "1" + "_p".repeat(count) + (malformed ? "!" : "");
+        if (malformed) org.assertj.core.api.Assertions.assertThatThrownBy(() -> ApkVersionComparator.compare(value, value))
+                .isInstanceOf(IllegalArgumentException.class);
+        else assertThat(ApkVersionComparator.compare(value, value)).isZero();
+        assertThat(OsvQueryIdentity.isConcrete("Alpine:v3.18", "example", value)).isEqualTo(!malformed);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(ints = {100, 1000, 1800})
+    void longNumericInputsStayWithinTheValidationContract(int count) {
+        String value = "1" + ".0".repeat(count);
+        assertThat(ApkVersionComparator.compare(value, value)).isZero();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> ApkVersionComparator.compare(value + "!", value))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
     @org.junit.jupiter.api.Test
     void apkHashOrderingDoesNotResolveGitAncestry() throws Exception {
         var ranges = new com.fasterxml.jackson.databind.ObjectMapper().readTree("""

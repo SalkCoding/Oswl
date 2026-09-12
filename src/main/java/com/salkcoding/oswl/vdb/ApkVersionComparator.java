@@ -32,7 +32,7 @@ final class ApkVersionComparator {
     private static final Pattern APK_VERSION = Pattern.compile(
             "^(?<nums>\\d+(?:\\.\\d+)*)"
                     + "(?<letter>[a-z])?"
-                    + "(?<suffixes>(?:_(?:alpha|beta|pre|rc|cvs|svn|git|hg|p)\\d*)*)"
+                    + "(?<suffixes>(?:_(?:alpha|beta|pre|rc|cvs|svn|git|hg|p)\\d*+)*+)"
                     + "(?:~(?<hash>[0-9a-fA-F]+))?"
                     + "(?:-r(?<rev>\\d+))?$");
 

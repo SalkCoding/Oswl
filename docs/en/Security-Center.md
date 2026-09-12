@@ -237,3 +237,5 @@ Multiple APK suffixes are preserved in order, including absent suffix numbers an
 APK ~hash parts are preserved and compared as hexadecimal text, including case and prefix length, before the optional revision. Empty, non-hexadecimal, repeated or misplaced hash parts are rejected. This ordering applies to APK ecosystem ranges only: OSV GIT ranges still require ancestry evidence and remain unknown without it.
 
 APK numeric components, suffix numbers and revisions support unsigned 64-bit values. Comparison preserves leading-zero rules and handles values above the signed 64-bit boundary without reversing their order. Values above 18446744073709551615 remain unsupported instead of being truncated or wrapped. Native overflow behavior is not claimed to be equivalent.
+
+Long APK suffix sequences within the 4,096-character input limit are parsed without recursive regex backtracking. Tests cover 100, 1,000 and 1,800 suffixes, valid and malformed endings, plus equally long numeric-segment sequences. Invalid input remains an ordinary unsupported-version result rather than a stack overflow. This is a bounded parser check, not a whole-service resource benchmark.
