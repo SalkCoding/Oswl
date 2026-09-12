@@ -15,6 +15,49 @@ import static org.assertj.core.api.Assertions.*;
 
 class PreviousBundleIntegrityTest {
     @ParameterizedTest
+    @ValueSource(strings = {"hash", "lines", "extra", "missing", "no-files", "null-files", "version", "valid"})
+    void manifestMustDescribeBaselineBytes(String damage, @TempDir Path directory) throws Exception {
+        byte[] content = "{\"cveId\":\"CVE-2026-1000\"}\n".getBytes(StandardCharsets.UTF_8);
+        ObjectMapper mapper = new ObjectMapper();
+        var meta = mapper.createObjectNode();
+        meta.put("formatVersion", 2);
+        meta.put("mode", "full");
+        var files = meta.putObject("files");
+        var file = files.putObject("kev.jsonl");
+        file.put("sha256", java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(content)));
+        file.put("lines", 1);
+        switch (damage) {
+            case "hash" -> file.put("sha256", "0".repeat(64));
+            case "lines" -> file.put("lines", 2);
+            case "extra" -> files.set("missing.jsonl", file.deepCopy());
+            case "missing" -> files.remove("kev.jsonl");
+            case "no-files" -> meta.remove("files");
+            case "null-files" -> meta.putNull("files");
+            case "version" -> meta.put("formatVersion", 999);
+        }
+        Path previous = directory.resolve("base.zip");
+        try (var zip = new ZipOutputStream(Files.newOutputStream(previous))) {
+            zip.putNextEntry(new ZipEntry("meta.json"));
+            zip.write(mapper.writeValueAsBytes(meta));
+            zip.closeEntry();
+            zip.putNextEntry(new ZipEntry("kev.jsonl"));
+            zip.write(content);
+            zip.closeEntry();
+        }
+        if (damage.equals("valid")) {
+            assertThat(PreviousBundleReader.read(previous, mapper).linesByFileAndKey().get("kev.jsonl"))
+                    .containsOnlyKeys("CVE-2026-1000");
+        } else {
+            assertThatThrownBy(() -> PreviousBundleReader.read(previous, mapper)).isInstanceOf(IOException.class);
+            Path output = directory.resolve("output.zip");
+            Files.writeString(output, "existing output");
+            assertThat(new VdbBuilderCli().run(new String[]{"build", "--sources", "osv", "--since", previous.toString(),
+                    "--offline-sources", directory.toString(), "--out", output.toString()})).isEqualTo(1);
+            assertThat(Files.readString(output)).isEqualTo("existing output");
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"null", "[]", "{} {}", "{\"mode\":\"delta\"}", "{\"mode\":null}",
             "{\"mode\":12}", "{\"mode\":\"unknown\"}", "{\"mode\":\"full\",\"mode\":\"full\"}"})
     void invalidMetadataCannotActAsCompleteBaseline(String meta, @TempDir Path directory) throws Exception {

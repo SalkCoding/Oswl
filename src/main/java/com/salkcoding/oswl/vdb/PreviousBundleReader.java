@@ -60,6 +60,7 @@ final class PreviousBundleReader {
             if (meta.has("mode") && (!meta.path("mode").isTextual() || !meta.path("mode").asText().equals("full"))) {
                 throw new IOException("Delta generation requires a full baseline, not a delta or unknown bundle mode");
             }
+            verifyManifest(meta, files);
             bundleId = meta.path("bundleId").asText(null);
         }
         Map<String, Map<String, String>> result = new LinkedHashMap<>();
@@ -93,6 +94,39 @@ final class PreviousBundleReader {
             result.put(e.getKey(), keyed);
         }
         return new PreviousBundle(bundleId, result);
+    }
+
+    private static void verifyManifest(JsonNode meta, Map<String, byte[]> files) throws IOException {
+        JsonNode version = meta.path("formatVersion");
+        if (!version.isMissingNode() && (!version.isIntegralNumber() || !version.canConvertToInt()
+                || version.intValue() < 1 || version.intValue() > 3)) {
+            throw new IOException("Unsupported previous-bundle formatVersion");
+        }
+        JsonNode manifest = meta.path("files");
+        if (manifest.isMissingNode() && (version.isMissingNode() || version.intValue() == 1)) return;
+        if (!manifest.isObject()) throw new IOException("Previous-bundle files manifest must be an object");
+        var declared = new java.util.HashSet<String>();
+        manifest.fieldNames().forEachRemaining(declared::add);
+        if (!declared.equals(files.keySet())) throw new IOException("Previous-bundle manifest inventory mismatch");
+        for (var entry : files.entrySet()) {
+            JsonNode record = manifest.path(entry.getKey());
+            JsonNode hash = record.path("sha256");
+            if (!hash.isTextual() || !hash.asText().matches("[0-9a-fA-F]{64}")) {
+                throw new IOException("Previous-bundle manifest requires SHA-256");
+            }
+            String actual;
+            try {
+                actual = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(entry.getValue()));
+            } catch (java.security.NoSuchAlgorithmException impossible) {
+                throw new IllegalStateException("SHA-256 is required", impossible);
+            }
+            if (!actual.equalsIgnoreCase(hash.asText())) throw new IOException("Previous-bundle SHA-256 mismatch");
+            JsonNode lines = record.path("lines");
+            long actualLines = new String(entry.getValue(), StandardCharsets.UTF_8).lines().filter(line -> !line.isBlank()).count();
+            if (!lines.isIntegralNumber() || !lines.canConvertToLong() || lines.longValue() < 0 || lines.longValue() != actualLines) {
+                throw new IOException("Previous-bundle line count mismatch");
+            }
+        }
     }
 
     static String extractKey(String filename, JsonNode node) {
