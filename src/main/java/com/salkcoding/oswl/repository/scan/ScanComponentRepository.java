@@ -201,8 +201,7 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
      * per-option predicates. Every enum comparison uses the fully-qualified constant because
      * JPQL has no bind-parameter syntax for enum literals.
      */
-    @Query("""
-            SELECT sc FROM ScanComponent sc JOIN sc.library l
+    String SECURITY_CENTER_CONDITIONS = """
             WHERE sc.scanResult.id = :scanId
               AND (:search IS NULL OR :search = '' OR LOWER(CONCAT(l.name, ' ', l.version)) LIKE LOWER(CONCAT('%', :search, '%')))
               AND (:hideNonRuntime = FALSE OR sc.scope IS NULL OR LOWER(sc.scope) IN ('runtime','compile','import'))
@@ -233,7 +232,9 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
                  OR (:licCautionF = TRUE AND l.licenseStatus = com.salkcoding.oswl.domain.enums.LicenseStatus.CAUTION)
                  OR (:licUnknownF = TRUE AND l.licenseStatus = com.salkcoding.oswl.domain.enums.LicenseStatus.UNKNOWN)
                  OR (:licPermittedF = TRUE AND l.licenseStatus = com.salkcoding.oswl.domain.enums.LicenseStatus.PERMITTED) )
-            """)
+            """;
+
+    @Query("SELECT sc FROM ScanComponent sc JOIN sc.library l " + SECURITY_CENTER_CONDITIONS)
     Page<ScanComponent> searchForSecurityCenter(
             @Param("scanId") Long scanId,
             @Param("search") String search,
@@ -256,4 +257,29 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
             @Param("licUnknownF") boolean licUnknownF,
             @Param("licPermittedF") boolean licPermittedF,
             Pageable pageable);
+
+    @Query("SELECT new com.salkcoding.oswl.dto.scan.SecurityCenterRowRef(sc.id, l.id) "
+            + "FROM ScanComponent sc JOIN sc.library l " + SECURITY_CENTER_CONDITIONS)
+    List<com.salkcoding.oswl.dto.scan.SecurityCenterRowRef> findSecurityCenterRowRefs(
+            @Param("scanId") Long scanId,
+            @Param("search") String search,
+            @Param("hideNonRuntime") boolean hideNonRuntime,
+            @Param("reviewedF") boolean reviewedF,
+            @Param("nonReviewedF") boolean nonReviewedF,
+            @Param("ignoredF") boolean ignoredF,
+            @Param("nonIgnoredF") boolean nonIgnoredF,
+            @Param("deferredF") boolean deferredF,
+            @Param("reachableF") boolean reachableF,
+            @Param("notReachableF") boolean notReachableF,
+            @Param("unknownReachF") boolean unknownReachF,
+            @Param("secCriticalF") boolean secCriticalF,
+            @Param("secHighF") boolean secHighF,
+            @Param("secMediumF") boolean secMediumF,
+            @Param("secLowF") boolean secLowF,
+            @Param("secUnknownF") boolean secUnknownF,
+            @Param("licRestrictedF") boolean licRestrictedF,
+            @Param("licCautionF") boolean licCautionF,
+            @Param("licUnknownF") boolean licUnknownF,
+            @Param("licPermittedF") boolean licPermittedF,
+            org.springframework.data.domain.Sort sort);
 }

@@ -54,6 +54,50 @@ class PerformanceBudgetUiTest extends UiTestBase {
     private String sessionCookie;
     private final Path report = Path.of("build/reports/performance/local.csv");
 
+    @Test void measureCandidateAndPatchFiltering() throws Exception {
+        Files.createDirectories(report.getParent());
+        Files.writeString(report, "operation,n,p50_ms,p95_ms,statements_per_call,hql_result_rows_per_call,entities_per_call,sampled_peak_heap_bytes,jdbc_rows_per_call,jdbc_ms_per_call\n");
+        var project = projects.save(Project.builder().name("Patch filter performance").build());
+        var scan = newScan(project, "1", LocalDateTime.now());
+        int size = Integer.parseInt(System.getenv().getOrDefault("OSWL_PATCH_FILTER_SIZE", "5000"));
+        assertThat(size).isIn(5000, 50000);
+        int matching = size / 2;
+        int lastPage = matching / 100 - 1;
+        int beyondPage = lastPage + 1;
+        long offset = 9000000;
+        seedComponents(scan.getId(), size, offset);
+        jdbc.update("update libraries set fetched_at=CURRENT_TIMESTAMP,vulnerability_lookup_at=CURRENT_TIMESTAMP, "
+                + "vulnerability_lookup_outcomes=case when mod(id,4)=0 then ? else ? end where id>? and id<=?",
+                "{\"OSV\":\"UNAVAILABLE\"}", "{\"OSV\":\"RESOLVED\"}", offset, offset + size);
+        jdbc.update("update library_cves set fix_version='2',severity=case when mod(library_id,4)=3 then null else 'HIGH' end "
+                + "where library_id>? and library_id<=?", offset, offset + size);
+        jdbc.update("insert into library_cve_sources(cve_id,source) select id,case when mod(library_id,4)=1 then 'NVD' else 'OSV' end "
+                + "from library_cves where library_id>? and library_id<=?", offset, offset + size);
+        var filter = new com.salkcoding.oswl.dto.SecurityCenterRowFilterParams(null, false,
+                false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false,
+                true, false, false, false, false, "risk");
+        measure(size + "-candidate-risk", 1, () -> {
+            var result = security.queryRows(project.getId(), scan.getId(),
+                    com.salkcoding.oswl.dto.SecurityCenterRowFilterParams.initialPageLoad(), 0);
+            assertThat(result.getTotalElements()).isEqualTo(size);
+            assertThat(result.getContent()).hasSize(100);
+            assertThat(result.getContent()).allSatisfy(row -> assertThat(row.getMatchReviewCount()).isZero());
+        });
+        for (int pageIndex : List.of(0, lastPage, beyondPage)) {
+            measure(size + "-patch-page-" + pageIndex, 1, () -> {
+                var result = security.queryRows(project.getId(), scan.getId(), filter, pageIndex);
+                assertThat(result.getTotalElements()).isEqualTo(matching);
+                assertThat(result.getContent()).hasSize(pageIndex == beyondPage ? 0 : 100);
+                assertThat(result.hasNext()).isEqualTo(pageIndex == 0);
+                assertThat(result.getContent()).allSatisfy(row -> {
+                    assertThat(row.getMatchReviewCount()).isZero();
+                    assertThat(row.getPatchability()).isEqualTo("patchable");
+                });
+            });
+        }
+    }
+
     @Test void measureLargeReadsExportsAndLongLivedPage() throws Exception {
         Files.createDirectories(report.getParent());
         Files.writeString(report.resolveSibling("archive-pool.txt"), "");

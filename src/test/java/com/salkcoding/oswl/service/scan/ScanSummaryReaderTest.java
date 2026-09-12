@@ -105,7 +105,7 @@ class ScanSummaryReaderTest {
         var f = new com.salkcoding.oswl.dto.SecurityCenterRowFilterParams(null, false,
                 false, false, false, false, false, false, false, false,
                 false, false, false, false, false, false, false, false, false,
-                true, false, false, false, false, "name");
+                true, false, false, false, false, "risk");
         var first = securityCenter.queryRows(project.getId(), scan.getId(), f, 0);
         var second = securityCenter.queryRows(project.getId(), scan.getId(), f, 1);
         var empty = securityCenter.queryRows(project.getId(), scan.getId(), f, 2);
