@@ -135,6 +135,27 @@ class OsvBulkInputIntegrityTest {
         }
     }
 
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"Debian:11,Debian:12,Debian", "Alpine:v3.18,Alpine:v3.19,Alpine", "Ubuntu:22.04:LTS,Ubuntu:24.04:LTS,Ubuntu"})
+    void distributionDumpUsesParentBucketWithoutCrossingReleaseIdentity(String ecosystem, String otherRelease,
+            String bucket) throws Exception {
+        var cache = org.mockito.Mockito.mock(HttpCache.class);
+        String matching = VALID.replace("npm", ecosystem);
+        String other = VALID.replace("npm", otherRelease).replace("OSV-fixture", "OSV-other-release");
+        org.mockito.Mockito.when(cache.getOrFetchWithLastModified("osv-" + bucket + "-all.zip",
+                "https://storage.googleapis.com/osv-vulnerabilities/" + bucket + "/all.zip"))
+                .thenReturn(new HttpCache.FetchResult(zipRecords(List.of(matching, other)), LocalDate.now()));
+        var result = new OsvBulkSource(new ObjectMapper()).fetch(List.of(
+                new WantedComponent(ecosystem, "example", "1.0.0")), null, cache);
+        String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(ecosystem, "example", "1.0.0");
+        assertThat(result.unresolvedKeys()).isEmpty();
+        assertThat(result.vulnsByComponentKey().get(key)).extracting(
+                com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln::osvId)
+                .containsExactly("OSV-fixture");
+        org.mockito.Mockito.verify(cache).getOrFetchWithLastModified("osv-" + bucket + "-all.zip",
+                "https://storage.googleapis.com/osv-vulnerabilities/" + bucket + "/all.zip");
+    }
+
     @Test void nonZipResponseIsNotAnEmptySuccessfulDataset() throws Exception {
         cache("<html>upstream error</html>".getBytes(StandardCharsets.UTF_8), true);
         assertThatThrownBy(this::fetch).isInstanceOf(IOException.class);

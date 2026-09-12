@@ -32,21 +32,9 @@ import java.util.zip.CRC32;
  * stats, per the plan's explicit requirement that "no data" and "confirmed clean" must stay
  * distinguishable.
  *
- * <p><b>Debian/Ubuntu's bulk dumps are stale — this is a real, currently-unavoidable gap, not a
- * bug in this class.</b> Verified against the live {@code osv-vulnerabilities} GCS bucket
- * (2026-08-13): {@code Debian:11/all.zip} and {@code Ubuntu:22.04:LTS/all.zip} both carry an HTTP
- * {@code Last-Modified} of October 2024 — roughly 22 months old at the time of writing — while
- * {@code npm/all.zip} updates same-day. A cross-check against OSV's live query API for the exact
- * same package/version found 53 CVEs online vs. 27 in the bulk dump, and every one of the 26
- * missing entries turned out to be genuinely absent from the downloaded {@code .json} files
- * (confirmed by direct inspection, not a parsing miss on this class's part) — i.e. the gap is
- * OSV's bulk export for these ecosystems having gone stale, not anything resolvable here. The
- * fetched {@code asOfByBucket} date now reflects the real upstream {@code Last-Modified} (see
- * {@link HttpCache#getOrFetchWithLastModified}), so the existing air-gapped staleness-warning
- * system ({@code oswl.airgapped.staleness-warn-days}/{@code staleness-critical-days}) correctly
- * flags Debian/Ubuntu coverage as critically stale rather than reporting it as current — that
- * warning is the honest, currently-correct outcome, not something to suppress. Revisit if OSV
- * resumes publishing fresh Debian/Ubuntu bulk dumps.
+ * <p>Distribution dumps are published under the parent ecosystem. Release identity is
+ * retained when matching advisory entries. Freshness comes from the downloaded source's
+ * Last-Modified date; using the parent dump does not itself establish freshness.
  */
 final class OsvBulkSource {
 
@@ -60,11 +48,8 @@ final class OsvBulkSource {
      * the honest state until OSV starts publishing ConanCenter entries. Add the mapping here
      * once {@code https://storage.googleapis.com/osv-vulnerabilities/ConanCenter/all.zip} exists.
      *
-     * <p>Debian/Ubuntu (version-suffixed, e.g. {@code "DEBIAN:11"}) aren't listed here — there's
-     * one bucket per release, so a fixed map can't enumerate them. {@link #resolveBucket} handles
-     * those via {@link VulnerabilityEnrichmentService#osPackageOsvEcosystem}, the same
-     * internal↔OSV-casing reconstruction the live per-component query path already uses —
-     * kept as one shared implementation rather than a second hardcoded prefix table here.
+     * <p>Release-specific distribution identities use the shared OSV ecosystem mapping;
+     * {@link #resolveBucket} removes the release suffix for downloads only.
      */
     private static final Map<String, String> ECOSYSTEM_TO_BUCKET = Map.of(
             "MAVEN", "Maven",
@@ -83,23 +68,16 @@ final class OsvBulkSource {
         this.mapper = mapper;
     }
 
-    /**
-     * Resolves an internal ecosystem tag to its OSV GCS bucket folder name, or {@code null} if
-     * there's nothing to fetch for it.
-     *
-     * <p>Alpine (like Debian/Ubuntu) isn't in the fixed map above because it's version-suffixed
-     * (one bucket per release, e.g. {@code "ALPINE:V3.14"} -> {@code "Alpine:v3.14"}) — falls
-     * through to {@code osPackageOsvEcosystem} the same way Debian/Ubuntu do. Unlike Debian/
-     * Ubuntu, Alpine's advisories carry no enumerated {@code versions[]}, only {@code ECOSYSTEM}-
-     * typed ranges, so {@link #resolveAffected} compares those with {@link ApkVersionComparator}
-     * instead of leaving them unresolved.
-     */
+    /** Resolves the download bucket while keeping release-specific matching separate. */
     private static String resolveBucket(String ecosystem) {
         String fixed = ECOSYSTEM_TO_BUCKET.get(ecosystem);
         if (fixed != null) {
             return fixed;
         }
-        return VulnerabilityEnrichmentService.osPackageOsvEcosystem(ecosystem);
+        String distribution = VulnerabilityEnrichmentService.osPackageOsvEcosystem(ecosystem);
+        if (distribution == null) return null;
+        int releaseSeparator = distribution.indexOf(':');
+        return releaseSeparator < 0 ? distribution : distribution.substring(0, releaseSeparator);
     }
 
     /** {@code unresolvedKeys} (not just a count) so callers can tell resolved from unresolved
@@ -138,18 +116,11 @@ final class OsvBulkSource {
             Map<String, Set<String>> namesWanted = ecoEntry.getValue();
             Map<String, List<String>> aliases = indexNames(ecosystem, namesWanted);
             System.err.println("[oswl-vdb] OSV: fetching " + bucket + "/all.zip for " + namesWanted.size() + " wanted package name(s)");
-            // Debian/Ubuntu bucket names contain ':' (e.g. "Debian:11", "Ubuntu:22.04:LTS"), which
-            // is a reserved character in Windows filenames — sanitize the whole cache key, not
-            // just '/', so this doesn't only work on Linux/Mac dev machines.
             HttpCache.FetchResult fetched = cache.getOrFetchWithLastModified(
                     "osv-" + bucket.replaceAll("[^A-Za-z0-9.-]", "_") + "-all.zip",
                     "https://storage.googleapis.com/osv-vulnerabilities/" + bucket + "/all.zip");
             byte[] zipBytes = fetched.body();
-            // The upstream's own Last-Modified, not "today" — a bulk dump can sit unchanged on
-            // the server for a long time (Debian/Ubuntu's haven't moved since Oct 2024, verified
-            // 2026-08-13, while npm's updates same-day) and stamping "now" here would silently
-            // defeat the air-gapped staleness-warning system for exactly the ecosystems where it
-            // matters most. Missing source dates cannot establish a dated snapshot.
+            // Preserve the source date rather than treating the build date as fresh evidence.
             LocalDate asOf = fetched.lastModified();
             if (asOf == null) {
                 throw new IOException("OSV " + bucket + "/all.zip has no Last-Modified source date; "
