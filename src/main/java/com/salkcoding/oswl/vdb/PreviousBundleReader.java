@@ -50,14 +50,19 @@ final class PreviousBundleReader {
                 else files.put(entry.getName(), content);
             }
         }
-        String bundleId = null;
-        if (metaBytes != null) {
-            bundleId = mapper.readTree(metaBytes).path("bundleId").asText(null);
-        }
-        Map<String, Map<String, String>> result = new LinkedHashMap<>();
         var strictReader = mapper.reader()
                 .with(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
                 .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+        String bundleId = null;
+        if (metaBytes != null) {
+            JsonNode meta = strictReader.readTree(metaBytes);
+            if (meta == null || !meta.isObject()) throw new IOException("Previous-bundle metadata must be an object");
+            if (meta.has("mode") && (!meta.path("mode").isTextual() || !meta.path("mode").asText().equals("full"))) {
+                throw new IOException("Delta generation requires a full baseline, not a delta or unknown bundle mode");
+            }
+            bundleId = meta.path("bundleId").asText(null);
+        }
+        Map<String, Map<String, String>> result = new LinkedHashMap<>();
         for (Map.Entry<String, byte[]> e : files.entrySet()) {
             if (!java.util.Set.of("osv.jsonl", "unresolved.jsonl", "depsdev.jsonl", "epss.jsonl", "kev.jsonl")
                     .contains(e.getKey())) continue;

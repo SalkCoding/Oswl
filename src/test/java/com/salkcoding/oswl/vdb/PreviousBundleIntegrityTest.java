@@ -15,6 +15,36 @@ import static org.assertj.core.api.Assertions.*;
 
 class PreviousBundleIntegrityTest {
     @ParameterizedTest
+    @ValueSource(strings = {"null", "[]", "{} {}", "{\"mode\":\"delta\"}", "{\"mode\":null}",
+            "{\"mode\":12}", "{\"mode\":\"unknown\"}", "{\"mode\":\"full\",\"mode\":\"full\"}"})
+    void invalidMetadataCannotActAsCompleteBaseline(String meta, @TempDir Path directory) throws Exception {
+        Path previous = directory.resolve("base.zip");
+        try (var zip = new ZipOutputStream(Files.newOutputStream(previous))) {
+            zip.putNextEntry(new ZipEntry("meta.json"));
+            zip.write(meta.getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        assertThatThrownBy(() -> PreviousBundleReader.read(previous, new ObjectMapper())).isInstanceOf(IOException.class);
+        Path output = directory.resolve("output.zip");
+        Files.writeString(output, "existing output");
+        assertThat(new VdbBuilderCli().run(new String[]{"build", "--sources", "osv", "--since", previous.toString(),
+                "--offline-sources", directory.toString(), "--out", output.toString()})).isEqualTo(1);
+        assertThat(Files.readString(output)).isEqualTo("existing output");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{}", "{\"mode\":\"full\",\"bundleId\":\"baseline\"}"})
+    void fullAndLegacyMetadataRemainReadable(String meta, @TempDir Path directory) throws Exception {
+        Path previous = directory.resolve("base.zip");
+        try (var zip = new ZipOutputStream(Files.newOutputStream(previous))) {
+            zip.putNextEntry(new ZipEntry("meta.json"));
+            zip.write(meta.getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        assertThat(PreviousBundleReader.read(previous, new ObjectMapper())).isNotNull();
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"truncated", "not-zip", "duplicate", "crc"})
     void incompleteOrAmbiguousArchiveCannotReplaceOutput(String damage, @TempDir Path directory) throws Exception {
         Path previous = baseline(directory, "{\"cveId\":\"CVE-2026-1000\"}");
