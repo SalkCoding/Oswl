@@ -31,6 +31,23 @@ class BuiltInScannerCoverageTest {
         assertThat(findings).anyMatch(f -> f.ruleId().equals("tf-public-s3-acl"));
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"299,false", "300,false", "301,false", "299,true", "300,true", "301,true"})
+    void findingLimitCannotClaimCompleteCoverage(int count, boolean splitFiles) throws Exception {
+        String line = "AKIA1234567890ABCDEF acl = \"public-read\"\n";
+        int first = splitFiles ? count / 2 : count;
+        java.nio.file.Files.writeString(root.resolve("first.tf"), line.repeat(first));
+        if (splitFiles) java.nio.file.Files.writeString(root.resolve("second.tf"), line.repeat(count - first));
+        var secret = new SecretScanner();
+        secret.loadRules();
+        for (var result : java.util.List.of(secret.scan(root), new IacScanner().scan(root))) {
+            assertThat(result.stream().filter(f -> f.ruleId().endsWith("-scan-incomplete")).count())
+                    .isEqualTo(count >= 300 ? 1 : 0);
+            assertThat(result.stream().filter(f -> !f.ruleId().endsWith("-scan-incomplete")).count())
+                    .isEqualTo(Math.min(count, 300));
+        }
+    }
+
     @Test void emptyReadableSourceRemainsAValidEmptyResult() {
         var secrets = new SecretScanner();
         secrets.loadRules();

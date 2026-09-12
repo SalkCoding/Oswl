@@ -61,6 +61,22 @@ class CustomRulePublicationTest {
     @Autowired SourceFindingStore findingStore;
     @Autowired SecretIacScanService builtInScans;
 
+    @Test void findingLimitRemainsIncompleteAfterPersistence(@org.junit.jupiter.api.io.TempDir java.nio.file.Path root) throws Exception {
+        java.nio.file.Files.writeString(root.resolve("many.tf"), "acl = \"public-read\"\n".repeat(301));
+        var project = projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder()
+                .name("Finding limit " + java.util.UUID.randomUUID()).build());
+        var scan = scans.save(com.salkcoding.oswl.domain.entity.scan.ScanResult.builder().project(project)
+                .version("fixture").status(ScanStatus.COMPLETED).build());
+        assertThat(builtInScans.scanAndPersist(root, scan.getId())).isTrue();
+        var stored = findings.findByScanResultIdAndProjectId(scan.getId(), project.getId());
+        assertThat(stored.stream().filter(f -> f.getRuleId().equals("tf-public-s3-acl")).count()).isEqualTo(300);
+        assertThat(stored.stream().filter(f -> f.getRuleId().equals("iac-scan-incomplete")).count()).isEqualTo(1);
+        var result = gate.evaluate(project.getId(), new com.salkcoding.oswl.service.gate.GatePolicyService.GateOptions(
+                scan.getId(), null, null, null, null, true, true, false));
+        assertThat(result.passed()).isFalse();
+        assertThat(result.coverage().complete()).isFalse();
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
     void builtInSourceFailureReachesStoredGateCoverage(boolean missing, @org.junit.jupiter.api.io.TempDir java.nio.file.Path root) {

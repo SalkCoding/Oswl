@@ -104,7 +104,7 @@ public class SecretScanner {
             incomplete[0] = true;
             log.warn("[SecretScan] walk error under '{}': {}", root, e.getMessage());
         }
-        if (incomplete[0]) findings.add(incompleteFinding());
+        if (incomplete[0] || findings.size() >= MAX_FINDINGS) findings.add(incompleteFinding());
         return findings;
     }
 

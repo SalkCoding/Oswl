@@ -98,7 +98,7 @@ public class IacScanner {
             incomplete[0] = true;
             log.warn("[IacScan] walk error under '{}': {}", root, e.getMessage());
         }
-        if (incomplete[0]) findings.add(incompleteFinding());
+        if (incomplete[0] || findings.size() >= MAX_FINDINGS) findings.add(incompleteFinding());
         return findings;
     }
 
