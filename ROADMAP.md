@@ -509,6 +509,14 @@
 
 - **2026-09-13 legacy 캐시 전체 검증:** Windows/Java 25 `build verifyProdJar` 3분 36초 성공. 전체 4,559건 중 4,547건 통과·실패/오류 0·기존 skip 12건. 운영 JAR 제외 검사 통과. 로그 `build/legacy-lookup-build.log`. 별도 Chromium 7건 통과·skip 0.
 
+
+- **2026-09-13 deps.dev 실패의 완료 판정 전파:** 기존 보강 단계는 OSV/GHSA/NVD 결과만 기록해 deps.dev 버전 조회 실패와 요청 공지의 누락·노후를 전체 완료 판정에서 놓쳤다. 지원 생태계는 버전 resolved와 요청된 모든 AdvisoryInfo의 존재/current를 검사해 DEPS_DEV 결과를 기록한다. 정상 빈 advisory 목록은 RESOLVED, 미지원 생태계는 UNSUPPORTED로 구분하고 실패 시 기존 발견을 보존한다. 공통 Library 완료 판정을 통해 게이트와 공통 패치 추천을 보류하며 OSV 원문/수정 근거 자체는 삭제하지 않는다. 이전 캐시에 DEPS_DEV 결과가 없으면 지원 생태계는 영구 캐시에서도 다음 분석 시 재조회한다. 과거 보존 판정은 재작성하지 않으며 전체 출처 상태 스키마/원문 revision 충돌 조정은 잔여다.
+- **deps.dev 완료 회귀 범위:** 온라인 공급자 DTO와 실제 오프라인 client(격리 snapshot view)에 버전 누락/노후, 공지 누락/노후, 정상 공지/정상 빈 목록/미지원 7상태를 적용한 14건에서 수정 전 실패했다. 8건은 잘못된 완료 판정을 재현했고 6개 정상 대조군은 출처 상태 필드 미구현 때문에 실패했다. 로그 `build/deps-coverage-before.log`. 초기 관련 125건 중 기존 정상 OSV 패치 fixture의 deps.dev 근거 누락 1건을 확인했고, 정상 deps.dev 응답을 추가해 원래 추천 기대값을 유지했다. deps.dev 실패 시 OSV 후보를 보존하면서 추천을 보류하는 상태도 추가했다. 영구 캐시 3상태 중 출처 결과가 없는 이전 캐시의 재사용 1건을 별도로 재현했다(`build/deps-coverage-cache-before.log`). 새 테스트는 자체 합성 입력이며 외부 자료/라이브러리 도입·DB 변경·전체 앱의 실제 외부 네트워크 검증은 없다. 세 언어 CLI 안내를 갱신했다. 커밋 제목 `fix: propagate deps dev lookup failures into coverage`.
+
+- **deps.dev 전체 검증:** Windows/Java 25 `build verifyProdJar` 3분 28초 성공. 전체 4,575건 중 4,563건 통과·실패/오류 0·기존 skip 12건. 운영 JAR 로컬 클래스/검증 fixture 제외도 통과했다. 로그 `build/deps-coverage-build.log`.
+
+- **deps.dev 화면 검증:** 기존 조회 상태 영역에 DEPS_DEV/UNAVAILABLE 행을 추가한 fixture로 상세 페이지와 HTMX 패널의 한국어·영어·일본어 안내/넘침을 확인했다. OSV 완료와 deps.dev 실패가 함께 보이고 상단은 분석 안 됨을 유지한다. Chromium 7건 통과·실패/skip 0. 로그 `build/deps-coverage-ui.log`, 화면 `build/reports/component-detail-layout-ui/ko-drawer.png`. UI 템플릿이나 스타일을 추가 변경하지 않았다.
+
 ### 20. npm·Yarn·pnpm의 실제 패키지와 설치 트리 — P1 · [지원 범위별 필수]
 
 - 현재·대상: [NpmManifestParser](src/main/java/com/salkcoding/oswl/service/ingest/parser/NpmManifestParser.java), lockfile·workspace 해석.

@@ -68,7 +68,7 @@ class ComponentCoverageSummaryUiTest extends UiTestBase {
         var scan = scans.save(ScanResult.builder().project(project).version("1").status(ScanStatus.COMPLETED).build());
         var library = Library.builder().name("layout-fixture").version("1").ecosystem("NPM")
                 .licenseStatus(LicenseStatus.UNKNOWN).build();
-        library.recordLookupOutcomes(Map.of("OSV","RESOLVED","NVD","UNSUPPORTED","GITHUB_ADVISORY","NOT_CONFIGURED"));
+        library.recordLookupOutcomes(Map.of("OSV","RESOLVED","NVD","UNSUPPORTED","GITHUB_ADVISORY","NOT_CONFIGURED","DEPS_DEV","UNAVAILABLE"));
         library.markFetched();
         library = libraries.save(library);
         var component = components.save(ScanComponent.builder().scanResult(scan).library(library)
@@ -86,6 +86,8 @@ class ComponentCoverageSummaryUiTest extends UiTestBase {
                     .as("source evidence belongs to a padded section").isTrue();
             assertThat(detail.innerText()).doesNotContain("??componentDetail", library.getVulnerabilityLookupAt().toString());
             assertThat(detail.locator("time[datetime]").count()).isPositive();
+            assertThat(detail.locator("[data-lookup-status]").innerText()).contains("DEPS_DEV",
+                    messages.getMessage("componentDetail.lookup.UNAVAILABLE",null,Locale.forLanguageTag(lang)));
             page.screenshot(new Page.ScreenshotOptions().setPath(output.resolve(lang+".png")).setFullPage(true));
             page.navigate(url("/projects/" + project.getId() + "/security-center?lang=" + lang));
             page.locator(".component-row").filter(new com.microsoft.playwright.Locator.FilterOptions().setHasText("layout-fixture")).click();

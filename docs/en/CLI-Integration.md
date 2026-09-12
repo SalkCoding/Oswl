@@ -1,5 +1,7 @@
 # CLI Integration
 
+New analyses record DEPS_DEV separately: a supported version lookup must resolve and every requested advisory must be present and current. Missing or stale version/advisory evidence remains UNAVAILABLE even if OSV succeeds, blocking complete coverage and the common patch recommendation. Supported ecosystems whose old cache lacks this source outcome are refreshed on the next analysis, including with permanent caching. Unsupported deps.dev ecosystems remain UNSUPPORTED. Earlier preserved assessments are not rewritten; this does not validate all source revisions or resolve conflicts between duplicate advisories.
+
 OsWL provides an official CLI (`oswl`) and a REST API for submitting dependency scans from local machines or CI pipelines — without a web browser or VCS connection.
 
 ---
