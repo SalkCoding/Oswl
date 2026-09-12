@@ -223,3 +223,5 @@ OSV bulk 수집도 조회와 같은 식별자 검증을 사용해 npm/Cargo·Go�
 배포판 bulk 다운로드는 [OSV 생태계 이름 안내](https://google.github.io/osv.dev/data/#ecosystem-naming)에 따라 Debian·Alpine·Ubuntu 상위 버킷을 사용합니다. 공지 매칭에는 배포판 버전 식별자를 유지해 다른 버전과 섞지 않습니다. 2026-09-13에 세 all.zip 객체의 HEAD 응답 HTTP 200과 Last-Modified 2026-09-12를 확인했습니다. 응답 헤더만 확인했으며 전체 데이터의 완전성이나 재배포 권한이 검증된 것은 아닙니다. 기존 버전별 오프라인 소스 캐시는 현재 상위 버킷 파일명으로 준비해야 합니다.
 
 버전별 Alpine 조회와 bulk 수집도 빈 결과를 완료로 받아들이기 전에 기존 APK 버전 파서를 적용합니다. *·latest 같은 미지원 입력은 미확인으로 유지하고 지원되는 revision·사전 배포 형식은 계속 허용합니다. 캐시의 발견 ID는 보존하지만 잘못된 입력에는 수정 버전을 안내하지 않습니다. 기존 파서의 지원 범위를 사용하는 변경이며 Debian·RPM 버전 비교를 추가하지 않습니다.
+
+APK 숫자 구간의 원래 표기를 보존해 첫 구간 이후 선행 0이 있는 경우의 순서를 반영합니다. [apk-tools 버전 구현](https://raw.githubusercontent.com/alpinelinux/apk-tools/master/src/version.c)과 [문자열 정렬 구현](https://raw.githubusercontent.com/alpinelinux/apk-tools/master/src/blob.c)에서 확인한 동작을 기준으로 합니다. 비교기는 Alpine:과 내부 ALPINE: 표기를 모두 인식하며 패키지·배포판 버전 매칭은 별도로 유지합니다. 합성 테스트로 비교·취약 범위·bulk 수정 후보 선택을 검증했습니다. GPL-2.0-only 상위 소스는 동작 확인에만 사용하고 복제·번들에 포함하지 않았으며 native apk 실행이나 전체 문법 동등성을 검증한 것은 아닙니다.

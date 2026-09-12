@@ -223,3 +223,5 @@ OSV bulk収集も照会と同じ識別子検証を使い、npm/Cargo・Go・Pyth
 ディストリビューションのbulkダウンロードは[OSVのエコシステム名の案内](https://google.github.io/osv.dev/data/#ecosystem-naming)に従い、Debian・Alpine・Ubuntuの親バケットを使用します。アドバイザリの照合にはリリース識別子を維持し、別のリリースと混同しません。2026-09-13の各all.zipへのHEAD要求でHTTP 200とLast-Modifiedの日付2026-09-12を確認しました。応答ヘッダーのみの確認であり、データ全体の完全性や再配布権限を検証したものではありません。旧リリース別のオフラインソースキャッシュは現在の親バケット名で準備する必要があります。
 
 リリース別Alpineの照会とbulk収集も、空の結果を完了とする前に既存のAPKバージョンパーサーを適用します。*やlatestなど未対応の入力は未解決とし、対応するrevision・プレリリース形式は引き続き許可します。キャッシュの検出IDは保持しますが、不正な入力には修正バージョンを案内しません。既存パーサーの対応範囲を使う変更であり、Debian・RPMのバージョン比較を追加するものではありません。
+
+APKの数字部分の表記を保持し、最初の部分以降に先頭ゼロがある場合の順序を反映します。[apk-toolsのバージョン実装](https://raw.githubusercontent.com/alpinelinux/apk-tools/master/src/version.c)と[文字列整列実装](https://raw.githubusercontent.com/alpinelinux/apk-tools/master/src/blob.c)で確認した動作に基づきます。比較器はAlpine:と内部ALPINE:の両方を認識し、パッケージ・リリース照合は別に維持します。合成テストで比較・影響範囲・bulk修正候補の選択を検証しました。GPL-2.0-onlyの上流ソースは動作確認のみで複製・同梱せず、native apk実行や全体の文法同等性を検証したものではありません。

@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
  * optional single trailing letter, an optional {@code _suffix[num]} (one of alpha/beta/pre/rc/
  * cvs/svn/git/hg/p), and an optional {@code -rN} revision. Comparison order:
  * <ol>
- *   <li>numeric segments, compared as integers (not strings) left to right</li>
+ *   <li>numeric segments, with string ordering for leading-zero segments after the first</li>
  *   <li>the trailing letter, if any — absent sorts below present ({@code 1.0 < 1.0a})</li>
  *   <li>the {@code _suffix}'s rank: alpha &lt; beta &lt; pre &lt; rc &lt; (no suffix) &lt; cvs
  *       &lt; svn &lt; git &lt; hg &lt; p, then its optional trailing number</li>
@@ -74,18 +74,19 @@ final class ApkVersionComparator {
         return Integer.compare(pa.revision, pb.revision);
     }
 
-    private static int compareNums(List<Integer> a, List<Integer> b) {
+    private static int compareNums(List<String> a, List<String> b) {
         int n = Math.max(a.size(), b.size());
         for (int i = 0; i < n; i++) {
-            int va = i < a.size() ? a.get(i) : 0;
-            int vb = i < b.size() ? b.get(i) : 0;
-            int cmp = Integer.compare(va, vb);
+            String va = i < a.size() ? a.get(i) : "0";
+            String vb = i < b.size() ? b.get(i) : "0";
+            int cmp = i > 0 && (va.startsWith("0") || vb.startsWith("0"))
+                    ? va.compareTo(vb) : Integer.compare(Integer.parseInt(va), Integer.parseInt(vb));
             if (cmp != 0) return cmp;
         }
         return 0;
     }
 
-    private record Parsed(List<Integer> nums, Character letter, int suffixRank, int suffixNum, int revision) {}
+    private record Parsed(List<String> nums, Character letter, int suffixRank, int suffixNum, int revision) {}
 
     private static Parsed parse(String version) {
         String v = version.strip();
@@ -95,9 +96,10 @@ final class ApkVersionComparator {
             throw new IllegalArgumentException("Unparseable apk version: " + version);
         }
 
-        List<Integer> nums = new ArrayList<>();
+        List<String> nums = new ArrayList<>();
         for (String seg : m.group("nums").split("\\.")) {
-            nums.add(Integer.parseInt(seg));
+            Integer.parseInt(seg);
+            nums.add(seg);
         }
 
         String letterGroup = m.group("letter");

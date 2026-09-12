@@ -147,7 +147,7 @@ public final class OsvRangeEvaluator {
         if ("SEMVER".equals(type) || ("ECOSYSTEM".equals(type) && "NPM".equalsIgnoreCase(ecosystem))) {
             return SemVerVersionComparator::compare;
         }
-        if (ecosystem != null && ecosystem.startsWith("ALPINE:") && "ECOSYSTEM".equals(type)) {
+        if (ecosystem != null && ecosystem.regionMatches(true, 0, "ALPINE:", 0, 7) && "ECOSYSTEM".equals(type)) {
             return ApkVersionComparator::compare;
         }
         return null;
