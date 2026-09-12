@@ -25,16 +25,13 @@ final class GitHubAdvisorySource {
         this.mapper = mapper;
     }
 
-    record Result(Map<String, List<SnapshotVuln>> vulnsByComponentKey) {}
+    record Result(Map<String, List<SnapshotVuln>> vulnsByComponentKey, java.util.Set<String> unresolvedKeys) {}
 
     Result fetch(List<WantedComponent> wanted, String token, String apiBase) {
-        if (token == null || token.isBlank()) {
-            System.err.println("[oswl-vdb] github-advisory: no token configured — skipping");
-            return new Result(Map.of());
-        }
         GitHubAdvisoryClient client = new GitHubAdvisoryClient(
                 null, false, token, apiBase, Duration.ofSeconds(5), Duration.ofSeconds(20));
         Map<String, List<SnapshotVuln>> result = new LinkedHashMap<>();
+        java.util.Set<String> unresolvedKeys = new java.util.LinkedHashSet<>();
         int done = 0;
         for (WantedComponent w : wanted) {
             done++;
@@ -42,23 +39,30 @@ final class GitHubAdvisorySource {
                 System.err.println("[oswl-vdb] github-advisory: " + done + "/" + wanted.size());
             }
             String key = AirgappedSnapshotService.componentKey(w.ecosystem(), w.name(), w.version());
-            if (key == null) continue;
+            if (key == null) throw new IllegalArgumentException("Missing GitHub wanted identity cannot be recorded as unresolved");
+            if (!client.canLookup(w.ecosystem())) {
+                unresolvedKeys.add(key);
+                continue;
+            }
             try {
                 List<GitHubAdvisoryClient.GitHubAdvisory> advisories =
                         client.findByPackage(w.ecosystem(), w.name(), w.version());
-                if (advisories.isEmpty()) continue;
                 List<SnapshotVuln> vulns = new ArrayList<>(advisories.size());
                 for (GitHubAdvisoryClient.GitHubAdvisory adv : advisories) {
                     vulns.add(toSnapshotVuln(adv));
                 }
                 result.put(key, vulns);
             } catch (Exception e) {
+                unresolvedKeys.add(key);
+                if (e instanceof GitHubAdvisoryClient.IncompleteLookupException incomplete) {
+                    result.put(key, incomplete.findings().stream().map(GitHubAdvisorySource::toSnapshotVuln).toList());
+                }
                 System.err.println("[oswl-vdb] github-advisory lookup failed for " + w.name() + "@" + w.version()
                         + ": " + e.getMessage());
             }
         }
         System.err.println("[oswl-vdb] github-advisory: " + result.size() + " component(s) with advisories");
-        return new Result(result);
+        return new Result(result, java.util.Set.copyOf(unresolvedKeys));
     }
 
     private static SnapshotVuln toSnapshotVuln(GitHubAdvisoryClient.GitHubAdvisory adv) {
