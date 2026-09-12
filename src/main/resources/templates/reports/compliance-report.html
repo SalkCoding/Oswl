@@ -252,6 +252,23 @@
         </div>
     </div>
 
+    <div class="section" th:unless="${report.matchReviewRows().isEmpty()}">
+        <div class="section-title" th:text="#{report.compliance.section.matchReview}">Matching candidates requiring review</div>
+        <p class="empty-note" th:text="#{report.compliance.matchReview.note}">CPE candidates are excluded from confirmed counts and fix advice. Confidence alone does not confirm applicability.</p>
+        <table class="kev-table">
+            <thead><tr>
+                <th th:text="#{report.compliance.kev.col.cve}">CVE</th>
+                <th th:text="#{report.compliance.kev.col.component}">Component</th>
+                <th th:text="#{report.compliance.matchReview.confidence}">Matching confidence</th>
+            </tr></thead>
+            <tbody><tr th:each="row : ${report.matchReviewRows()}">
+                <td class="mono" th:text="${row.vulnerabilityId()}">CVE</td>
+                <td><span th:text="${row.componentName()}">lib</span> <span class="triage-tag" th:text="${row.componentVersion()}">1.0</span></td>
+                <td class="triage-tag" th:text="${row.confidence()}">UNKNOWN</td>
+            </tr></tbody>
+        </table>
+    </div>
+
     <!-- Triage SLA -->
     <div class="section">
         <div class="section-title" th:text="#{report.compliance.section.triageSla}">Triage SLA</div>

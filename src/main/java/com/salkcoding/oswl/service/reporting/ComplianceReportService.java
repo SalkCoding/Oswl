@@ -69,12 +69,20 @@ public class ComplianceReportService {
         int kevTotal = 0, kevUnresolved = 0, kevUnknown = 0;
         int licenseViolations = 0, licenseWarnings = 0, licenseUnknown = 0, licensePermitted = 0;
         List<KevRow> kevRows = new ArrayList<>();
+        List<ComplianceReportDto.MatchReviewRow> matchReviewRows = new ArrayList<>();
 
         for (ScanAssessment.LibraryAssessment lib : libraries) {
             ScanComponent sc = scByLibrary.get(lib.libraryId());
             boolean triaged = sc != null && (sc.isDeferred() || sc.isReviewed());
 
             for (ScanAssessment.Finding cve : lib.findings()) {
+                if (cve.requiresCpeReview()) {
+                    matchReviewRows.add(new ComplianceReportDto.MatchReviewRow(
+                            cve.cveId() != null ? cve.cveId() : cve.ghsaId() != null ? cve.ghsaId() : "—",
+                            lib.name(), lib.version() != null ? lib.version() : "—",
+                            cve.matchConfidence() != null ? cve.matchConfidence().name() : "UNKNOWN"));
+                    continue;
+                }
                 if (cve.severity() != null) {
                     switch (cve.severity()) {
                         case CRITICAL -> criticalCves++;
@@ -115,7 +123,7 @@ public class ComplianceReportService {
         for (ScanComponent sc : components) {
             var assessment = assessments.get(sc.getLibrary().getId());
             boolean hasRisk = assessment != null && assessment.findings().stream()
-                    .anyMatch(c -> c.severity() != null
+                    .anyMatch(c -> c.requiresCpeReview() || c.severity() != null
                             && c.severity() != com.salkcoding.oswl.domain.enums.RiskLevel.NONE);
             if (sc.isDeferred()) {
                 deferred++;
@@ -147,7 +155,7 @@ public class ComplianceReportService {
                 reviewed, deferred, untriagedRisk,
                 formatAvgTriage(triageDurations),
                 licenseViolations, licenseWarnings, licenseUnknown, licensePermitted,
-                kevRows);
+                kevRows, matchReviewRows);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────
@@ -190,6 +198,6 @@ public class ComplianceReportService {
                 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, "—",
                 0, 0, 0, 0,
-                List.of());
+                List.of(), List.of());
     }
 }

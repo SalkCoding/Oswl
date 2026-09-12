@@ -382,6 +382,11 @@
 - **회귀·잔여 범위:** 신뢰도 3종의 수정 전 실패를 재현했고, 혼합 출처 3종의 legacy/보존 경로, 무시된 후보, 후보→패키지 확인의 기준 비교를 포함한 새 회귀 11건이 통과했다. 로그 `build/roadmap-cpe-gate-before.log`, `build/roadmap-cpe-gate-checked.log`. 자체 합성 자료이며 새 외부 원문·라이브러리·UI 변경은 없다. configuration AND/OR·vulnerable=false·OS/architecture·동명 제품 검증, 검토 해소 절차, 출처/신뢰도가 없는 legacy 자료의 재판정 및 게이트 밖 보고서의 후보 구분은 잔여다. 이번 공식 NVD 문서 열기는 본문을 반환하지 않아 configuration 계약 전체의 외부 검증 완료를 주장하지 않는다.
 - **전체 검증:** Windows/Java 25에서 `build verifyProdJar` 통과. 총 4,487건 중 4,475건 성공, 기존 조건부 skip 12건, 실패·오류 0. 운영 JAR의 local 전용 클래스/fixture 제외 확인. 로그 `build/roadmap-cpe-gate-build.log`. 커밋 제목 `fix: separate cpe candidates from confirmed gate findings`. UI 변경이 없어 브라우저 검증은 수행하지 않았다.
 
+
+- **2026-09-12 컴플라이언스 보고서 후보 분리:** legacy 공유 자료/보존 판정 두 경로에서 NVD/CPE 후보가 확정 심각도·KEV 건수와 수정 버전 표에 노출되던 오류를 각각 재현했다. 공통 후보 판정으로 별도 ID·컴포넌트·신뢰도 검토 표에 보존하고 확정 집계와 수정 버전 안내에서 제외한다. 미조치 후보는 미채점이어도 위험 컴포넌트로 유지하며 검토·보류 상태로 후보 표를 숨기지 않는다. 한국어·영어·일본어 설명을 추가하고 기존 표·안내문 스타일을 재사용한다.
+- **보고서 검증 범위:** 자체 합성 후보/혼합 출처 자료를 사용한다. 수정 전 두 경로의 집계 회귀가 실패했고, 수정 후 후보 단독/패키지 근거 혼합과 legacy/보존 조합 및 3개 언어의 실제 Thymeleaf 렌더링을 검증한다. localhost에서 렌더링한 한국어 화면의 후보 표와 확정 KEV 표 분리를 확인했다. 실제 로그인·컨트롤러·데이터 수집 전체 흐름이나 PDF 인쇄 검증을 대체하지 않는다. 새 외부 데이터·라이브러리 반입은 없으며 기존 출처 권한의 전체 감사는 잔여다. 다른 대시보드의 후보 구분, 환경 configuration 평가와 검토 해소 절차는 계속 미완료다.
+- **보고서 최종 검증:** `build verifyProdJar` 성공, 총 4,491건 중 4,479건 성공·기존 skip 12건·실패/오류 0 (`build/roadmap-cpe-report-build.log`). 이후 테스트의 시스템 언어 fallback을 실제 설정과 동일하게 끄고 언어별 제목 assertion 및 미채점 후보 사례를 강화해 보고서 4건 재통과 (`build/roadmap-cpe-report-final-render.log`). 한국어·일본어 혼합 자료와 영어 후보 단독의 브라우저 화면을 확인했다. 전체 빌드 이후 운영 코드는 변경하지 않았다. 커밋 제목 `fix: distinguish cpe candidates in compliance reports`.
+
 ### 15. 공통 resolved inventory와 workspace 단위 coverage — P0 · [코드 확인/설계]
 
 - 현재·대상: [DependencyManifestParserService](src/main/java/com/salkcoding/oswl/service/ingest/DependencyManifestParserService.java), [파서 지도](.agents/features/manifests.md). 한 workspace의 lockfile 성공을 다른 module까지 확대할 수 있는 경로를 검증한다.

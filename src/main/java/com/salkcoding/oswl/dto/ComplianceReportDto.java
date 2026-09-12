@@ -40,8 +40,12 @@ public record ComplianceReportDto(
         int licensePermitted,
 
         // ── Detail rows for the KEV table ──
-        List<KevRow> kevRows
+        List<KevRow> kevRows,
+        List<MatchReviewRow> matchReviewRows
 ) {
+    public record MatchReviewRow(String vulnerabilityId, String componentName,
+                                 String componentVersion, String confidence) {}
+
     /** One actively-exploited (KEV) vulnerability row for the report's KEV table. */
     public record KevRow(
             String cveId,
