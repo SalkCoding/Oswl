@@ -201,7 +201,11 @@ class SnapshotImportTransactionTest {
         metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("osv")
                 .sourceAsOf(asOf).importedAt(java.time.LocalDateTime.now()).build());
         var expiry = service.sourceEvidenceValidUntil("osv");
-        assertThat(new com.salkcoding.oswl.client.OsvClient(service, true).commonFixValidUntil()).isEqualTo(expiry);
+        String name = "expiry-" + age;
+        entries.saveAndFlush(SnapshotEntry.builder().source("osv").entryKey("NPM|" + name + "|1.0.0").payload("[]").build());
+        var result = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(
+                new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", name, "1.0.0"))).getFirst();
+        assertThat(result.validUntil()).isEqualTo(expiry);
         if (age < 0 || age == 999) assertThat(expiry).isNull();
         else {
             assertThat(expiry).isEqualTo(asOf.plusDays(8).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());

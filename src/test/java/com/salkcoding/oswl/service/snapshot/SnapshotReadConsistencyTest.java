@@ -75,8 +75,12 @@ class SnapshotReadConsistencyTest {
             assertThat(publishOnce).isTrue();
             assertThat(old.vulns()).isEmpty();
             assertThat(old.resolved()).isFalse();
+            assertThat(old.validUntil()).isEqualTo(LocalDate.now().minusDays(stale ? 30 : 0)
+                    .plusDays(8).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
             var updated = client.queryBatch(List.of(query)).getFirst();
             assertThat(updated.resolved()).isTrue();
+            assertThat(updated.validUntil()).isEqualTo(LocalDate.now().plusDays(8)
+                    .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
             assertThat(updated.vulns()).singleElement().extracting(OsvClient.OsvVuln::osvId).isEqualTo("OSV-new");
         }
     }

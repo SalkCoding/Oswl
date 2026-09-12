@@ -717,6 +717,10 @@
 
 ### 37. staging 활성화·세대 고정·실패 복구 — P0 · [설계]
 
+- **만료일 결합 검증:** Windows/Java 25에서 `test --tests '*Osv*Test' --tests '*VulnerabilityEnrichmentServiceTest' --tests '*Snapshot*Test'`와 `build verifyProdJar` 성공. 전체 4,394건 중 4,382건 통과·환경 의존/선택 실행 skip 12건·실패/오류 0. 초기 보강 5종 실패를 재현했고 날짜 미확인·만료 후보 보류를 추가했다. 원래 출처 날짜의 만료일이 실제 조회 결과에 전달되는지 검사하며, 온라인/오프라인 전체 결과 비교에는 동일 만료일 근거를 제공해 기존 판정·원문 지문 비교를 유지했다. H2 및 PostgreSQL 15.19의 동시 갱신 6종에서 이전/다음 조회의 만료일을 각각 대조했다. 로그 `build/roadmap-osv-expiry-before.log`, `build/roadmap-osv-expiry-checked.log`, `build/roadmap-osv-expiry-postgres.log`, `build/roadmap-osv-expiry-build.log`; PostgreSQL 결과 `build/pg-verification/osv-expiry-result.xml`. 임시 DB 삭제·서버 종료와 문서/diff를 확인했다. UI·DB 스키마 변경이 없어 브라우저/마이그레이션 검사는 재실행하지 않았고 새 외부 자료·라이브러리·원격 쓰기는 없다. 전체 스캔 세대 고정과 운영 부하·복구 검증은 잔여다.
+
+- **2026-09-12 후보 만료일의 조회 근거 결합:** 만료일을 OSV 조회 후 별도로 읽어 저장하면 후속 번들의 새 날짜가 이전 후보의 수명을 늘리는 경로가 있었다. 조회 결과에 원래 만료일을 담아도 보강 단계가 이후 값을 저장하는 5종 실패를 재현했다. 오프라인 만료일을 본문·미확인·신선도와 같은 SERIALIZABLE 읽기에 포함하고 `OsvResult`로 전달해 기존 판정 JSON에 저장한다. 온라인도 공지 판정 시작 시 7일 기한을 고정한다. 별도 후속 만료일 조회 메서드를 제거하고 날짜 미확인·만료·조회 실패 상태를 유지한다. 이전 생성자 호출의 만료일은 null로 남겨 추정하지 않는다. 새 SQL 마이그레이션은 없고 기존 저장 판정의 재조회가 필요하다. 커밋 제목 `fix: bind osv candidate expiry to lookup evidence`.
+
 - **최종 누적 검증:** Windows/Java 25에서 `build verifyProdJar` 성공. 일반 검사 4,392건 중 4,380건 통과·환경 의존/선택 실행 skip 12건·실패/오류 0, 로그 `build/roadmap-snapshot-read-final-build.log`. 별도로 실행한 PostgreSQL 동시성 6건도 모두 통과했다. 기존 단위 fixture는 새 묶음 읽기 메서드가 기존 mock 본문/상태를 사용하도록 연결했으며 판정 단언은 유지했다. 세 언어 관리 문서·전체 diff를 확인했다. UI 변경이 없어 브라우저 검사는 재실행하지 않았고 운영 DB 변경·새 외부 데이터 도입·원격 push는 없다. 전체 스캔 세대 고정 및 부하·복구 검증은 미완료다.
 
 - **왕복 검사 이행:** 독립 reader가 미커밋 반입을 보지 않는 경계 때문에 기존 왕복 검사 3건이 전체 build에서 실패했다. 반입 fixture를 독립 트랜잭션에서 먼저 커밋하도록 바꾸고 매개변수별 이름을 분리했다. 취약점 본문·충돌 후보·개별 fix 보류·날짜 미확인의 기대값은 유지했다. `FixConflictPersistenceTest`와 `SnapshotReadConsistencyTest`를 함께 재실행해 통과했다. 로그 `build/roadmap-snapshot-read-build.log`(이행 전 실패), `build/roadmap-snapshot-read-publication.log`(관련 검사).
@@ -726,7 +730,7 @@
 - **DB별 격리 차이:** REPEATABLE READ 중간 구현은 PostgreSQL의 6종 동시성 검사에서 통과했지만 H2의 날짜 변경 2종에서는 여전히 실패했다. [H2 공식 격리 설명](https://www.h2database.com/html/advanced.html#transaction_isolation)의 phantom 허용·SNAPSHOT/SERIALIZABLE 구분을 확인하고, 최종 경계를 SERIALIZABLE로 강화했다. H2에서는 많은 테이블에 대한 격리 비용이 있으므로 운영 규모의 부하 검증은 잔여다. 기대값을 낮추거나 H2 검사를 제외하지 않았다.
 
 - **2026-09-12 OSV 조회 묶음의 일관된 읽기:** 취약점 본문과 미확인 키·출처 날짜를 별도로 읽는 사이에 원자적 갱신이 커밋되면, 이전 빈 결과에 새 정상 상태를 붙이는 문제를 H2와 실제 PostgreSQL에서 각각 3종으로 재현했다. `readOsvSnapshot`이 독립적인 SERIALIZABLE 트랜잭션에서 세 정보를 함께 읽고 오프라인 client가 그 결과를 사용한다. 기존 READ COMMITTED 트랜잭션 안에서도 별도 경계를 사용한다. [PostgreSQL 15 공식 격리 문서](https://www.postgresql.org/docs/15/transaction-iso.html)의 읽기 snapshot 의미와 실제 동시 writer 검증을 대조했다. 자체 DB fixture이며 새 외부 데이터·라이브러리를 도입하지 않았다. 커밋 제목 `fix: read offline osv coverage from one database snapshot`.
-- **범위와 운영 잔여:** 조회 묶음 하나의 본문·미확인·신선도 일관성 개선이며 전체 scan revision 고정이나 staging 활성 pointer 구현을 완료한 것은 아니다. 다른 출처와 후속 후보 만료일 조회의 데이터 세대 결합, 세대 보존/복구는 잔여다. 기존 트랜잭션을 중단하고 짧은 별도 읽기를 실행하므로 DB 연결 풀의 동시 조회 여유가 필요하다. 세 언어 관리 문서에 이 범위와 제약을 반영했다.
+- **범위와 운영 잔여:** 조회 묶음 하나의 본문·미확인·신선도·만료일 일관성 개선이며 전체 scan revision 고정이나 staging 활성 pointer 구현을 완료한 것은 아니다. 다른 출처의 데이터 세대 결합, 세대 보존/복구는 잔여다. 기존 트랜잭션을 중단하고 짧은 별도 읽기를 실행하므로 DB 연결 풀의 동시 조회 여유가 필요하다. 세 언어 관리 문서에 이 범위와 제약을 반영했다.
 
 - 현재·대상: 기존 REPLACE/MERGE/upsert와 reader가 사용하는 데이터 세대의 트랜잭션 경계.
 - [ ] 수정: 검역 staging→전체 검증→영향 preview→원자적 활성 pointer 전환으로 구성한다. scan은 한 revision을 고정하고 import 중단·OOM·강제 종료·실패에서 이전 세대를 유지한다. 비상 rollback은 승인/감사/degraded 상태로 처리한다.

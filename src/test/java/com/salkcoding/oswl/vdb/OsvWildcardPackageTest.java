@@ -47,6 +47,7 @@ class OsvWildcardPackageTest {
         var raw = new SnapshotVuln("OSV-wildcard", null, null, null, null, null, null, null, null, Set.of(), mapper.readTree(original));
         org.mockito.Mockito.when(store.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection())).thenCallRealMethod();
         when(store.findOsvVulns(anyCollection())).thenReturn(Map.of(key, List.of(raw)));
+        when(store.sourceEvidenceValidUntil(anyString())).thenReturn(live.validUntil());
         var offline = new OsvClient(store, true).queryBatch(List.of(query)).getFirst();
         assertThat(offline).isEqualTo(live);
     }

@@ -50,6 +50,7 @@ class OsvRevisionTest {
                     raw.path("id").asText(), null, null, "99.0.0", null, null, null, null, null, java.util.Set.of(), raw)).toList();
             org.mockito.Mockito.when(snapshots.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection())).thenCallRealMethod();
             org.mockito.Mockito.when(snapshots.findOsvVulns(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(key, records));
+            org.mockito.Mockito.when(snapshots.sourceEvidenceValidUntil(org.mockito.ArgumentMatchers.anyString())).thenReturn(online.validUntil());
             var offline = new OsvClient(snapshots, true).queryBatch(List.of(query())).getFirst();
             assertThat(offline).isEqualTo(online);
             assertThat(online.resolved()).isFalse();
@@ -107,6 +108,7 @@ class OsvRevisionTest {
         org.mockito.Mockito.when(snapshots.findOsvVulns(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(key, List.of(
                 new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln("OSV-fixture", "CVE-WRONG", "stale summary",
                         "99.0.0", "CWE-999", "HIGH", 8.1, "stale-vector", null, java.util.Set.of(), raw))));
+        org.mockito.Mockito.when(snapshots.sourceEvidenceValidUntil(org.mockito.ArgumentMatchers.anyString())).thenReturn(online.validUntil());
         var offline = new OsvClient(snapshots, true).queryBatch(List.of(query())).getFirst();
         assertThat(offline).isEqualTo(online);
         assertThat(offline.vulns()).singleElement().satisfies(v -> {
@@ -136,6 +138,7 @@ class OsvRevisionTest {
         org.mockito.Mockito.when(snapshots.findOsvVulns(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(key, List.of(
                 new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln("OSV-fixture", null, null,
                         "1.2.4", null, null, null, null, null, java.util.Set.of(), raw))));
+        org.mockito.Mockito.when(snapshots.sourceEvidenceValidUntil(org.mockito.ArgumentMatchers.anyString())).thenReturn(online.validUntil());
         var offline = new OsvClient(snapshots, true).queryBatch(List.of(query())).getFirst();
         assertThat(online.resolved()).isEqualTo(complete);
         assertThat(offline.resolved()).isEqualTo(online.resolved());
@@ -164,6 +167,7 @@ class OsvRevisionTest {
         org.mockito.Mockito.when(snapshots.findOsvVulns(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(key, List.of(
                 new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln("OSV-fixture", null, null,
                         "1.2.4", null, null, null, null, null, java.util.Set.of(), raw))));
+        org.mockito.Mockito.when(snapshots.sourceEvidenceValidUntil(org.mockito.ArgumentMatchers.anyString())).thenReturn(online.validUntil());
         var offline = new OsvClient(snapshots, true).queryBatch(List.of(query())).getFirst();
         for (var result : List.of(online, offline)) {
             assertThat(result.resolved()).isEqualTo(complete);
