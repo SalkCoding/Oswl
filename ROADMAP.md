@@ -502,6 +502,13 @@
 
 - **조회 시각 최종 검증:** `build verifyProdJar` 2분 53초 성공, 전체 4,540건 중 4,528건 통과·실패/오류 0·기존 환경 조건 skip 12건. 운영 JAR의 로컬 전용 클래스/검증 fixture 제외도 통과했다. 로그 `build/roadmap-lookup-time-build.log`. 로컬 커밋 제목 `fix: validate lookup timestamps before gate completion`.
 
+
+- **2026-09-12 조회 근거 없는 legacy 캐시의 완료 취급 제거:** 수집 시각만 있는 캐시를 완료로 인정하던 호환 분기를 제거했다. 조회 시각 유무와 관계없이 출처 결과가 없으면 미분석이며 기존 CVE·시각을 삭제하거나 추정 결과를 생성하지 않는다. 게이트 coverage, 상세/목록, CSV 및 snapshot 미완료 목록이 같은 판정을 사용한다. 영구 캐시라도 다음 분석에서 해당 항목을 재조회하므로 근거 없는 상태가 영구 고정되지 않는다. 앞서 기록한 legacy live 캐시 호환 유지의 잔여를 이 완료 판정 경로에서 해소한다. 개별 출처의 freshness·모든 지원 출처 조회 여부 및 과거 저장 데이터 생성 경로는 별도 검증 범위다.
+- **legacy 캐시 회귀:** 조회 시각 있음/없음 2건 모두 수정 전 잘못된 게이트 통과를 재현했다(`build/legacy-lookup-before.log`). CSV의 legacy 상태는 No로 검증하고 정상 완료 대조군에는 명시적 출처 결과를 둔다. 정상 캐시의 적중·TTL·캐시 삭제·AI 테스트는 근거를 가진 캐시로 구성하고 기존 검증을 유지했다. 실제 보강 서비스의 영구 캐시 분기를 근거 있음/없음으로 비교해 후자의 공급자 재조회와 실패 시 미분석 유지를 확인했다. 관련 209건 통과(`build/legacy-lookup-checked.log`). snapshot exporter에는 근거/발견 유무 4조합의 미완료 표시와 기존 발견 보존 검사를 추가했다. 새 외부 자료·라이브러리·DB migration 변경은 없다.
+- **legacy 캐시 UI 확인:** 기존 템플릿을 변경하지 않고 공통 완료 판정을 연결했으며 Chromium에서 legacy·미조회·부분 실패·정상 완료 및 보존 근거 안내/슬라이드 패널 7건(세 언어) 통과·skip 0. 기존 날짜만 있는 캐시가 '발견되지 않음' 대신 '분석 안 됨'으로 표시되고 정상 안내를 숨기는 화면을 확인했다. 로그 `build/legacy-lookup-ui.log`, 화면 `build/reports/component-coverage-summary-ui/legacy-ko.png`. 세 언어 CLI-Integration/Security-Center의 기존 호환 설명을 현재 동작으로 갱신했다. 커밋 제목 `fix: require source outcomes before accepting cached coverage`.
+
+- **2026-09-13 legacy 캐시 전체 검증:** Windows/Java 25 `build verifyProdJar` 3분 36초 성공. 전체 4,559건 중 4,547건 통과·실패/오류 0·기존 skip 12건. 운영 JAR 제외 검사 통과. 로그 `build/legacy-lookup-build.log`. 별도 Chromium 7건 통과·skip 0.
+
 ### 20. npm·Yarn·pnpm의 실제 패키지와 설치 트리 — P1 · [지원 범위별 필수]
 
 - 현재·대상: [NpmManifestParser](src/main/java/com/salkcoding/oswl/service/ingest/parser/NpmManifestParser.java), lockfile·workspace 해석.

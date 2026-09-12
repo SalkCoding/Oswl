@@ -100,15 +100,15 @@ class ComponentCoverageSummaryUiTest extends UiTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"missing", "partial", "complete"})
+    @ValueSource(strings = {"missing", "partial", "complete", "legacy"})
     void summariesRequireCompletedCoverageInEveryLanguage(String coverage) throws Exception {
         var project = projects.save(Project.builder().name("Coverage summary " + coverage).build());
         var scan = scans.save(ScanResult.builder().project(project).version("1.0").status(ScanStatus.COMPLETED).build());
         var library = Library.builder().name("summary-" + coverage).version("1.0.0").ecosystem("NUGET")
                 .licenseStatus(LicenseStatus.UNKNOWN).fetchedAt(coverage.equals("missing") ? null : LocalDateTime.now())
-                .vulnerabilityLookupOutcomes(coverage.equals("partial") ? Map.of("OSV", "RESOLVED", "GITHUB_ADVISORY", "UNAVAILABLE")
+                .vulnerabilityLookupOutcomes(coverage.equals("legacy") ? null : coverage.equals("partial") ? Map.of("OSV", "RESOLVED", "GITHUB_ADVISORY", "UNAVAILABLE")
                         : Map.of("OSV", "RESOLVED")).build();
-        if (!coverage.equals("missing")) library.recordLookupOutcomes(library.getVulnerabilityLookupOutcomes());
+        if (!coverage.equals("missing") && !coverage.equals("legacy")) library.recordLookupOutcomes(library.getVulnerabilityLookupOutcomes());
         library.updateVersionStatus(true, null, null);
         library = libraries.save(library);
         var component = components.save(ScanComponent.builder().scanResult(scan).library(library).build());

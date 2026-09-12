@@ -58,6 +58,21 @@ class GateCoverageTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false,true})
+    void legacyFetchDateWithoutSourceOutcomesCannotProveCoverage(boolean hasLookupDate) {
+        var library = evidenceLibrary();
+        ReflectionTestUtils.setField(library,"vulnerabilityLookupOutcomes",null);
+        if (!hasLookupDate) ReflectionTestUtils.setField(library,"vulnerabilityLookupAt",null);
+        var fetched = library.getFetchedAt();
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        var result = service.evaluate(1L,GatePolicyService.GateOptions.defaults());
+        assertThat(result.passed()).isFalse();
+        assertThat(result.coverage().unanalysedComponents()).isEqualTo(1);
+        assertThat(library.getFetchedAt()).isEqualTo(fetched);
+        assertThat(library.getVulnerabilityLookupOutcomes()).isNull();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"false,fetched-future", "true,fetched-future", "false,lookup-future", "true,lookup-future", "false,lookup-missing", "true,lookup-missing", "false,valid", "true,valid"})
     void completionRequiresUsableLookupTimes(boolean preserved, String state) throws Exception {
         var library = evidenceLibrary();
@@ -362,7 +377,7 @@ class GateCoverageTest {
     }
 
     @Test void completedLookupWithNoFindingsCanPass() {
-        Library library = Library.builder().id(3L).name("queried").version("1").build(); library.markFetched();
+        Library library = evidenceLibrary();
         when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).scanResult(scan).build()));
         var result = service.evaluate(1L, GatePolicyService.GateOptions.defaults());
         assertThat(result.passed()).isTrue();

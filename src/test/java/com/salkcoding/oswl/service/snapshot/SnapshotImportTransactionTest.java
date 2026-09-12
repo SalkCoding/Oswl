@@ -26,6 +26,28 @@ class SnapshotImportTransactionTest {
     @Autowired com.salkcoding.oswl.repository.vulnerability.CveRepository cves;
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,false", "false,true", "true,false", "true,true"})
+    void exportedLegacyCacheRemainsUnresolvedWithoutDroppingFindings(boolean verified, boolean finding) throws Exception {
+        String name = "legacy-cache-"+UUID.randomUUID();
+        var library = com.salkcoding.oswl.domain.entity.vulnerability.Library.builder().name(name).version("1").ecosystem("NPM").build();
+        if (verified) library.recordLookupOutcomes(Map.of("OSV","RESOLVED"));
+        library.markFetched();
+        library = libraries.saveAndFlush(library);
+        if (finding) cves.saveAndFlush(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder().library(library)
+                .cveId("CVE-2026-123450").sources(Set.of(com.salkcoding.oswl.domain.enums.CveSource.OSV)).build());
+        Map<String,String> files = new HashMap<>();
+        try (var zip = new ZipInputStream(new ByteArrayInputStream(service.exportBundle()))) {
+            ZipEntry file;
+            while ((file=zip.getNextEntry())!=null) files.put(file.getName(),new String(zip.readAllBytes(),StandardCharsets.UTF_8));
+        }
+        assertThat(files.getOrDefault("unresolved.jsonl","").contains(name)).isEqualTo(!verified);
+        if (finding) {
+            var line = files.get("osv.jsonl").lines().filter(value -> value.contains(name)).findFirst().orElseThrow();
+            assertThat(line).contains("CVE-2026-123450");
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"match", "changed-content", "missing", "extra", "legacy-assessment", "failed-lookup", "oversized"})
     void exportOriginalsMustMatchTheContentUsedForTheStoredAssessment(String state) throws Exception {
         var json = new com.fasterxml.jackson.databind.ObjectMapper();

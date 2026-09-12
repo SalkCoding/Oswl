@@ -94,7 +94,7 @@ OsWL은 표준 CVSS 3.x 구간에 따라 기본 점수를 심각도로 분류합
 | 컴플라이언스 리포트 | `GET /projects/{projectId}/security-center/compliance-report` | 인쇄용 HTML (*인쇄 → PDF로 저장* 사용) |
 | CVE / 라이선스 CSV | — | 선택한 완료 스캔의 컴포넌트 요약 (기본값: 최신 완료 스캔) |
 
-컴포넌트 CSV는 기존 열 뒤에 `Vulnerability Lookup Complete`, `Lookup Outcomes`, `Lookup Attempt At`을 추가합니다. `No`이면 CVE 0건만으로 조회 완료를 판단할 수 없습니다. `Yes`는 컴포넌트 화면과 같은 완료 기준이며 안전성을 보장하지 않습니다. 출처별 결과는 이름순 `SOURCE=STATUS` 쌍으로 표시하고, 없는 과거 metadata는 빈 값으로 유지합니다. 레거시 캐시는 출처별 결과 없이 `Yes`일 수 있습니다. 조회 시각은 저장된 로컬 시각이며 취약점 데이터의 발행일이나 최신성 보장이 아닙니다. 열 개수를 고정한 소비자는 추가된 세 열을 반영해야 합니다.
+컴포넌트 CSV는 기존 열 뒤에 `Vulnerability Lookup Complete`, `Lookup Outcomes`, `Lookup Attempt At`을 추가합니다. `No`이면 CVE 0건만으로 조회 완료를 판단할 수 없습니다. `Yes`는 컴포넌트 화면과 같은 완료 기준이며 안전성을 보장하지 않습니다. 출처별 결과는 이름순 `SOURCE=STATUS` 쌍으로 표시하고, 없는 과거 metadata는 빈 값으로 유지합니다. 출처별 결과가 없는 레거시 캐시는 수집 시각이 있어도 `No`입니다. 영구 캐시 설정에서도 다음 분석 시 재조회합니다. 조회 시각은 저장된 로컬 시각이며 취약점 데이터의 발행일이나 최신성 보장이 아닙니다. 열 개수를 고정한 소비자는 추가된 세 열을 반영해야 합니다.
 
 일괄 작업에는 선택한 컴포넌트를 모두 수정 버전으로 올리는 **업그레이드 PR 생성**도 포함됩니다.
 
