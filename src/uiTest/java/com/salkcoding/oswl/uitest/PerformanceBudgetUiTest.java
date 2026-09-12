@@ -99,6 +99,75 @@ class PerformanceBudgetUiTest extends UiTestBase {
         }
     }
 
+    @Test void denseFindingsRemainCorrectAcrossConcurrentPatchRequests() throws Exception {
+        Files.createDirectories(report.getParent());
+        var project = projects.save(Project.builder().name("Concurrent dense patch filters").build());
+        var scan = newScan(project, "1", LocalDateTime.now());
+        long offset = 10000000;
+        seedComponents(scan.getId(), 5000, offset);
+        jdbc.update("update libraries set fetched_at=CURRENT_TIMESTAMP,vulnerability_lookup_at=CURRENT_TIMESTAMP, "
+                + "vulnerability_lookup_outcomes=case when mod(id,4)=0 then ? else ? end where id>? and id<=?",
+                "{\"OSV\":\"UNAVAILABLE\"}", "{\"OSV\":\"RESOLVED\"}", offset, offset + 5000);
+        jdbc.update("update library_cves set fix_version='2',severity=case when mod(library_id,4)=3 then null else 'HIGH' end "
+                + "where library_id>? and library_id<=?", offset, offset + 5000);
+        jdbc.update("insert into library_cves(library_id,cve_id,severity,severity_conflict,kev_listed) "
+                + "select l.id,concat('CVE-DENSE-',l.id,'-',x),case when mod(l.id,4)=3 then null else 'HIGH' end,false,false "
+                + "from libraries l cross join system_range(1,9) where l.id>? and l.id<=?", offset, offset + 5000);
+        jdbc.update("insert into library_cve_sources(cve_id,source) select id,case when mod(library_id,4)=1 and cve_id like 'CVE-PERF-%' "
+                + "then 'NVD' else 'OSV' end from library_cves where library_id>? and library_id<=?", offset, offset + 5000);
+        var filter = new com.salkcoding.oswl.dto.SecurityCenterRowFilterParams(null, false,
+                false, false, false, false, false, false, false, false,
+                false, false, false, false, false, false, false, false, false,
+                true, false, false, false, false, "risk");
+        var stats = emf.unwrap(SessionFactory.class).getStatistics();
+        stats.setStatisticsEnabled(true); stats.clear();
+        var barrier = new java.util.concurrent.CyclicBarrier(4);
+        AtomicBoolean sampling = new AtomicBoolean(true);
+        AtomicLong peak = new AtomicLong();
+        Thread sampler = Thread.ofVirtual().start(() -> {
+            while (sampling.get()) {
+                peak.accumulateAndGet(ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed(), Math::max);
+                try { Thread.sleep(5); } catch (InterruptedException e) { return; }
+            }
+        });
+        record Result(int page, long millis, long statements, long rows, long jdbcNanos, List<Long> ids) {}
+        var results = new ArrayList<Result>();
+        try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            var futures = new ArrayList<java.util.concurrent.Future<Result>>();
+            for (int pageIndex : List.of(0, 1, 24, 25)) {
+                futures.add(executor.submit(() -> {
+                    barrier.await(30, java.util.concurrent.TimeUnit.SECONDS);
+                    long started = System.nanoTime();
+                    var sample = JdbcBudgetProbe.start("dense-patch-" + pageIndex, false);
+                    try {
+                        var result = security.queryRows(project.getId(), scan.getId(), filter, pageIndex);
+                        assertThat(result.getTotalElements()).isEqualTo(2500);
+                        assertThat(result.getContent()).hasSize(pageIndex == 25 ? 0 : 100);
+                        assertThat(result.hasNext()).isEqualTo(pageIndex < 24);
+                        assertThat(result.getContent()).allSatisfy(row -> {
+                            assertThat(row.getMatchReviewCount()).isZero();
+                            assertThat(row.getPatchability()).isEqualTo("patchable");
+                            assertThat(row.getSecurityHigh() + row.getSecurityUnscored()).isEqualTo(10);
+                        });
+                        return new Result(pageIndex, (System.nanoTime() - started) / 1_000_000,
+                                sample.statements, sample.rows, sample.nanos,
+                                result.getContent().stream().map(com.salkcoding.oswl.dto.ComponentRowDto::getId).toList());
+                    } finally { JdbcBudgetProbe.CURRENT.remove(); }
+                }));
+            }
+            for (var future : futures) results.add(future.get(120, java.util.concurrent.TimeUnit.SECONDS));
+        } finally { sampling.set(false); sampler.join(1000); }
+        assertThat(results.stream().flatMap(r -> r.ids().stream()).toList()).hasSize(300).doesNotHaveDuplicates();
+        assertThat(stats.getEntityLoadCount()).isLessThan(5000);
+        var output = new StringBuilder("page,elapsed_ms,jdbc_statements,jdbc_rows,jdbc_ms\n");
+        for (var result : results) output.append(String.format(Locale.ROOT, "%d,%d,%d,%d,%.3f%n",
+                result.page(), result.millis(), result.statements(), result.rows(), result.jdbcNanos() / 1_000_000.0));
+        Files.writeString(report.resolveSibling("dense-concurrent.csv"), output);
+        Files.writeString(report.resolveSibling("dense-concurrent-memory.txt"),
+                "requests=4 components=5000 findings=50000 matches=2500 entities=" + stats.getEntityLoadCount()
+                        + " sampled_peak_heap_bytes=" + peak.get() + "\n");
+    }
+
     @Test void measureLargeReadsExportsAndLongLivedPage() throws Exception {
         Files.createDirectories(report.getParent());
         Files.writeString(report.resolveSibling("archive-pool.txt"), "");
