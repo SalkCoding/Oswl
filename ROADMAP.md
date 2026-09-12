@@ -465,6 +465,8 @@
 
 - **2026-09-13 보존 판정·구성 목록의 양방향 내보내기 검증:** 보존 판정에는 남아 있으나 현재 구성 목록에서 일부/전부 사라진 라이브러리의 취약점이 조용히 누락되는 2건의 실패를 H2에서 재현했다. 보존 판정 ID 집합과 구성의 고유 라이브러리 ID 집합이 일치해야 내보내도록 수정했다. 같은 라이브러리의 중복 컴포넌트는 허용하고 기존 판정 없는 legacy 동작은 유지한다. 실패 시 판정 JSON·구성 행·보관 상태가 바뀌지 않음을 검증한다. 새 외부 자료·의존성·DB migration·UI 변경은 없으며 전체 증거 DTO와 후보 집계 분리는 여전히 잔여다. 커밋 제목 `fix: reject incomplete scan inventories during archive export`. 관련 스캔 요약·보관·판정 검사 11건 통과·실패/skip 0, `bootJar verifyProdJar` 포함 34초 성공. 로그 `build/archive-inventory-before.log`, `build/archive-inventory-after.log`. 이번 4줄 구성 검증 변경은 관련 통합 검사와 운영 JAR로 검증했으며 전체 suite와 UI는 재실행하지 않았다.
 
+- **2026-09-13 보관 내보내기의 저장 판정 전달:** 간략 CVE DTO가 조회 미완료·출처·수정 버전 충돌 정보를 전달하지 않는 문제를 보완해 `assessmentJson`에 저장 판정 문자열을 그대로 내보낸다. legacy는 null이고 현재 캐시로 합성하지 않는다. 원문에 없던 근거나 공급자 진위/재배포 허용을 추정하지 않는다. 실제 H2 자료를 서비스에서 내보낸 뒤 JSON 직렬화하여 원래 문자열 동일성, 조회 실패, 출처, 충돌 후보와 fix 보류를 검증한다. 수정 전 3조건 중 보존/legacy 필드 검사 2건이 실패했다. 새 응답 필드와 내부 formatVersion을 지원하지 않는 구버전 소비자는 수정이 필요하며 복원 API는 제공하지 않는다. 세 언어 사용 문서와 OpenAPI 설명을 갱신했다. 외부 자료/라이브러리·DB migration·UI 변경 없음. 전체 원천 원문·고지 수집과 후보 집계, 별도 재평가 revision은 여전히 잔여다. 커밋 제목 `feat: include preserved assessments in scan archive exports`. 관련 통합·직렬화 검사 12건 통과·실패/skip 0, `bootJar verifyProdJar` 포함 36초 성공. 로그 `build/archive-full-evidence-before.log`, `build/archive-full-evidence-after.log`. 전체 suite·브라우저·실제 HTTP 응답 검사는 이번에 재실행하지 않았다.
+
 ### 17. 소스·시크릿·IaC 등 분석기별 완전성 상태 — P0 · [코드 확인]
 
 - 현재·대상: [SecretIacScanService](src/main/java/com/salkcoding/oswl/service/secretscan/SecretIacScanService.java)의 반환/로그와 CLI manifest-only 제출. 공급원별 coverage 전체를 새로 만드는 작업은 아니다.

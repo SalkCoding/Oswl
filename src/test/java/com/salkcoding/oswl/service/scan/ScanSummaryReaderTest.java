@@ -30,13 +30,17 @@ class ScanSummaryReaderTest {
     @Autowired LibraryRepository libraries;
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"preserved", "legacy", "missing"})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"preserved", "legacy", "missing", "conflict"})
     void archiveExportUsesTheSelectedScansEvidence(String state) throws Exception {
         var project = projects.save(Project.builder().name("Export-" + UUID.randomUUID()).build());
         var library = Library.builder().name("export-" + UUID.randomUUID()).version("1").ecosystem("NPM")
                 .licenseStatus(LicenseStatus.RESTRICTED).build();
         library.getCves().add(Cve.builder().library(library).cveId("CVE-2026-123450")
-                .severity(RiskLevel.HIGH).fixVersion("2.0.0").cvssScore(8.1).epssScore(0.25).kevListed(true).build());
+                .severity(RiskLevel.HIGH).fixVersion("2.0.0")
+                .sources(java.util.Set.of(CveSource.OSV))
+                .fixVersionConflictCandidates(state.equals("conflict") ? java.util.Set.of("2.0.0", "3.0.0") : java.util.Set.of())
+                .cvssScore(8.1).epssScore(0.25).kevListed(true).build());
+        library.recordLookupOutcomes(java.util.Map.of("OSV", "UNAVAILABLE"));
         library = libraries.saveAndFlush(library);
         String json = state.equals("legacy") ? null : new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
                 new com.salkcoding.oswl.dto.scan.ScanAssessment(1, "2026-09-01T00:00:00Z",
@@ -56,6 +60,24 @@ class ScanSummaryReaderTest {
                     .isInstanceOf(IllegalStateException.class);
         } else {
             var exported = archive.exportPendingArchive(project.getId(), 1);
+            var serialized = new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules()
+                    .readTree(new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules().writeValueAsString(exported));
+            if (json == null) assertThat(serialized.get(0).has("assessmentJson")).isTrue();
+            if (json == null) assertThat(serialized.get(0).get("assessmentJson").isNull()).isTrue();
+            else {
+                assertThat(serialized.get(0).path("assessmentJson").asText()).isEqualTo(json);
+                assertThat(ScanAssessmentService.read(serialized.get(0).get("assessmentJson").asText()).libraries())
+                        .singleElement().satisfies(evidence -> {
+                            assertThat(evidence.lookupOutcomes()).containsEntry("OSV", "UNAVAILABLE");
+                            assertThat(evidence.findings()).singleElement().satisfies(finding -> {
+                                assertThat(finding.sources()).containsExactly(CveSource.OSV);
+                                if (state.equals("conflict")) {
+                                    assertThat(finding.fixVersion()).isNull();
+                                    assertThat(finding.fixVersionConflictCandidates()).containsExactlyInAnyOrder("2.0.0", "3.0.0");
+                                }
+                            });
+                        });
+            }
             assertThat(exported).singleElement().satisfies(record -> {
                 assertThat(record.scanId()).isEqualTo(old.getId());
                 assertThat(record.components()).hasSize(2).allSatisfy(component -> {
@@ -63,7 +85,7 @@ class ScanSummaryReaderTest {
                     assertThat(component.licenseName()).isEqualTo(state.equals("legacy") ? "MIT" : null);
                     assertThat(component.cves()).singleElement().satisfies(finding -> {
                             assertThat(finding.cveId()).isEqualTo(state.equals("legacy") ? "CVE-2026-123451" : "CVE-2026-123450");
-                            assertThat(finding.fixVersion()).isEqualTo(state.equals("legacy") ? "9.0.0" : "2.0.0");
+                            assertThat(finding.fixVersion()).isEqualTo(state.equals("legacy") ? "9.0.0" : state.equals("conflict") ? null : "2.0.0");
                             assertThat(finding.severity()).isEqualTo(state.equals("legacy") ? "LOW" : "HIGH");
                             assertThat(finding.cvssScore()).isEqualTo(state.equals("legacy") ? 2.0 : 8.1);
                             assertThat(finding.epssScore()).isEqualTo(state.equals("legacy") ? 0.01 : 0.25);

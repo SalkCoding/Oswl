@@ -142,7 +142,7 @@ public class ScanArchivingService {
         List<ScanArchiveExportDto.ComponentExportDto> componentDtos = components.stream()
                 .map(component -> toComponentExport(component, paths.getOrDefault(component.getId(), List.of()), preserved))
                 .toList();
-        return new ScanArchiveExportDto(scan.getId(), scan.getVersion(), scan.getScannedAt(), componentDtos);
+        return new ScanArchiveExportDto(scan.getId(), scan.getVersion(), scan.getScannedAt(), componentDtos, scan.getAssessmentJson());
     }
 
     private ScanArchiveExportDto.ComponentExportDto toComponentExport(ScanComponent comp, List<DependencyPath> paths,

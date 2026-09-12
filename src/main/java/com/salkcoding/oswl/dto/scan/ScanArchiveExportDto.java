@@ -12,7 +12,9 @@ public record ScanArchiveExportDto(
         Long scanId,
         String version,
         LocalDateTime scannedAt,
-        List<ComponentExportDto> components
+        List<ComponentExportDto> components,
+        /** Exact stored assessment JSON; null for legacy scans. Never synthesized from shared cache. */
+        String assessmentJson
 ) {
 
     public record ComponentExportDto(

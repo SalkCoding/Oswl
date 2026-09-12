@@ -24,7 +24,10 @@ public interface ScanArchivingControllerSpec {
             not-yet-archived scan beyond `retainCount` — exactly the set of scans the archive
             endpoint would strip down to an aggregate summary. Call this first and save the
             response if you need a record of the detail before it's deleted; archiving itself
-            is irreversible and this is the only way to keep a copy.
+            is irreversible. `assessmentJson` contains the exact stored data-phase assessment JSON,
+            including lookup outcomes and finding evidence. It is null for legacy scans and is
+            never reconstructed from current cache data. Consumers must support this additive
+            field and the embedded assessment formatVersion; it is not a restore endpoint.
             """)
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Scans pending archival, in full detail",
