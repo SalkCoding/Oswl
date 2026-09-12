@@ -28,6 +28,52 @@ import static org.assertj.core.api.Assertions.*;
         "spring.jpa.database-platform=${OSWL_SNAPSHOT_IMPORT_TEST_DIALECT:org.hibernate.dialect.H2Dialect}"})
 class SnapshotImportTransactionTest {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void cliDeltaPreservesAndClearsExplicitOsvUncertainty(boolean initiallyPartial,
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        String known = """
+                {"id":"OSV-fixture","modified":"2026-01-01T00:00:00Z","affected":[{"package":{"ecosystem":"npm","name":"example"},
+                "ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"1.0.1"}]}]}]}
+                """;
+        String unknown = """
+                {"id":"OSV-unknown","modified":"2026-01-01T00:00:00Z","affected":[{"package":{"ecosystem":"npm","name":"example"},
+                "ranges":[{"type":"GIT","events":[{"introduced":"0"}]}]}]}
+                """;
+        Path wanted = directory.resolve("wanted.jsonl");
+        Files.writeString(wanted, """
+                {"ecosystem":"npm","name":"example","version":"1.0.0"}
+                """);
+        Files.writeString(directory.resolve("osv-npm-all.zip.lastmodified"), java.time.LocalDate.now().toString());
+        Path base = directory.resolve("base.zip");
+        for (int step = 0; step < 2; step++) {
+            boolean partial = step == 0 ? initiallyPartial : !initiallyPartial;
+            Files.write(directory.resolve("osv-npm-all.zip"), bundle(partial
+                    ? Map.of("known.json", known, "unknown.json", unknown) : Map.of("known.json", known)));
+            Path output = step == 0 ? base : directory.resolve("delta.zip");
+            var args = new ArrayList<>(List.of("build", "--sources", "osv", "--wanted", wanted.toString(),
+                    "--offline-sources", directory.toString(), "--out", output.toString()));
+            if (step != 0) args.addAll(List.of("--mode", "delta", "--since", base.toString()));
+            Integer exit = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                    new com.salkcoding.oswl.vdb.VdbBuilderCli(), "run", (Object) args.toArray(String[]::new));
+            assertThat(exit).isZero();
+            try (var input = Files.newInputStream(output)) {
+                service.importBundle(input, step == 0 ? AirgappedSnapshotService.ImportMode.REPLACE
+                        : AirgappedSnapshotService.ImportMode.MERGE);
+            }
+            String key = "NPM|example|1.0.0";
+            assertThat(service.findUnresolvedKeys(List.of(key)).contains(key)).isEqualTo(partial);
+            var result = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(
+                    new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "example", "1.0.0"))).getFirst();
+            assertThat(result.resolved()).isEqualTo(!partial);
+            assertThat(result.vulns()).extracting(com.salkcoding.oswl.client.OsvClient.OsvVuln::osvId)
+                    .containsExactly("OSV-fixture");
+            assertThat(result.vulns().getFirst().fixVersion()).isEqualTo("1.0.1");
+            assertThat(result.commonFix().version()).isNull();
+            assertThat(result.commonFix().reason()).isEqualTo(partial ? "INCOMPLETE_LOOKUP" : "NO_RANGE_EVIDENCE");
+        }
+    }
+
     @Autowired com.salkcoding.oswl.repository.vulnerability.LibraryRepository libraries;
     @Autowired com.salkcoding.oswl.repository.vulnerability.CveRepository cves;
 

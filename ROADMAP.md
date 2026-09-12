@@ -451,6 +451,8 @@
 
 - **2026-09-13 번들 공급자 증거의 미확인 보존:** VdbBuilderCli의 partitionResolution이 명시적 OSV 미확인을 다른 OSV 발견 또는 deps.dev 버전 정보로 덮어쓰던 3조건의 수정 전 실패를 확인했다. 미확인 키를 우선 보존하여 발견 항목이 있어도 unresolved.jsonl에서 제거하지 않는다. 미확인/발견/deps.dev의 8조합과 실제 CLI의 정상 공지+평가 불가 GIT 범위 공지 입력을 검증했다. 출력에 기존 OSV-fixture 발견과 동일 컴포넌트 미확인 기록이 함께 남는다. OSV/Vdb/스냅샷 반입 관련 465건 중 463 통과·기존 skip 2·실패/오류 0, `bootJar verifyProdJar` 성공(41초). 세 언어 문서 반영. 자체 합성 fixture만 사용했고 새 외부 자료/라이브러리·DB schema·UI 변경 없음. 전체 build·실제 외부 API·PostgreSQL·브라우저는 이번에 재실행하지 않았다. 모든 공급원의 개별 coverage 모델은 여전히 잔여다. 로그 `build/bundle-partial-before.log`, `build/bundle-partial-checked.log`. 커밋 제목 `fix: retain unresolved osv coverage across bundle evidence`.
 
+- **2026-09-13 CLI 전체/차분→H2→오프라인 미확인 전환 검증:** 실제 CLI로 자체 OSV 공지 ZIP을 전체 번들로 만든 뒤 H2 REPLACE 반입하고, 반대 coverage의 차분 번들을 생성하여 MERGE 반입했다. 미확인→완료와 완료→미확인 2방향에서 repository의 미확인 표시 추가/제거, 오프라인 OSV resolved 상태, 기존 발견 ID와 개별 수정 후보 1.0.1 보존을 확인했다. 최초 검사의 공통 수정 1.0.1 기대는 실패했으며, 조사 결과 bulk toSnapshotVuln이 공지 범위 원문을 담지 않는 기존 한계를 확인했다. 이를 숨기지 않고 공통 수정 null 및 완료 NO_RANGE_EVIDENCE/미확인 INCOMPLETE_LOOKUP 사유를 검증하며 범위 원문 보존을 잔여로 기록한다. 테스트 기대 변경은 이 실제 데이터 계약에 근거하며 온라인/오프라인 패치 동등성 완료로 간주하지 않는다. SnapshotImportTransactionTest/OsvBulkInputIntegrityTest 222건 통과·실패/오류/skip 0(36초). 세 언어 문서 반영. 제품 코드 변경·새 외부 자료/라이브러리 없음. 자체 fixture와 실행 중 생성한 기준일만 사용했고 전체 build·PostgreSQL·외부 API·UI는 이번에 재실행하지 않았다. 로그 `build/bundle-partial-delta.log`, `build/bundle-partial-delta-checked.log`. 커밋 제목 `test: verify unresolved coverage through cli delta imports`.
+
 ### 14. CPE 추정을 확정 취약·게이트에서 분리 — P0 · [부분 구현]
 
 - 현재·대상: [CpeNameMapper](src/main/java/com/salkcoding/oswl/client/CpeNameMapper.java), [NvdClient](src/main/java/com/salkcoding/oswl/client/NvdClient.java)의 이름 추정과 configuration 맥락 손실, 게이트의 신뢰도 처리.
