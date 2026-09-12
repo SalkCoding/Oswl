@@ -544,6 +544,8 @@
 
 - **2026-09-13 GitHub 공급자 활성화 후 재조회:** 현재 클라이언트가 조회 가능해도 기존 누락/NOT_CONFIGURED/UNSUPPORTED 결과를 영구 캐시로 재사용하는 3경로를 재현했다. 현재 조회 가능한 GitHub 출처가 RESOLVED가 아니면 다음 분석에서 재조회하며, 조회 완료 캐시 및 현재 조회 불가 상태의 기존 동작은 유지한다. 8조건에서 재조회/캐시 재사용을 검사하고 새 응답의 취약점·개별 fix가 실제 Library에 보존됨을 확인했다. 이전 보존 판정은 수정하지 않는다. 이미 RESOLVED인 상태에서 토큰 권한·서버가 바뀐 경우의 설정 revision 비교는 여전히 남아 있다. 초기 테스트의 mock 이름 오타 및 기존 reflection 문자열 변경은 바로잡았으며 해당 5건을 제품 실패로 세지 않는다. 수정 전 3건은 실제 fetch 미호출, 나머지 5건은 미사용 mock 설정 진단이었다. 새 외부 자료/라이브러리·DB migration·UI 변경 없음. 커밋 제목 `fix: refresh caches when github advisory lookup becomes available`. 관련 enrichment·GitHub·Library 검사 205건 통과·실패/skip 0, `bootJar verifyProdJar` 포함 14초 성공. 로그 `build/github-cache-plan-before-checked.log`, `build/github-cache-plan-checked.log`. 온라인 호출은 모의 응답이며 기존 오프라인 관련 검사도 포함했다. 전체 suite·실제 외부 HTTP·UI는 이번에 재실행하지 않았다.
 
+- **2026-09-13 NVD 전용 캐시 완료 조건 검증:** CONAN의 OSV/DEPS_DEV 미지원·GitHub 미설정 조건에서 NVD 누락/UNSUPPORTED/UNAVAILABLE/RESOLVED 4경로를 보강 서비스의 영구 캐시 설정으로 검사했다. 완료 기록은 재사용하고, 나머지는 실제 CPE adapter 진입을 재시도하며 후보 미발견 후에도 분석 미완료·patchability UNKNOWN·공통 fix 없음으로 유지한다. GitHub 활성화 문제와 같은 정상 경로의 우회는 재현되지 않아 제품 조건을 임의로 추가하지 않았다. 자체 입력·모의 CPE 응답 검증이며 실제 OpenSSL 취약점 내용이나 외부 API 결과를 검증했다는 의미는 아니다. 기존 온라인/오프라인 보강 검사와 함께 실행했고 새 자료·라이브러리·DB/UI 변경은 없다. 커밋 제목 `test: verify incomplete nvd caches retry without claiming safety`. 관련 검사 165건 통과·실패/skip 0, 12초 성공(`build/native-cache-coverage.log`). 테스트와 기록만 변경해 전체 build/브라우저는 재실행하지 않았다.
+
 ### 20. npm·Yarn·pnpm의 실제 패키지와 설치 트리 — P1 · [지원 범위별 필수]
 
 - 현재·대상: [NpmManifestParser](src/main/java/com/salkcoding/oswl/service/ingest/parser/NpmManifestParser.java), lockfile·workspace 해석.
