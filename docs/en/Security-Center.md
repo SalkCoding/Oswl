@@ -199,3 +199,7 @@ Since v1.0.4, two prioritization feeds are merged in as well:
 Test- and dev-only dependencies are tagged with their scope and can be hidden from the list, so production risk stands out. They are tagged rather than dropped, so nothing disappears from the SBOM.
 
 Enrichment runs automatically after each scan and is refreshed according to the cache policy in **Settings → Cache** (`/api/settings/cache`).
+
+## Built-in source inspection coverage
+
+Secret and IaC file-reading or directory-traversal failures now retain an incomplete marker alongside any findings already collected. Missing secret rules also produce an incomplete marker. These existing marker types prevent a complete gate result even when secret-finding blocking is disabled. An accessible empty directory still returns zero findings. This change does not account for every excluded file, scan budget, disabled scanner or missing source in other ingestion paths.

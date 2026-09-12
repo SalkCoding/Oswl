@@ -70,6 +70,7 @@ public class IacScanner {
 
     public List<ScanFindingCandidate> scan(Path root) {
         List<ScanFindingCandidate> findings = new ArrayList<>();
+        boolean[] incomplete = {false};
         try {
             Files.walkFileTree(root, new SimpleFileVisitor<>() {
                 @Override
@@ -87,15 +88,23 @@ public class IacScanner {
                     try {
                         scanFile(root, file, attrs, findings);
                     } catch (Exception e) {
+                        incomplete[0] = true;
                         log.debug("[IacScan] skip file '{}': {}", file, e.getMessage());
                     }
                     return FileVisitResult.CONTINUE;
                 }
             });
         } catch (IOException e) {
+            incomplete[0] = true;
             log.warn("[IacScan] walk error under '{}': {}", root, e.getMessage());
         }
+        if (incomplete[0]) findings.add(incompleteFinding());
         return findings;
+    }
+
+    private static ScanFindingCandidate incompleteFinding() {
+        return new ScanFindingCandidate(ScanFindingType.IAC, "iac-scan-incomplete", RiskLevel.HIGH,
+                ".", null, "Scan incomplete: the scanner could not inspect all inputs", null);
     }
 
     private void scanFile(Path root, Path file, BasicFileAttributes attrs, List<ScanFindingCandidate> findings) throws IOException {

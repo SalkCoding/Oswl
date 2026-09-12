@@ -59,6 +59,27 @@ class CustomRulePublicationTest {
     @Autowired com.salkcoding.oswl.service.ingest.ScanIngestService ingest;
     @Autowired org.springframework.transaction.PlatformTransactionManager transactions;
     @Autowired SourceFindingStore findingStore;
+    @Autowired SecretIacScanService builtInScans;
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void builtInSourceFailureReachesStoredGateCoverage(boolean missing, @org.junit.jupiter.api.io.TempDir java.nio.file.Path root) {
+        var project = projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder()
+                .name("Built-in coverage " + java.util.UUID.randomUUID()).build());
+        var scan = scans.save(com.salkcoding.oswl.domain.entity.scan.ScanResult.builder().project(project)
+                .version("fixture").status(ScanStatus.COMPLETED).build());
+        assertThat(builtInScans.scanAndPersist(missing ? root.resolve("missing") : root, scan.getId())).isTrue();
+        assertThat(findings.hasIncompleteScanner(scan.getId(), project.getId())).isEqualTo(missing);
+        var stored = findings.findByScanResultIdAndProjectId(scan.getId(), project.getId());
+        if (missing) assertThat(stored).extracting(com.salkcoding.oswl.domain.entity.scan.ScanFinding::getRuleId)
+                .containsExactlyInAnyOrder("secret-scan-incomplete", "iac-scan-incomplete");
+        else assertThat(stored).isEmpty();
+        var result = gate.evaluate(project.getId(), new com.salkcoding.oswl.service.gate.GatePolicyService.GateOptions(
+                scan.getId(), null, null, null, null, true, true, false));
+        assertThat(result.coverage().complete()).isEqualTo(!missing);
+        assertThat(result.passed()).isEqualTo(!missing);
+    }
+
     @Test void baselineQueryOrdersTimestampTiesAndExcludesOtherProjectsAndIncompleteScans() {
         var project = projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder().name("Baseline order").build());
         var other = projects.save(com.salkcoding.oswl.domain.entity.project.Project.builder().name("Other baseline project").build());

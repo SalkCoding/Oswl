@@ -522,6 +522,8 @@
 - 선행: 10·15~16번.
 - DoD: 소스 미제공을 시크릿 검사 완료로, 수집 실패를 의존성 없는 안전한 프로젝트로 표시하지 않는다. NOT_APPLICABLE은 입력/정책 근거가 있고 필수 실패는 차단된다.
 
+- **2026-09-13 내장 스캐너 읽기 실패 보존:** SecretScanner/IacScanner가 파일 또는 디렉터리 순회 오류를 로그만 남기고 정상 빈 목록으로 반환하는 경로를 수정했다. 없는 소스 경로 2종·시크릿 규칙 미초기화·잘못된 UTF-8 IaC 파일 4조건이 수정 전 실패했고 정상 빈 디렉터리는 대조군으로 유지했다. 오류 시 기존 secret-scan-incomplete/iac-scan-incomplete 표시를 탐지 목록에 추가하며 앞서 모은 실제 탐지는 유지한다. 실제 H2 저장 서비스→repository→gate의 없는 경로/정상 빈 경로 2조건에서 미완료 저장·시크릿 차단 옵션과 무관한 coverage 차단 및 정상 빈 결과의 통과를 확인했다. 전체 `build verifyProdJar` 2분 55초 성공: 일반 4,726건 중 4,714 통과·기존 skip 12·실패/오류 0. 세 언어 문서 반영. 자체 파일 fixture/기존 규칙만 사용했고 새 외부 자료/라이브러리·DB schema·화면 배치 변경 없음. PostgreSQL·브라우저는 재실행하지 않았다. 모든 제외 파일/예산/비활성 상태 및 다른 반입 경로의 소스 누락을 분리하는 전체 analyzer 상태 모델은 여전히 잔여다. 로그 `build/builtin-coverage-before.log`, `build/builtin-coverage-checked.log`, `build/builtin-coverage-persistence.log`, `build/builtin-coverage-build.log`. 커밋 제목 `fix: preserve built-in scanner read failures in gate coverage`.
+
 ### 18. CLI parse receipt·commit·산출물과 결과 결합 — P0 · [설계]
 
 - 현재·대상: [ScanController](src/main/java/com/salkcoding/oswl/controller/ingest/ScanController.java)의 parse→클라이언트 재제출과 CLI collection 흐름.

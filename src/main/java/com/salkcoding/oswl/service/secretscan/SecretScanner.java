@@ -75,7 +75,8 @@ public class SecretScanner {
     /** Scans every text file under {@code root} (already a verified real path) for secrets. */
     public List<ScanFindingCandidate> scan(Path root) {
         List<ScanFindingCandidate> findings = new ArrayList<>();
-        if (rules.isEmpty()) return findings;
+        boolean[] incomplete = {false};
+        if (rules.isEmpty()) return List.of(incompleteFinding());
         try {
             Files.walkFileTree(root, new SimpleFileVisitor<>() {
                 @Override
@@ -93,15 +94,23 @@ public class SecretScanner {
                     try {
                         scanFile(root, file, attrs, findings);
                     } catch (Exception e) {
+                        incomplete[0] = true;
                         log.debug("[SecretScan] skip file '{}': {}", file, e.getMessage());
                     }
                     return FileVisitResult.CONTINUE;
                 }
             });
         } catch (IOException e) {
+            incomplete[0] = true;
             log.warn("[SecretScan] walk error under '{}': {}", root, e.getMessage());
         }
+        if (incomplete[0]) findings.add(incompleteFinding());
         return findings;
+    }
+
+    private static ScanFindingCandidate incompleteFinding() {
+        return new ScanFindingCandidate(ScanFindingType.SECRET, "secret-scan-incomplete", RiskLevel.HIGH,
+                ".", null, "Scan incomplete: the scanner could not inspect all inputs", null);
     }
 
     private void scanFile(Path root, Path file, BasicFileAttributes attrs, List<ScanFindingCandidate> findings) throws IOException {
