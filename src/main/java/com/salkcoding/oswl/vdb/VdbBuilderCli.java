@@ -214,7 +214,12 @@ public final class VdbBuilderCli {
             previous = PreviousBundleReader.read(opts.since(), mapper);
         }
 
-        new VdbBundleWriter(mapper).write(opts.out(), osvVulns, osvAsOf, depsdevVersions, depsdevAdvisories,
+        java.util.Set<String> collectedSources = new java.util.LinkedHashSet<>(effectiveSources);
+        if (wanted.isEmpty()) {
+            collectedSources.remove("osv");
+            collectedSources.remove("depsdev");
+        }
+        new VdbBundleWriter(mapper, collectedSources).write(opts.out(), osvVulns, osvAsOf, depsdevVersions, depsdevAdvisories,
                 depsdevSkippedSystems,
                 epssScores, epssAsOf, kevIds, kevAsOf, unresolvedCount, wantedListInfo, unresolvedComponents, previous);
 

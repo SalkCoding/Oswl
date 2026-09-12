@@ -40,9 +40,15 @@ final class VdbBundleWriter {
     static final String BUILDER_VERSION = "oswl-vdb/1.0.0";
 
     private final ObjectMapper mapper;
+    private final java.util.Set<String> collectedSources;
 
     VdbBundleWriter(ObjectMapper mapper) {
+        this(mapper, java.util.Set.copyOf(VdbBuildOptions.ALL_SOURCES));
+    }
+
+    VdbBundleWriter(ObjectMapper mapper, java.util.Set<String> collectedSources) {
         this.mapper = mapper;
+        this.collectedSources = java.util.Set.copyOf(collectedSources);
     }
 
     /** Recorded in {@code meta.json} only when the build was scoped by {@code --wanted} — a
@@ -125,7 +131,7 @@ final class VdbBundleWriter {
         String depsdevContent = renderContent("depsdev.jsonl", depsdevByKey, previous);
         String epssContent = renderContent("epss.jsonl", epssByKey, previous);
         String kevContent = renderContent("kev.jsonl", kevByKey, previous);
-        String unresolvedContent = renderContent("unresolved.jsonl", unresolvedByKey, previous);
+        String unresolvedContent = wantedListInfo == null ? "" : renderContent("unresolved.jsonl", unresolvedByKey, previous);
 
         String bundleId = UUID.randomUUID().toString();
         LocalDateTime builtAt = LocalDateTime.now();
@@ -160,9 +166,9 @@ final class VdbBundleWriter {
         githubNotice.put("disclaimer", "No endorsement is implied. Licensed material is supplied without warranties; "
                 + "see the license for its disclaimer and limitations. Linked external content is not covered by this notice.");
         ObjectNode sources = meta.putObject("sources");
-        putSourceMeta(sources, "osv", osvByKey.size(), osvAsOf, "osv.dev bulk dump");
-        putSourceMeta(sources, "depsdev-version", depsdevVersions.size(), LocalDate.now(), "deps.dev api (wanted-list)");
-        if (!depsdevSkippedUnsupportedSystems.isEmpty()) {
+        if (collectedSources.contains("osv")) putSourceMeta(sources, "osv", osvByKey.size(), osvAsOf, "osv.dev bulk dump");
+        if (collectedSources.contains("depsdev")) putSourceMeta(sources, "depsdev-version", depsdevVersions.size(), LocalDate.now(), "deps.dev api (wanted-list)");
+        if (collectedSources.contains("depsdev") && !depsdevSkippedUnsupportedSystems.isEmpty()) {
             // deps.dev covers only 7 systems (GO RUBYGEMS NPM CARGO MAVEN PYPI NUGET) — wanted
             // components on any other system (e.g. COMPOSER, CONAN) were never queried, so their
             // absence from depsdev.jsonl means "no data", not "no license/advisories".
@@ -171,9 +177,9 @@ final class VdbBundleWriter {
             depsdevSkippedUnsupportedSystems.forEach(skipped::put);
             skipped.put("_reason", "deps.dev does not support this system — component not queried");
         }
-        putSourceMeta(sources, "depsdev-advisory", depsdevAdvisories.size(), LocalDate.now(), "deps.dev api");
-        putSourceMeta(sources, "epss", epssByKey.size(), epssAsOf, "epss current");
-        putSourceMeta(sources, "kev", kevByKey.size(), kevAsOf, "cisa kev");
+        if (collectedSources.contains("depsdev")) putSourceMeta(sources, "depsdev-advisory", depsdevAdvisories.size(), LocalDate.now(), "deps.dev api");
+        if (collectedSources.contains("epss")) putSourceMeta(sources, "epss", epssByKey.size(), epssAsOf, "epss current");
+        if (collectedSources.contains("kev")) putSourceMeta(sources, "kev", kevByKey.size(), kevAsOf, "cisa kev");
         if (!unresolvedByKey.isEmpty()) {
             // A distinct source (not folded into osv.jsonl) so the app's existing per-source
             // status/import-result plumbing surfaces it automatically — no bespoke
@@ -189,10 +195,10 @@ final class VdbBundleWriter {
                     + "They must not be treated as vulnerability-free.");
         }
         ObjectNode files = meta.putObject("files");
-        putFileMeta(files, "osv.jsonl", osvContent, countLines(osvContent));
-        putFileMeta(files, "depsdev.jsonl", depsdevContent, countLines(depsdevContent));
-        putFileMeta(files, "epss.jsonl", epssContent, countLines(epssContent));
-        putFileMeta(files, "kev.jsonl", kevContent, countLines(kevContent));
+        if (collectedSources.contains("osv")) putFileMeta(files, "osv.jsonl", osvContent, countLines(osvContent));
+        if (collectedSources.contains("depsdev")) putFileMeta(files, "depsdev.jsonl", depsdevContent, countLines(depsdevContent));
+        if (collectedSources.contains("epss")) putFileMeta(files, "epss.jsonl", epssContent, countLines(epssContent));
+        if (collectedSources.contains("kev")) putFileMeta(files, "kev.jsonl", kevContent, countLines(kevContent));
         if (!unresolvedContent.isEmpty()) {
             putFileMeta(files, "unresolved.jsonl", unresolvedContent, countLines(unresolvedContent));
         }
@@ -200,10 +206,10 @@ final class VdbBundleWriter {
         Files.createDirectories(out.toAbsolutePath().getParent() != null ? out.toAbsolutePath().getParent() : out.toAbsolutePath());
         try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(out), StandardCharsets.UTF_8)) {
             writeZipEntry(zos, "meta.json", writeJson(meta));
-            writeZipEntry(zos, "osv.jsonl", osvContent);
-            writeZipEntry(zos, "depsdev.jsonl", depsdevContent);
-            writeZipEntry(zos, "epss.jsonl", epssContent);
-            writeZipEntry(zos, "kev.jsonl", kevContent);
+            if (collectedSources.contains("osv")) writeZipEntry(zos, "osv.jsonl", osvContent);
+            if (collectedSources.contains("depsdev")) writeZipEntry(zos, "depsdev.jsonl", depsdevContent);
+            if (collectedSources.contains("epss")) writeZipEntry(zos, "epss.jsonl", epssContent);
+            if (collectedSources.contains("kev")) writeZipEntry(zos, "kev.jsonl", kevContent);
             if (!unresolvedContent.isEmpty()) {
                 writeZipEntry(zos, "unresolved.jsonl", unresolvedContent);
             }

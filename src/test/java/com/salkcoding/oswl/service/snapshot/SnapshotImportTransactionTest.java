@@ -28,6 +28,31 @@ import static org.assertj.core.api.Assertions.*;
         "spring.jpa.database-platform=${OSWL_SNAPSHOT_IMPORT_TEST_DIALECT:org.hibernate.dialect.H2Dialect}"})
 class SnapshotImportTransactionTest {
 
+    @Test
+    void cliDeltaKeepsUnselectedSourceData(@org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Path base = directory.resolve("base.zip");
+        byte[] baseline = bundle(Map.of("kev.jsonl", "{\"cveId\":\"CVE-2026-1000\"}",
+                "epss.jsonl", "{\"cveId\":\"CVE-2026-1000\",\"score\":0.4}",
+                "meta.json", "{\"sources\":{\"epss\":{\"asOf\":\"2020-01-01\"}}}"));
+        Files.write(base, baseline);
+        service.importBundle(new ByteArrayInputStream(baseline));
+        var priorEpssStatus = service.status().stream().filter(status -> status.source().equals("epss")).findFirst().orElseThrow();
+        Files.writeString(directory.resolve("kev.json"), "{\"dateReleased\":\"2026-01-01\",\"vulnerabilities\":[{\"cveID\":\"CVE-2026-1001\"}]}");
+        Path output = directory.resolve("delta.zip");
+        Integer exit = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                new com.salkcoding.oswl.vdb.VdbBuilderCli(), "run", (Object) new String[]{"build", "--sources", "kev",
+                        "--offline-sources", directory.toString(), "--since", base.toString(), "--out", output.toString()});
+        assertThat(exit).isZero();
+        var meta = exportedMeta(Files.readAllBytes(output));
+        assertThat(meta.path("sources").has("epss")).isFalse();
+        assertThat(meta.path("files").has("epss.jsonl")).isFalse();
+        service.importBundle(new ByteArrayInputStream(Files.readAllBytes(output)), AirgappedSnapshotService.ImportMode.MERGE);
+        assertThat(service.findEpssScores(List.of("CVE-2026-1000"))).containsEntry("CVE-2026-1000", 0.4);
+        assertThat(service.status().stream().filter(status -> status.source().equals("epss")).findFirst().orElseThrow())
+                .isEqualTo(priorEpssStatus);
+        assertThat(service.loadKevCveIds()).containsExactly("CVE-2026-1001");
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
     void cliDeltaPreservesAndClearsExplicitOsvUncertainty(boolean initiallyPartial,
