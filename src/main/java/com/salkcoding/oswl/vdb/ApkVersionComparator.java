@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
  *
  * <p>Grammar handled, in the order apk itself defines it: {@code N(.N)*} numeric segments, an
  * optional single trailing letter, zero or more {@code _suffix[num]} parts (one of alpha/beta/pre/rc/
- * cvs/svn/git/hg/p), and an optional {@code -rN} revision. Comparison order:
+ * cvs/svn/git/hg/p), an optional hexadecimal {@code ~hash}, and an optional {@code -rN} revision. Comparison order:
  * <ol>
  *   <li>numeric segments, with string ordering for leading-zero segments after the first</li>
  *   <li>the trailing letter, if any — absent sorts below present ({@code 1.0 < 1.0a})</li>
@@ -33,6 +33,7 @@ final class ApkVersionComparator {
             "^(?<nums>\\d+(?:\\.\\d+)*)"
                     + "(?<letter>[a-z])?"
                     + "(?<suffixes>(?:_(?:alpha|beta|pre|rc|cvs|svn|git|hg|p)\\d*)*)"
+                    + "(?:~(?<hash>[0-9a-fA-F]+))?"
                     + "(?:-r(?<rev>\\d+))?$");
 
     private static final Pattern SUFFIX = Pattern.compile("_(alpha|beta|pre|rc|cvs|svn|git|hg|p)(\\d*)");
@@ -66,8 +67,10 @@ final class ApkVersionComparator {
         return compareTail(pa.tail, pb.tail);
     }
 
-    private enum TailKind { SUFFIX, NUMBER, REVISION, END }
-    private record TailPart(TailKind kind, int value) { }
+    private enum TailKind { SUFFIX, NUMBER, HASH, REVISION, END }
+    private record TailPart(TailKind kind, int value, String text) {
+        TailPart(TailKind kind, int value) { this(kind, value, null); }
+    }
     private static final TailPart END = new TailPart(TailKind.END, 0);
 
     private static int compareTail(List<TailPart> left, List<TailPart> right) {
@@ -75,7 +78,7 @@ final class ApkVersionComparator {
             TailPart a = i < left.size() ? left.get(i) : END;
             TailPart b = i < right.size() ? right.get(i) : END;
             if (a.kind == b.kind) {
-                int compared = Integer.compare(a.value, b.value);
+                int compared = a.kind == TailKind.HASH ? a.text.compareTo(b.text) : Integer.compare(a.value, b.value);
                 if (compared != 0) return compared;
             } else {
                 if (a.kind == TailKind.SUFFIX && a.value < NO_SUFFIX_RANK) return -1;
@@ -124,6 +127,8 @@ final class ApkVersionComparator {
             if (!suffixes.group(2).isEmpty())
                 tail.add(new TailPart(TailKind.NUMBER, Integer.parseInt(suffixes.group(2))));
         }
+        String hash = m.group("hash");
+        if (hash != null) tail.add(new TailPart(TailKind.HASH, 0, hash));
         String revision = m.group("rev");
         if (revision != null) tail.add(new TailPart(TailKind.REVISION, Integer.parseInt(revision)));
         return new Parsed(nums, letter, List.copyOf(tail));

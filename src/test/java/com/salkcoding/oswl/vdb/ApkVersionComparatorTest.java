@@ -6,11 +6,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ApkVersionComparatorTest {
     @ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"v1.0", "V1.0", "1.0p1", "1.0rc1", "1.0alpha", " 1.0", "1.0 "})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"v1.0", "V1.0", "1.0p1", "1.0rc1", "1.0alpha", " 1.0", "1.0 ", "1.0~", "1.0~xyz", "1.0~ab~cd", "1.0-r0~ab"})
     void unsupportedSpellingsAreNotRewrittenToAnotherVersion(String value) {
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> ApkVersionComparator.compare(value, "2.0"))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThat(OsvQueryIdentity.isConcrete("Alpine:v3.18", "example", value)).isFalse();
+    }
+
+    @org.junit.jupiter.api.Test
+    void apkHashOrderingDoesNotResolveGitAncestry() throws Exception {
+        var ranges = new com.fasterxml.jackson.databind.ObjectMapper().readTree("""
+                [{"type":"GIT","events":[{"introduced":"0"},{"fixed":"1.0~b"}]}]
+                """);
+        assertThat(OsvRangeEvaluator.evaluate("Alpine:v3.18", "1.0~a", java.util.Set.of(), ranges))
+                .isEqualTo(OsvRangeEvaluator.Result.UNKNOWN);
     }
 
     @ParameterizedTest
@@ -21,7 +30,9 @@ class ApkVersionComparatorTest {
             "1.0_alpha1_p1,1.0_alpha2,-1", "1.0_alpha_p1,1.0_alpha0,1",
             "1.0_alpha_alpha,1.0_alpha0,-1", "1.0_p_alpha,1.0_p,-1", "1.0_p_p,1.0_p,1",
             "1.0a_rc1_p2-r1,1.0a_rc1_p2-r2,-1", "1.0_p1_alpha,1.0_p1-r0,-1",
-            "1.0_p1_p,1.0_p1-r0,1"})
+            "1.0_p1_p,1.0_p1-r0,1", "1.0~a,1.0~b,-1", "1.0~a,1.0~aa,-1",
+            "1.0~a,1.0,1", "1.0~a,1.0-r0,1", "1.0_p1~ab-r1,1.0_p1~ab-r2,-1",
+            "1.0~A,1.0~a,-1"})
     void numericSpellingAndPresenceRetainTheirOrdering(String left, String right, int sign) {
         assertThat(Integer.signum(ApkVersionComparator.compare(left, right))).isEqualTo(sign);
         assertThat(Integer.signum(ApkVersionComparator.compare(right, left))).isEqualTo(-sign);
@@ -32,7 +43,8 @@ class ApkVersionComparatorTest {
             "1,1.0,true", "1.0,1.0.0,true", "1.0,1.0-r0,true", "1.0_p,1.0_p0,true", "1.0_rc,1.0_rc0,true", "1.0a_rc1,1.0a,true",
             "1.0a_p1,1.0a,false", "1.0a_p1-r1,1.0a_p1-r2,true",
             "1.0_alpha1_p1,1.0_alpha2,true", "1.0_alpha_p1,1.0_alpha0,false",
-            "1.0_p_alpha,1.0_p,true", "1.0a_rc1_p2-r1,1.0a_rc1_p2-r2,true"})
+            "1.0_p_alpha,1.0_p,true", "1.0a_rc1_p2-r1,1.0a_rc1_p2-r2,true", "1.0~a,1.0~b,true",
+            "1.0~b,1.0~a,false", "1.0_p1~ab-r1,1.0_p1~ab-r2,true"})
     void numericSpellingAndPresenceReachRangeAndBulkFixDecisions(String installed, String fixed, boolean affected) throws Exception {
         String original = """
                 {"id":"OSV-fixture","modified":"2026-01-01T00:00:00Z","affected":[{
