@@ -77,6 +77,30 @@ class GateCoverageTest {
         assertThat(library.isVulnerabilitiesAnalyzed()).isTrue();
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"malicious,false", "malicious,true", "findings,false", "findings,true", "identical,false", "identical,true"})
+    void duplicatePreservedLibraryIdsCannotSelectOneAssessment(String state, boolean reversed) throws Exception {
+        var library = evidenceLibrary();
+        preserve(scan, library);
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var root = mapper.readTree(scan.getAssessmentJson());
+        var entries = (com.fasterxml.jackson.databind.node.ArrayNode) root.get("libraries");
+        var original = entries.get(0).deepCopy();
+        var changed = (com.fasterxml.jackson.databind.node.ObjectNode) original.deepCopy();
+        if (state.equals("malicious")) changed.put("malicious", true);
+        if (state.equals("findings")) ((com.fasterxml.jackson.databind.node.ArrayNode) changed.get("findings"))
+                .addObject().put("cveId", "CVE-2026-123450").put("severity", "CRITICAL");
+        entries.removeAll();
+        entries.add(reversed ? original : changed);
+        entries.add(reversed ? changed : original);
+        String json = mapper.writeValueAsString(root);
+        ReflectionTestUtils.setField(scan, "assessmentJson", json);
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.evaluate(1L, GatePolicyService.GateOptions.defaults()))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(scan.getAssessmentJson()).isEqualTo(json);
+    }
+
     static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> malformedOutcomes() {
         return java.util.stream.Stream.of(false,true).flatMap(preserved -> java.util.stream.Stream.of(
                 "unknown-status","empty-status","lowercase-status","unknown-source","padded-source","snapshot-resolved","valid","deps-only")

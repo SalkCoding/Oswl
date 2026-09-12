@@ -1,5 +1,7 @@
 # CLI Integration
 
+Each preserved assessment must contain at most one entry per library ID, including when the entries are identical. Duplicates fail the shared reader instead of allowing a gate to select one value while a report counts both. Repeated component occurrences are still supported: capture records their distinct libraries once. Stored ambiguous records are not rewritten.
+
 Preserved scan assessments reject duplicate JSON object fields and any trailing JSON value. Ambiguous stored evidence causes the read to fail; gates, reports, summaries and archive exports do not fall back to current shared findings. The stored record is not rewritten. This checks JSON structure, not provider authenticity or the truth of its contents; embedded source text retains its separate validation rules.
 
 Lookup coverage recognizes OSV, DEPS_DEV, GITHUB_ADVISORY and NVD, with the exact states RESOLVED, UNSUPPORTED and NOT_CONFIGURED eligible for completion. At least one RESOLVED result is required; UNAVAILABLE, unknown sources/states and the SNAPSHOT unresolved marker prevent completion. Original values remain stored for diagnosis. This rule is shared by live caches and preserved assessments and does not prove that every applicable source was queried.

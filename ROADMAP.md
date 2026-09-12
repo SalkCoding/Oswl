@@ -471,6 +471,8 @@
 
 - **2026-09-13 보존 판정 JSON의 모호성 거절:** 조회 결과/취약점 목록/형식 버전의 중복 필드와 뒤에 붙은 추가 객체 4종을 게이트가 거절하지 않는 수정 전 실패를 재현했다. 공통 ScanAssessmentService reader에 중복 필드 탐지와 trailing token 거절을 적용하여 어느 필드 값을 고를지 추정하지 않는다. 게이트·보고서·스캔 요약·보관 내보내기가 동일 reader를 사용하며 실패 시 현재 공유 데이터로 대체하지 않는다. 회귀 검사는 정상 공유 캐시가 있어도 예외가 나고 저장 JSON이 그대로 남음을 확인한다. 문자열 형태의 공급자 원문 내용까지 검증하거나 원천 진위·기존 기록의 의미를 인증하는 변경은 아니다. 새 외부 자료/라이브러리·DB migration·UI 변경 없음. 세 언어 CLI 문서 갱신. 커밋 제목 `fix: reject ambiguous preserved scan assessment json`. 관련 일반 검사 93건 통과·실패/skip 0(`build/assessment-json-after.log`), 수정 전 4건 실패(`build/assessment-json-before.log`). 실제 앱/H2/Chromium 로그인 기반 HTTP 4조건에서 정상/legacy·구성 불일치·중복 판정의 응답과 일반 사용자 차단·원본 보존을 확인했다(`build/assessment-json-http.log`). `bootJar verifyProdJar` 통과. 전체 일반 suite는 이번에 재실행하지 않았다.
 
+- **2026-09-13 중복 라이브러리 판정 거절:** 같은 libraryId의 중복 판정을 게이트의 map은 마지막 값으로 선택하고 요약/보고서는 목록으로 집계하는 불일치를 확인했다. 악성 여부·심각 취약점 목록 충돌 및 동일 항목을 정역순으로 넣은 6건에서 수정 전 예외가 나지 않는 실패를 재현했다. 공통 ScanAssessment 모델이 동일 ID의 두 번째 항목을 거절하여 임의 revision 선택이나 중복 집계를 방지한다. 정상 capture는 기존처럼 컴포넌트의 고유 라이브러리를 한 번만 저장하므로 중복 컴포넌트 자체는 지원한다. 기존 모호한 JSON은 수정하지 않고 읽기 실패로 남긴다. 새 외부 자료/라이브러리·DB migration·UI 변경 없음. 별도 evaluation revision·후보 집계 분리 등 전체 항목 잔여는 유지한다. 커밋 제목 `fix: reject duplicate libraries in preserved assessments`. 관련 일반 검사 99건 통과·실패/skip 0. 전체 `build verifyProdJar` 3분 35초 성공: 4,613건 중 4,601건 통과·기존 skip 12건·실패/오류 0. 로그 `build/assessment-identity-before.log`, `build/assessment-identity-after.log`, `build/assessment-identity-build.log`. UI 변경이 없어 브라우저 검사는 재실행하지 않았다.
+
 ### 17. 소스·시크릿·IaC 등 분석기별 완전성 상태 — P0 · [코드 확인]
 
 - 현재·대상: [SecretIacScanService](src/main/java/com/salkcoding/oswl/service/secretscan/SecretIacScanService.java)의 반환/로그와 CLI manifest-only 제출. 공급원별 coverage 전체를 새로 만드는 작업은 아니다.

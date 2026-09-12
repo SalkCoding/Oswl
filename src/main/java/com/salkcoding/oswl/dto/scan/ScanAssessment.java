@@ -11,6 +11,12 @@ public record ScanAssessment(int formatVersion, String capturedAt, List<LibraryA
     public ScanAssessment {
         if (formatVersion != 1) throw new IllegalArgumentException("Unsupported scan assessment format");
         libraries = List.copyOf(libraries);
+        var identities = new java.util.HashSet<Long>();
+        for (var library : libraries) {
+            if (!identities.add(library.libraryId())) {
+                throw new IllegalArgumentException("Duplicate library identity in preserved scan assessment");
+            }
+        }
     }
 
     public record LibraryAssessment(Long libraryId, String name, String version, String ecosystem,
