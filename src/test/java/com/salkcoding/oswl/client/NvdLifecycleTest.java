@@ -18,6 +18,43 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class NvdLifecycleTest {
+    static Stream<org.junit.jupiter.params.provider.Arguments> ambiguousEvidence() {
+        return Stream.of("duplicate-status", "duplicate-id", "trailing-record")
+                .flatMap(shape -> Stream.of("alone", "valid-first", "invalid-first")
+                        .map(order -> org.junit.jupiter.params.provider.Arguments.of(shape, order)));
+    }
+
+    @ParameterizedTest @MethodSource("ambiguousEvidence")
+    void ambiguousJsonCannotEstablishRejectionOrDisappearDuringDeduplication(String shape, String order) {
+        String valid = "{\"id\":\"CVE-2026-123450\",\"vulnStatus\":\"Rejected\",\"lastModified\":\"2020-01-01T00:00:00Z\"}";
+        String raw = switch (shape) {
+            case "duplicate-status" -> valid.replace("\"vulnStatus\":", "\"vulnStatus\":\"Analyzed\",\"vulnStatus\":");
+            case "duplicate-id" -> valid.replace("\"id\":", "\"id\":\"CVE-2026-999999\",\"id\":");
+            default -> valid + " {\"vulnStatus\":\"Analyzed\"}";
+        };
+        var good = new NvdClient.NvdCve("CVE-2026-123450",null,null,null,null,MatchConfidence.HIGH,valid);
+        var uncertain = new NvdClient.NvdCve("CVE-2026-123450",null,null,null,null,MatchConfidence.HIGH,raw);
+        var input = switch (order) {
+            case "valid-first" -> List.of(good, uncertain);
+            case "invalid-first" -> List.of(uncertain, good);
+            default -> List.of(uncertain);
+        };
+        var source = new NvdAdvisorySource(mock(NvdClient.class),mock(CpeMatchService.class));
+        var result = source.lookupSnapshot("fixture","1",null,new SnapshotLookup<>(input,true));
+        assertThat(result.lookupFailed()).isTrue();
+        assertThat(result.findings()).singleElement().satisfies(finding -> {
+            assertThat(finding.cveId()).isEqualTo(uncertain.cveId());
+            if (order.equals("alone")) assertThat(finding.nvdApplicability()).isEqualTo(raw);
+            else {
+                try {
+                    var alternatives = new ObjectMapper().readTree(finding.nvdApplicability()).path("conflictingRecords");
+                    assertThat(alternatives).hasSize(2);
+                    assertThat(alternatives.findValuesAsText("nvdApplicability")).containsExactlyInAnyOrder(valid, raw);
+                } catch (java.io.IOException e) { throw new AssertionError(e); }
+            }
+        });
+    }
+
     @ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"wrong-id","broken-json","wrong-status-type","stale"})
     void uncertainEvidenceCannotRemoveAStoredIdentifier(String state) {

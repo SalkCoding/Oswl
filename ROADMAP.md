@@ -385,6 +385,12 @@
 - **HTTP 중복 회귀 근거:** 수정 전 6건 모두 실패했고 수정 후 실제 모의 HTTP→client의 부분 실패 예외→source adapter에서 ID와 활성/철회 양쪽 근거를 확인했다. 기존 동일 중복·페이지 offset·전체 건수·페이지 한도·전송 실패 검사도 유지하여 NVD 및 보강 서비스 묶음이 통과했다. 로그 `build/roadmap-nvd-page-conflict-before.log`, `build/roadmap-nvd-page-conflict-after.log`. 자체 합성 입력이며 새 외부 자료/라이브러리·UI·DB migration 변경 없음. 기존 출처 및 권리 감사의 범위는 유지한다.
 - **HTTP 중복 전체 검증:** Windows/Java 25 `build verifyProdJar` 통과. 총 4,531건 중 4,519건 성공·기존 skip 12건·실패/오류 0. 로그 `build/roadmap-nvd-page-conflict-build.log`. UI 변경이 없어 브라우저 검증은 재실행하지 않았다. 커밋 제목 `fix: preserve conflicting records from nvd pages`.
 
+
+- **2026-09-12 NVD JSON 해석의 모호성 차단:** 저장된 조건 근거의 중복 필드나 후행 JSON을 마지막 값/첫 객체만으로 해석해 철회를 확정하던 경로를 수정했다. 수명 판정과 의미상 중복 제거에 같은 엄격한 파싱 조건을 적용해 손상 원문을 정상 철회 근거와 합치지 않고 ID·대안을 유지한다. HTTP 응답도 Map 변환 전에 중복 필드와 후행 토큰을 거절하며 기존 페이지의 결과와 미완료 상태를 보존한다. 문법이 모호한 HTTP 페이지 내부의 개별 정상 행 복구는 하지 않는다.
+- **모호성 회귀 근거:** 저장 입력의 중복 상태·중복 ID·후행 객체를 단독/정상 우선/손상 우선으로 조합한 9건이 수정 전 모두 실패했다. 모의 HTTP 후속 페이지의 중복 상태·중복 totalResults는 수정 전 실패했고 후행 객체는 기존 변환기에서도 이미 거절된 정상 대조군이다(3건 중 2건 실패). 로그 `build/roadmap-nvd-ambiguous-before.log`, `build/roadmap-nvd-ambiguous-http-before.log`, `build/roadmap-nvd-ambiguous-after.log`. 자체 합성 응답만 사용했으며 외부 원문·라이브러리·배포 자료 추가와 DB/UI 변경은 없다. 기존 출처 고지·권리 감사 범위와 CPE 조건 평가·공유 행 수명 조정 잔여는 유지한다.
+
+- **모호성 전체 검증:** Windows/Java 25 `build verifyProdJar` 3분 35초 성공. 전체 4,552건 중 4,540건 통과·실패/오류 0·기존 skip 12건이며 운영 JAR 제외 검사도 통과했다. 로그 `build/roadmap-nvd-ambiguous-build.log`. UI 변경이 없어 브라우저 검증은 재실행하지 않았다. 커밋 제목 `fix: reject ambiguous nvd json before lifecycle decisions`.
+
 ### 14. CPE 추정을 확정 취약·게이트에서 분리 — P0 · [부분 구현]
 
 - 현재·대상: [CpeNameMapper](src/main/java/com/salkcoding/oswl/client/CpeNameMapper.java), [NvdClient](src/main/java/com/salkcoding/oswl/client/NvdClient.java)의 이름 추정과 configuration 맥락 손실, 게이트의 신뢰도 처리.

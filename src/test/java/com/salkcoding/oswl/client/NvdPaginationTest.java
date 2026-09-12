@@ -15,6 +15,26 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class NvdPaginationTest {
     @ParameterizedTest
+    @ValueSource(strings = {"duplicate-status", "duplicate-total", "trailing-record"})
+    void ambiguousLaterPageCannotErasePreviouslyReceivedFindings(String shape) {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = client(builder);
+        server.expect(requestTo(URL)).andRespond(withSuccess(page(0,2,"0001"),MediaType.APPLICATION_JSON));
+        String raw = "{\"startIndex\":1,\"resultsPerPage\":1,\"totalResults\":2,\"vulnerabilities\":[{\"cve\":{\"id\":\"CVE-2026-0002\",\"vulnStatus\":\"Rejected\",\"lastModified\":\"2020-01-01T00:00:00Z\"}}]}";
+        raw = switch (shape) {
+            case "duplicate-status" -> raw.replace("\"vulnStatus\":", "\"vulnStatus\":\"Analyzed\",\"vulnStatus\":");
+            case "duplicate-total" -> raw.replace("\"totalResults\":", "\"totalResults\":3,\"totalResults\":");
+            default -> raw + " {}";
+        };
+        server.expect(requestTo(URL + "&startIndex=1")).andRespond(withSuccess(raw,MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> client.findByCpeName("cpe:fixture",MatchConfidence.HIGH))
+                .isInstanceOfSatisfying(NvdClient.IncompleteLookupException.class, error ->
+                        assertThat(error.findings()).extracting(NvdClient.NvdCve::cveId).containsExactly("CVE-2026-0001"));
+        server.verify();
+    }
+
+    @ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"same,false", "same,true", "next,false", "next,true", "malformed,false", "malformed,true"})
     void duplicateIdsKeepBothRevisionsForSourceReview(String placement, boolean reverse) throws Exception {
         var json = new com.fasterxml.jackson.databind.ObjectMapper();

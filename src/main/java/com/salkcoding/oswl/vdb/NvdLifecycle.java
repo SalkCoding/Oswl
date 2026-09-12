@@ -7,7 +7,9 @@ import java.time.ZoneOffset;
 
 /** A rejected source record is excluded only when its identity and revision are usable. */
 public final class NvdLifecycle {
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON = new ObjectMapper()
+            .enable(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+            .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     public enum State { CURRENT, REJECTED, UNVERIFIED }
     private NvdLifecycle() {}
 

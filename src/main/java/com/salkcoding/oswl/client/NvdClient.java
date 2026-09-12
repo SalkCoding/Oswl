@@ -33,7 +33,9 @@ import java.util.Map;
 @Slf4j
 public class NvdClient {
 
-    private static final com.fasterxml.jackson.databind.ObjectMapper EVIDENCE_JSON = new com.fasterxml.jackson.databind.ObjectMapper();
+    private static final com.fasterxml.jackson.databind.ObjectMapper EVIDENCE_JSON = new com.fasterxml.jackson.databind.ObjectMapper()
+            .enable(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+            .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
     private static final String BASE_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0";
     private static final int MAX_RETRIES = 3;
     private static final int MAX_PAGES = 20;
@@ -185,7 +187,7 @@ public class NvdClient {
         while (true) {
             throttle();
             try {
-                Map<String, Object> body = restClient.get()
+                String raw = restClient.get()
                         .uri(java.net.URI.create(url))
                         .header("Accept", "application/json")
                         .headers(headers -> {
@@ -196,7 +198,13 @@ public class NvdClient {
                             }
                         })
                         .retrieve()
-                        .body(Map.class);
+                        .body(String.class);
+                Map<String, Object> body;
+                try {
+                    body = raw == null ? null : EVIDENCE_JSON.readValue(raw, Map.class);
+                } catch (com.fasterxml.jackson.core.JsonProcessingException malformed) {
+                    throw new RestClientException("Invalid or ambiguous NVD response JSON", malformed);
+                }
                 recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
                 return body != null ? body : Map.of();
             } catch (RestClientException e) {
