@@ -28,7 +28,11 @@ public class KevCatalogService {
     private final RestClient restClient = RestClient.create();
     private final AirgappedSnapshotService snapshotService;
     private final boolean airgapped;
-    record CatalogState(Set<String> ids, java.time.Instant loadedAt, java.time.Instant releasedAt, boolean conflicted) {
+    record CatalogState(Set<String> ids, java.time.Instant loadedAt, java.time.Instant releasedAt, boolean conflicted,
+                        java.time.Instant validUntil) {
+        CatalogState(Set<String> ids, java.time.Instant loadedAt, java.time.Instant releasedAt, boolean conflicted) {
+            this(ids, loadedAt, releasedAt, conflicted, null);
+        }
         CatalogState(Set<String> ids, java.time.Instant loadedAt, java.time.Instant releasedAt) {
             this(ids, loadedAt, releasedAt, false);
         }
@@ -65,8 +69,10 @@ public class KevCatalogService {
         CatalogState previous = catalog;
         catalog = new CatalogState(previous.ids(), null, previous.releasedAt(), previous.conflicted());
         if (airgapped) {
-            Set<String> ids = snapshotService.loadKevCveIds();
-            catalog = new CatalogState(Set.copyOf(ids), java.time.Instant.now());
+            var snapshot = snapshotService.readKevSnapshot();
+            if (snapshot == null) return;
+            Set<String> ids = snapshot.ids();
+            catalog = new CatalogState(Set.copyOf(ids), java.time.Instant.now(), null, false, snapshot.validUntil());
             log.info("[KEV] Air-gapped mode — loaded {} known exploited CVE entries from the offline snapshot", ids.size());
             return;
         }
@@ -129,7 +135,7 @@ public class KevCatalogService {
         java.time.Instant loaded = state.loadedAt();
         if (loaded == null || loaded.isAfter(java.time.Instant.now())
                 || loaded.plus(java.time.Duration.ofDays(1)).isBefore(java.time.Instant.now())) return null;
-        if (airgapped && snapshotService.isSourceStaleOrUndated(AirgappedSnapshotService.SOURCE_KEV)) return null;
+        if (airgapped && (state.validUntil() == null || !state.validUntil().isAfter(java.time.Instant.now()))) return null;
         if (!airgapped) {
             if (state.releasedAt() == null || stalenessWarnDays < 0) return null;
             long age = java.time.temporal.ChronoUnit.DAYS.between(

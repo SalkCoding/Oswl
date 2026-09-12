@@ -16,6 +16,19 @@ import static org.mockito.Mockito.*;
 
 class KevLookupStatusTest {
     @ParameterizedTest
+    @ValueSource(strings = {"expired", "undated", "current"})
+    void cachedCoverageUsesItsOwnExpiryWithoutConsultingLaterImports(String state) {
+        var snapshots = mock(AirgappedSnapshotService.class);
+        var client = new KevCatalogService(snapshots, true);
+        Instant expiry = state.equals("undated") ? null : Instant.now().plus(Duration.ofDays(state.equals("current") ? 1 : -1));
+        ReflectionTestUtils.setField(client, "catalog", new KevCatalogService.CatalogState(
+                Set.of("CVE-2026-0001"), Instant.now(), null, false, expiry));
+        assertThat(client.listingStatus("CVE-2026-0001")).isTrue();
+        assertThat(client.listingStatus("CVE-2026-0002")).isEqualTo(state.equals("current") ? Boolean.FALSE : null);
+        org.mockito.Mockito.verifyNoInteractions(snapshots);
+    }
+
+    @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void sameReleaseCannotSilentlyChangeMembership(boolean conflict) {
         var builder = org.springframework.web.client.RestClient.builder();
@@ -113,8 +126,9 @@ class KevLookupStatusTest {
     @ValueSource(booleans = {true, false})
     void absentMembershipRequiresFreshCoverageAndPositiveEvidenceSurvives(boolean stale) {
         var snapshots = mock(AirgappedSnapshotService.class);
+        when(snapshots.readKevSnapshot()).thenCallRealMethod();
         when(snapshots.loadKevCveIds()).thenReturn(Set.of("CVE-2026-0001"));
-        when(snapshots.isSourceStaleOrUndated("kev")).thenReturn(stale);
+        when(snapshots.sourceEvidenceValidUntil("kev")).thenReturn(Instant.now().plus(Duration.ofDays(stale ? -1 : 1)));
         var client = new KevCatalogService(snapshots, true);
         assertThat(client.listingStatus("CVE-2026-0002")).isNull();
         client.refresh();

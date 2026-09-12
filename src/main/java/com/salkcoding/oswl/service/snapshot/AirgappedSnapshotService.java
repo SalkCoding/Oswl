@@ -371,6 +371,21 @@ public class AirgappedSnapshotService {
         return result;
     }
 
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.SERIALIZABLE,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public Map<String, Double> readEpssSnapshot(Collection<String> cveIds) {
+        Map<String, Double> scores = findEpssScores(cveIds);
+        return isSourceStaleOrUndated(SOURCE_EPSS) ? Map.of() : scores;
+    }
+
+    public record KevSnapshotView(Set<String> ids, java.time.Instant validUntil) {}
+
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.SERIALIZABLE,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW)
+    public KevSnapshotView readKevSnapshot() {
+        return new KevSnapshotView(loadKevCveIds(), sourceEvidenceValidUntil(SOURCE_KEV));
+    }
+
     /** All KEV-listed CVE ids in the store (uppercase). */
     @Transactional(readOnly = true)
     public Set<String> loadKevCveIds() {

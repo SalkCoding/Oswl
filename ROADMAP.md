@@ -717,6 +717,10 @@
 
 ### 37. staging 활성화·세대 고정·실패 복구 — P0 · [설계]
 
+- **EPSS·KEV 누적 검증:** Windows/Java 25에서 수정 전 두 동시 반입 검사 실패, 수정 후 관련 검사 229건 통과·실패/오류/skip 0. KEV 캐시의 만료·날짜 미확인·정상 상태 3종을 추가했다. H2와 PostgreSQL 15.19의 동시성 검사 각각 18건 통과. `build verifyProdJar` 전체 4,409건 중 4,397건 통과·환경 의존/선택 실행 skip 12건·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/roadmap-threat-snapshot-before.log`, `build/roadmap-threat-snapshot-after.log`, `build/roadmap-threat-snapshot-postgres.log`, `build/roadmap-threat-snapshot-build.log`; PostgreSQL 결과 `build/pg-verification/threat-snapshot-result.xml`. 전용 임시 DB 연결 종료·삭제·서버 종료 및 세 언어 문서/diff를 확인했다. 기존 자료의 이용·재배포 허가 범위를 확장하지 않는다. UI·스키마 변경이 없어 브라우저/마이그레이션 검사는 재실행하지 않았고 원격 push는 하지 않는다.
+
+- **2026-09-12 EPSS·KEV 조회 및 캐시 근거 결합:** EPSS는 날짜 확인 후 동시 반입된 오래된 점수를 정상으로 반환했고, KEV는 이전의 오래된 빈 캐시에 새 날짜를 적용해 미등재로 확정했다. 두 실패를 제어된 동시 writer로 재현했다. EPSS 점수·날짜 및 KEV 목록·만료 경계를 각각 독립 SERIALIZABLE 읽기로 결합한다. KEV 캐시는 해당 만료 경계를 보관하고 이후 전역 날짜를 조회하지 않는다. 확인된 등재 정보는 보존하며 미등재 판단은 날짜 미확인·만료 및 기존 하루 cache 기한을 확인한다. 커밋 제목 `fix: bind offline threat intelligence to its source evidence`. 자체 합성 입력이며 신규 외부 자료·라이브러리·UI·스키마 변경은 없다. 전체 스캔의 세대 고정·실제 부하·복구 검증은 잔여다.
+
 - **deps.dev 일관성 검증:** Windows/Java 25에서 수정 전 동시 반입 4종 실패, 수정 후 관련 기존 검사 227건 통과·실패/오류/skip 0. H2·실제 PostgreSQL 15.19의 `SnapshotReadConsistencyTest` 각각 16건 통과. `build verifyProdJar` 전체 4,404건 중 4,392건 통과·환경 의존/선택 실행 skip 12건·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/roadmap-deps-snapshot-before.log`, `build/roadmap-deps-snapshot-after.log`, `build/roadmap-deps-snapshot-postgres.log`, `build/roadmap-deps-snapshot-build.log`; PostgreSQL 결과 `build/pg-verification/deps-snapshot-result.xml`. 전용 임시 DB 연결 종료·삭제·서버 종료를 확인했다. 세 언어 관리 문서와 diff를 확인했으며 신규 외부 자료가 없어 새 이용권 검토/도입은 없다. UI·스키마 변경이 없어 브라우저/마이그레이션 검사는 재실행하지 않았다. 원격 push는 하지 않는다.
 
 - **2026-09-12 deps.dev 조회 일관성:** 버전/공지 본문 조회 뒤 동시 반입이 날짜·미확인 키를 갱신하면 이전 근거가 resolved/current로 처리되는 4종 실패를 재현했다. 버전 본문·미확인 키·날짜 및 공지 본문·날짜를 각각 독립 SERIALIZABLE 트랜잭션에서 읽는다. 버전의 미완료 근거는 라이선스·공지 ID를 보존하고 기본/폐기/최신 버전/scorecard 상태를 보류한다. 조회 결과의 상태를 보강·수정 대상 검증까지 사용한다. 커밋 제목 `fix: read deps dev status with offline evidence`. 자체 합성 입력이며 신규 외부 데이터·라이브러리·스키마·UI 변경은 없다. 전체 스캔의 세대 고정 및 실제 규모의 부하·복구 검증은 잔여다.

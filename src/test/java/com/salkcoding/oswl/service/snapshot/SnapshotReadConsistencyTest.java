@@ -38,6 +38,59 @@ class SnapshotReadConsistencyTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired PlatformTransactionManager transactions;
 
+    @org.junit.jupiter.api.Test
+    void epssCannotAttachEarlierFreshnessToNewStaleScores() throws Exception {
+        String key = "CVE-2026-987654";
+        entries.saveAndFlush(SnapshotEntry.builder().source("epss").entryKey(key).payload("0.2").build());
+        metadata.saveAndFlush(SnapshotMeta.builder().source("epss").recordCount(1).importedAt(LocalDateTime.now())
+                .sourceAsOf(LocalDate.now()).build());
+        AtomicBoolean published = new AtomicBoolean();
+        try (var writer = Executors.newSingleThreadExecutor()) {
+            doAnswer(call -> {
+                Object freshness = call.callRealMethod();
+                if (published.compareAndSet(false, true)) {
+                    writer.submit(() -> new TransactionTemplate(transactions).executeWithoutResult(status -> {
+                        jdbc.update("UPDATE airgapped_snapshot_entries SET payload='0.9' WHERE source='epss' AND entry_key=?", key);
+                        jdbc.update("UPDATE airgapped_snapshot_meta SET source_as_of=? WHERE source='epss'", LocalDate.now().minusDays(30));
+                    })).get(10, TimeUnit.SECONDS);
+                }
+                return freshness;
+            }).when(snapshots).isSourceStaleOrUndated("epss");
+            var client = new com.salkcoding.oswl.client.EpssClient(snapshots, true);
+            assertThat(client.fetchScores(List.of(key))).containsEntry(key, 0.2);
+            assertThat(published).isTrue();
+            assertThat(client.fetchScores(List.of(key))).isEmpty();
+        }
+    }
+
+    @org.junit.jupiter.api.Test
+    void kevCannotRenewAnOldCatalogWithNewSourceDates() throws Exception {
+        String key = "CVE-2026-987655";
+        jdbc.update("DELETE FROM airgapped_snapshot_entries WHERE source='kev'");
+        metadata.saveAndFlush(SnapshotMeta.builder().source("kev").recordCount(0).importedAt(LocalDateTime.now())
+                .sourceAsOf(LocalDate.now().minusDays(30)).build());
+        AtomicBoolean published = new AtomicBoolean();
+        try (var writer = Executors.newSingleThreadExecutor()) {
+            doAnswer(call -> {
+                Object ids = call.callRealMethod();
+                if (published.compareAndSet(false, true)) {
+                    writer.submit(() -> new TransactionTemplate(transactions).executeWithoutResult(status -> {
+                        entries.saveAndFlush(SnapshotEntry.builder().source("kev").entryKey(key).payload("{}").build());
+                        jdbc.update("UPDATE airgapped_snapshot_meta SET source_as_of=?, record_count=1 WHERE source='kev'", LocalDate.now());
+                    })).get(10, TimeUnit.SECONDS);
+                }
+                return ids;
+            }).when(snapshots).loadKevCveIds();
+            var client = new com.salkcoding.oswl.client.KevCatalogService(snapshots, true);
+            client.refresh();
+            assertThat(published).isTrue();
+            assertThat(client.listingStatus(key)).isNull();
+            client.refresh();
+            assertThat(client.listingStatus(key)).isTrue();
+            assertThat(client.listingStatus("CVE-2026-987656")).isFalse();
+        }
+    }
+
     @ParameterizedTest
     @CsvSource({"depsdev-version,true,false", "depsdev-version,false,true", "depsdev-version,true,true",
             "depsdev-advisory,true,false"})

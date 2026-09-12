@@ -38,6 +38,7 @@ class EpssClientTest {
     void offlineQueriesAreNotTruncatedToHttpBatchSize() {
         var ids = java.util.stream.IntStream.range(1000, 1051).mapToObj(i -> "CVE-2026-" + i).toList();
         var snapshot = org.mockito.Mockito.mock(com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.class);
+        org.mockito.Mockito.when(snapshot.readEpssSnapshot(ids)).thenCallRealMethod();
         org.mockito.Mockito.when(snapshot.findEpssScores(ids)).thenReturn(java.util.Map.of(ids.getLast(), 0.5));
         assertThat(new EpssClient(snapshot, true).fetchScores(ids)).containsEntry(ids.getLast(), 0.5);
         org.mockito.Mockito.verify(snapshot).findEpssScores(ids);
