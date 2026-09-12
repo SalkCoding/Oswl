@@ -282,14 +282,21 @@ public final class VdbBuilderCli {
 
     private List<WantedComponent> loadWantedList(Path path) throws IOException {
         List<WantedComponent> result = new ArrayList<>();
+        var reader = mapper.reader()
+                .with(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+        int lineNumber = 0;
         for (String line : Files.readAllLines(path, StandardCharsets.UTF_8)) {
+            lineNumber++;
             if (line.isBlank()) continue;
-            JsonNode node = mapper.readTree(line);
-            String ecosystem = node.path("ecosystem").asText(null);
-            String name = node.path("name").asText(null);
-            String version = node.path("version").asText(null);
-            if (ecosystem == null || name == null || version == null) continue;
-            result.add(new WantedComponent(ecosystem, name, version));
+            JsonNode node = reader.readTree(line);
+            if (node == null || !node.isObject()) throw new IOException("Wanted row " + lineNumber + " must be an object");
+            for (String field : List.of("ecosystem", "name", "version")) {
+                if (!node.path(field).isTextual() || node.path(field).asText().isBlank()) {
+                    throw new IOException("Wanted row " + lineNumber + " requires a nonblank string " + field);
+                }
+            }
+            result.add(new WantedComponent(node.path("ecosystem").asText(), node.path("name").asText(), node.path("version").asText()));
         }
         return result;
     }
