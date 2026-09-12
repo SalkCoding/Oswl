@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.*;
 class OsvNugetLiveVerificationTest {
     @Test
     void microsoftAdvisoryBoundaryMatchesTheLiveClient() {
-        var versions = List.of("7.0.0", "8.0.3", "8.0.4");
+        var versions = List.of("7.0.0", "8.0.3", "8.0.4", "8.0.5", "6.0.9", "6.0.10");
         var results = new OsvClient().queryBatch(versions.stream()
                 .map(version -> new OsvClient.OsvQuery("NuGet", "System.Text.Json", version)).toList());
         assertThat(results).hasSize(versions.size());
@@ -22,6 +22,17 @@ class OsvNugetLiveVerificationTest {
             if (i < 2) {
                 assertThat(target.getFirst().fixVersion()).isEqualTo("8.0.4");
                 assertThat(target.getFirst().cveId()).isEqualTo("CVE-2024-30105");
+            }
+            var other = result.vulns().stream().filter(v -> "GHSA-8g4q-xg66-9fp4".equals(v.osvId())).toList();
+            String otherFix = switch (versions.get(i)) {
+                case "8.0.3", "8.0.4" -> "8.0.5";
+                case "6.0.9" -> "6.0.10";
+                default -> null;
+            };
+            assertThat(other).hasSize(otherFix == null ? 0 : 1);
+            if (otherFix != null) {
+                assertThat(other.getFirst().fixVersion()).isEqualTo(otherFix);
+                assertThat(other.getFirst().cveId()).isEqualTo("CVE-2024-43485");
             }
             // The fixed boundary for one advisory says nothing about other advisories.
             System.out.println("System.Text.Json " + versions.get(i) + ": " + result.vulns().stream()

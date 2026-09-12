@@ -19,3 +19,18 @@ and external content are not copied or licensed by this notice. Test resources a
 offline database bundles. This fixture does not establish redistribution rights for other sources
 or correctness of every NuGet advisory. Publisher and database records are related evidence,
 not independent vulnerability discoveries.
+
+## Optional live boundary verification
+
+`OsvNugetLiveVerificationTest` reads OSV only when `OSWL_VERIFY_OSV_NUGET=true`.
+The expanded check was executed on 2026-09-13 after strict response parsing was added.
+It checks six System.Text.Json versions against two Microsoft advisories:
+
+- [CVE-2024-30105](https://github.com/dotnet/runtime/security/advisories/GHSA-hh2w-p6rv-4g7w): 7.0.0 and 8.0.3 retain the 8.0.4 fix; 8.0.4 no longer matches this advisory.
+- [CVE-2024-43485](https://github.com/dotnet/runtime/security/advisories/GHSA-8g4q-xg66-9fp4): 8.0.3 and 8.0.4 retain the 8.0.5 fix; 6.0.9 retains 6.0.10. The fixed boundaries do not match this advisory.
+
+The test asserts these identities and individual fixes without assuming that no other
+advisories can exist. Publisher pages were checked directly; their text and the new
+live JSON responses are not added as fixtures or included in a distributable bundle.
+The existing fixture attribution above remains unchanged. A live check can change or
+fail as provider data changes and does not establish offline dataset completeness.
