@@ -517,6 +517,13 @@
 
 - **deps.dev 화면 검증:** 기존 조회 상태 영역에 DEPS_DEV/UNAVAILABLE 행을 추가한 fixture로 상세 페이지와 HTMX 패널의 한국어·영어·일본어 안내/넘침을 확인했다. OSV 완료와 deps.dev 실패가 함께 보이고 상단은 분석 안 됨을 유지한다. Chromium 7건 통과·실패/skip 0. 로그 `build/deps-coverage-ui.log`, 화면 `build/reports/component-detail-layout-ui/ko-drawer.png`. UI 템플릿이나 스타일을 추가 변경하지 않았다.
 
+
+- **2026-09-13 조회 상태 프로토콜 검증:** RESOLVED가 하나 있으면 알 수 없는 상태·출처도 무시하던 완료 판정을 수정했다. 현재 Library와 보존 판정 DTO는 공통 검증으로 OSV/DEPS_DEV/GITHUB_ADVISORY/NVD 및 RESOLVED/UNSUPPORTED/NOT_CONFIGURED를 정확히 인식하고, 미완료·미확인 값이나 SNAPSHOT 표식이 있으면 완료로 승격하지 않는다. 공백/대소문자를 자동 정규화하거나 원래 값을 덮어쓰지 않는다. 이 검증은 모든 적용 출처의 조회를 입증하는 계약까지 대체하지 않는다.
+- **조회 상태 회귀:** 현재/보존 경로 각각 알 수 없는 상태·빈 상태·다른 대소문자·알 수 없는 출처·출처 공백·SNAPSHOT=RESOLVED 6개가 수정 전 모두 잘못 통과했다. 정상 혼합 상태와 deps.dev 단독 정상 조회 대조군을 포함한 16건 중 12건 실패를 재현했으며, 수정 후 원래 상태 map과 보존 JSON 유지도 검증했다. 로그 `build/lookup-schema-before.log`, `build/lookup-schema-after.log`. 현재 사용 중인 계약을 검증하며 새 외부 자료·라이브러리·DB 스키마 변경은 없다. 세 언어 CLI 문서를 반영했다.
+- **미확인 상태의 화면 표시:** ERROR 상태가 번역 키 원문으로 깨지는 브라우저 회귀 1건을 재현했다(정상 UNAVAILABLE 대조군 포함 2건 중 1건 실패). 기존 조회 상태 행에 원래 값을 포함하는 미확인 상태 안내를 영어·한국어·일본어로 표시한다. 로그 `build/lookup-schema-ui-before.log`. 커밋 제목 `fix: reject unrecognized vulnerability lookup evidence`.
+
+- **조회 상태 전체 검증:** Windows/Java 25 `build verifyProdJar` 3분 32초 성공. 전체 4,591건 중 4,579건 통과·실패/오류 0·기존 skip 12건. 로그 `build/lookup-schema-build.log`. 이후 UI는 번역 키와 충돌하는 title 값도 원래 미확인 값으로 표시하도록 보완했으며, Java 변경 없이 최종 UI/운영 JAR 검사를 추가 실행했다. Chromium 9건(세 언어) 통과·실패/오류/skip 0, 운영 JAR 제외 검사 통과. 로그 `build/lookup-schema-final-ui-checked.log`, 화면 `build/reports/component-detail-layout-ui/title/ko-drawer.png`. 최종 명령의 최초 시도는 --tests 옵션 위치 오류로 실행 전에 거절됐으며 올바른 위치로 수정해 검증을 완료했다.
+
 ### 20. npm·Yarn·pnpm의 실제 패키지와 설치 트리 — P1 · [지원 범위별 필수]
 
 - 현재·대상: [NpmManifestParser](src/main/java/com/salkcoding/oswl/service/ingest/parser/NpmManifestParser.java), lockfile·workspace 해석.

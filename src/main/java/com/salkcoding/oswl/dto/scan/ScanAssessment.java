@@ -26,8 +26,7 @@ public record ScanAssessment(int formatVersion, String capturedAt, List<LibraryA
         }
         public boolean lookupComplete() {
             return Boolean.TRUE.equals(lookupTimesVerified) && fetchedAt != null && vulnerabilityLookupAt != null
-                    && malicious != null && lookupOutcomes.containsValue("RESOLVED")
-                    && !lookupOutcomes.containsValue("UNAVAILABLE");
+                    && malicious != null && com.salkcoding.oswl.util.VulnerabilityLookupCoverage.isComplete(lookupOutcomes);
         }
     }
 

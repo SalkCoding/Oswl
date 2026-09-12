@@ -465,7 +465,9 @@
                 <dl class="flex flex-col gap-[8px]">
                     <div th:each="outcome : ${vulnerabilityLookupOutcomes}" class="flex flex-wrap items-baseline justify-between gap-[8px]">
                         <dt class="font-medium text-[var(--grayscale-80)]" th:text="${outcome.key}"></dt>
-                        <dd class="text-[var(--grayscale-60)]" th:text="#{${'componentDetail.lookup.' + outcome.value}}"></dd>
+                        <dd class="text-[var(--grayscale-60)]"
+                            th:with="known=${outcome.value == 'RESOLVED' or outcome.value == 'UNAVAILABLE' or outcome.value == 'UNSUPPORTED' or outcome.value == 'NOT_CONFIGURED'}"
+                            th:text="${known ? #messages.msg('componentDetail.lookup.' + outcome.value) : #messages.msg('componentDetail.lookup.unknown', outcome.value)}"></dd>
                     </div>
                 </dl>
             </div>

@@ -57,6 +57,37 @@ class GateCoverageTest {
         ReflectionTestUtils.setField(target,"assessmentJson",new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(value));
     }
 
+    static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> malformedOutcomes() {
+        return java.util.stream.Stream.of(false,true).flatMap(preserved -> java.util.stream.Stream.of(
+                "unknown-status","empty-status","lowercase-status","unknown-source","padded-source","snapshot-resolved","valid","deps-only")
+                .map(state -> org.junit.jupiter.params.provider.Arguments.of(preserved,state)));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("malformedOutcomes")
+    void unrecognizedLookupEvidenceCannotPassAlongsideResolvedSource(boolean preserved, String state) throws Exception {
+        var library = evidenceLibrary();
+        Map<String,String> outcomes = switch (state) {
+            case "unknown-status" -> Map.of("OSV","RESOLVED","NVD","ERROR");
+            case "empty-status" -> Map.of("OSV","RESOLVED","NVD","");
+            case "lowercase-status" -> Map.of("OSV","RESOLVED","NVD","resolved");
+            case "unknown-source" -> Map.of("OSV","RESOLVED","FUTURE_PROVIDER","RESOLVED");
+            case "padded-source" -> Map.of("OSV ","RESOLVED");
+            case "snapshot-resolved" -> Map.of("OSV","RESOLVED","SNAPSHOT","RESOLVED");
+            case "deps-only" -> Map.of("DEPS_DEV","RESOLVED");
+            default -> Map.of("OSV","RESOLVED","GITHUB_ADVISORY","NOT_CONFIGURED","NVD","UNSUPPORTED");
+        };
+        library.recordLookupOutcomes(outcomes); library.markFetched();
+        if (preserved) preserve(scan,library);
+        when(components.findByScanResultId(2L)).thenReturn(List.of(ScanComponent.builder().library(library).build()));
+        var result = service.evaluate(1L,GatePolicyService.GateOptions.defaults());
+        assertThat(result.passed()).isEqualTo(Set.of("valid","deps-only").contains(state));
+        assertThat(result.coverage().complete()).isEqualTo(Set.of("valid","deps-only").contains(state));
+        assertThat(library.getVulnerabilityLookupOutcomes()).isEqualTo(outcomes);
+        if (preserved) assertThat(com.salkcoding.oswl.service.scan.ScanAssessmentService.read(scan.getAssessmentJson())
+                .libraries().getFirst().lookupOutcomes()).isEqualTo(outcomes);
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false,true})
     void legacyFetchDateWithoutSourceOutcomesCannotProveCoverage(boolean hasLookupDate) {
