@@ -524,3 +524,5 @@ EPSS bulk collection validates each normalized CVE identifier before accepting i
 Live and offline EPSS requests normalize surrounding whitespace and case, validate the CVE format, and deduplicate before querying. Malformed identifiers are excluded from both HTTP and snapshot queries, not assigned a zero score. A returned score of zero remains a valid measurement.
 
 Live EPSS responses are parsed with duplicate JSON field detection and rejection of trailing JSON values. Ambiguous responses yield no confirmed score for that batch instead of selecting the final field value. Other batches continue independently; missing scores are not converted to zero.
+
+Offline EPSS bundle imports validate the normalized CVE identifier for both score and deletion records. Invalid identifiers reject the import and retain existing scores and source dates in both REPLACE and MERGE modes. Zero scores and valid long CVE sequence numbers remain supported.

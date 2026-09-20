@@ -889,6 +889,8 @@
 
 ### 34. 번들 schema·전 파일·의미 검증 강화 — P0 · [코드 확인]
 
+- **2026-09-21 EPSS 반입 식별자 검증:** 잘못된 CVE 형식 4종이 반입되는 실패를 수정 전 재현했다. 점수·삭제 레코드에 동일한 CVE 검증을 적용하고 REPLACE/MERGE 거절 시 기존 점수와 출처 기준일을 보존한다. 정상·소문자/공백·긴 일련번호의 0점 반입과 삭제 대조를 포함한다. 기존 성공/점수 오류/청크·DB 롤백 테스트의 가상 식별자를 유효한 합성 CVE로 바꿔 원래 검증 경로를 유지했다. `test --tests '*Snapshot*Test' --tests '*Epss*Test' bootJar verifyProdJar` 266건 중 265건 통과·1건 skip·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/epss-import-identity-before.log`, `build/epss-import-identity-checked.log`. 커밋 제목 `fix: validate epss snapshot record identities`. 세 언어 Administration 문서 반영. 자체 합성 입력이며 신규 외부 자료·라이브러리·UI·운영 DB 변경 없음. FIRST 재배포 조건의 미해결 범위는 유지하며 전체 build·실제 PostgreSQL·브라우저 검사는 이번에 재실행하지 않았다. 항목 전체 완료는 아니다.
+
 - 현재·대상: [AirgappedSnapshotService](src/main/java/com/salkcoding/oswl/service/snapshot/AirgappedSnapshotService.java)의 malformed meta→legacy, 누락 hash/OSV 필수 필드 처리 경로.
 - [ ] 수정: formatVersion allowlist·필수 필드·파일 목록/digest/크기/count·중복/참조/range·고지 manifest를 검증한다. 누락 vulns와 빈 배열을 구분하고 legacy는 명시적 변환/종료 기간으로 이행한다.
 - 선행: 2·12~13·32번.

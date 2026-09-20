@@ -3,6 +3,7 @@ package com.salkcoding.oswl.service.snapshot;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.salkcoding.oswl.client.NvdClient;
 import com.salkcoding.oswl.domain.entity.vulnerability.Cve;
 import com.salkcoding.oswl.domain.entity.vulnerability.Library;
 import com.salkcoding.oswl.domain.entity.snapshot.SnapshotEntry;
@@ -933,6 +934,8 @@ public class AirgappedSnapshotService {
                 throw new InvalidRequestException("Snapshot EPSS record requires cveId");
             }
             String key = cveId.strip().toUpperCase(Locale.ROOT);
+            if (!NvdClient.isValidCveId(key))
+                throw new InvalidRequestException("Snapshot EPSS record requires a valid CVE identity");
             if (node.has("_deleted") && !node.path("_deleted").isBoolean())
                 throw new InvalidRequestException("Snapshot EPSS deletion marker must be boolean");
             if (node.path("_deleted").asBoolean(false)) {

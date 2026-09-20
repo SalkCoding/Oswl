@@ -273,12 +273,12 @@ class SnapshotImportTransactionTest {
         String credit = "credit-" + java.util.HexFormat.of().formatHex(noticeBytes);
         var json = new com.fasterxml.jackson.databind.ObjectMapper();
         service.importBundle(new ByteArrayInputStream(bundle(Map.of("meta.json", json.writeValueAsString(Map.of("dataNotices", Map.of("credit", credit))),
-                "epss.jsonl", "{\"cveId\":\"CVE-KEPT\",\"score\":0.4}"))));
+                "epss.jsonl", "{\"cveId\":\"CVE-2026-9002\",\"score\":0.4}"))));
         String more = json.writeValueAsString(Map.of("dataNotices", Map.of("credit", "different-" + credit)));
         assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of("meta.json", more,
-                "epss.jsonl", "{\"cveId\":\"CVE-REJECTED\",\"score\":0.6}"))), AirgappedSnapshotService.ImportMode.MERGE))
+                "epss.jsonl", "{\"cveId\":\"CVE-2026-9003\",\"score\":0.6}"))), AirgappedSnapshotService.ImportMode.MERGE))
                 .isInstanceOf(InvalidRequestException.class).hasMessageContaining("512 KiB");
-        assertThat(service.findEpssScores(List.of("CVE-KEPT", "CVE-REJECTED"))).containsOnlyKeys("CVE-KEPT");
+        assertThat(service.findEpssScores(List.of("CVE-2026-9002", "CVE-2026-9003"))).containsOnlyKeys("CVE-2026-9002");
         assertThat(exportedMeta(service.exportBundle()).path("upstreamDataNotices").get(0).path("credit").asText()).isEqualTo(credit);
     }
 
@@ -288,7 +288,7 @@ class SnapshotImportTransactionTest {
             "\"upstreamDataNotices\":[\"notice\"]"})
     void invalidNoticesCannotEraseExistingSourceData(String notice) throws Exception {
         assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of("meta.json", "{" + notice + "}",
-                "epss.jsonl", "{\"cveId\":\"CVE-NEW\",\"score\":0.4}")))))
+                "epss.jsonl", "{\"cveId\":\"CVE-2026-9001\",\"score\":0.4}")))))
                 .isInstanceOf(InvalidRequestException.class);
         assertOldSource();
     }
@@ -331,7 +331,7 @@ class SnapshotImportTransactionTest {
         for (String owner : List.of("first", "second")) {
             String meta = json.writeValueAsString(Map.of("dataNotices", Map.of("credit", owner, "notice", "원문 고지 © " + owner)));
             service.importBundle(new ByteArrayInputStream(bundle(Map.of("meta.json", meta, "epss.jsonl",
-                    "{\"cveId\":\"CVE-" + owner + "\",\"score\":0.4}"))), AirgappedSnapshotService.ImportMode.valueOf(mode));
+                    "{\"cveId\":\"CVE-2026-" + (owner.equals("first") ? "8001" : "8002") + "\",\"score\":0.4}"))), AirgappedSnapshotService.ImportMode.valueOf(mode));
         }
         byte[] exported = service.exportBundle();
         var notices = exportedMeta(exported).path("upstreamDataNotices");
@@ -399,7 +399,7 @@ class SnapshotImportTransactionTest {
         assertThat(stored.getFirst().fixVersion()).isEqualTo("3.0.0");
         assertThat(stored.getFirst().osvAdvisory()).isEqualTo(lastOriginal);
         assertThat(entries.countBySource("osv")).isEqualTo(preceding + 1);
-        assertThat(service.findEpssScores(List.of("CVE-OLD"))).containsEntry("CVE-OLD", 0.25);
+        assertThat(service.findEpssScores(List.of("CVE-2026-9000"))).containsEntry("CVE-2026-9000", 0.25);
     }
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(ints = {0, 8, 999})
@@ -457,7 +457,7 @@ class SnapshotImportTransactionTest {
                 invalid.equals("modified") ? "unknown" : "2026-01-01T00:00:00Z", invalid.equals("affected") ? "{}" : "[]");
         assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of("osv.jsonl", line)))))
                 .isInstanceOf(InvalidRequestException.class);
-        assertThat(entries.findAll()).singleElement().satisfies(row -> assertThat(row.getEntryKey()).isEqualTo("CVE-OLD"));
+        assertThat(entries.findAll()).singleElement().satisfies(row -> assertThat(row.getEntryKey()).isEqualTo("CVE-2026-9000"));
     }
     @Test void exportedManifestCarriesDataAttributionAndTransformationNotice() throws Exception {
         byte[] exported = service.exportBundle();
@@ -688,7 +688,7 @@ class SnapshotImportTransactionTest {
                 "{\"osvId\":\"GHSA-fixture\",\"fixVersionConflictCandidates\":" + candidates + "}]}";
         assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of("osv.jsonl", record)))))
                 .isInstanceOf(InvalidRequestException.class);
-        assertThat(service.findEpssScores(List.of("CVE-OLD"))).containsEntry("CVE-OLD", 0.25);
+        assertThat(service.findEpssScores(List.of("CVE-2026-9000"))).containsEntry("CVE-2026-9000", 0.25);
         String key = AirgappedSnapshotService.componentKey("npm", "fixture", "1.0.0");
         entries.save(SnapshotEntry.builder().source("osv").entryKey(key).payload(
                 "[{\"osvId\":\"GHSA-fixture\",\"fixVersionConflictCandidates\":" + candidates + "}]").build());
@@ -757,7 +757,7 @@ class SnapshotImportTransactionTest {
     @BeforeEach void existingSource() {
         entries.deleteAllInBatch();
         metadata.deleteAllInBatch();
-        entries.save(SnapshotEntry.builder().source("epss").entryKey("CVE-OLD").payload("0.25").build());
+        entries.save(SnapshotEntry.builder().source("epss").entryKey("CVE-2026-9000").payload("0.25").build());
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -813,7 +813,7 @@ class SnapshotImportTransactionTest {
             "{\"formatVersion\":2,\"files\":{}}", "{\"formatVersion\":2,\"files\":{\"epss.jsonl\":{}}}"})
     void invalidMetadataCannotDowngradeOrBypassIntegrity(String meta) throws Exception {
         assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of(
-                "meta.json", meta, "epss.jsonl", "{\"cveId\":\"CVE-NEW\",\"score\":0.8}")))))
+                "meta.json", meta, "epss.jsonl", "{\"cveId\":\"CVE-2026-9001\",\"score\":0.8}")))))
                 .isInstanceOf(InvalidRequestException.class);
         assertOldSource();
     }
@@ -821,7 +821,7 @@ class SnapshotImportTransactionTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"missing-declared", "unknown-entry", "nested-entry"})
     void versionTwoFileInventoryMustMatchTheArchive(String mismatch) throws Exception {
-        String line = "{\"cveId\":\"CVE-NEW\",\"score\":0.8}";
+        String line = "{\"cveId\":\"CVE-2026-9001\",\"score\":0.8}";
         String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
                 .digest(line.getBytes(StandardCharsets.UTF_8)));
         String manifestFiles = "\"epss.jsonl\":{\"sha256\":\"" + hash + "\",\"lines\":1}";
@@ -838,7 +838,7 @@ class SnapshotImportTransactionTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"null", "-1", "1.5", "\"1\"", "2147483648", "0", "2"})
     void declaredLineCountMustBeValidAndMatchContent(String lines) throws Exception {
-        String line = "{\"cveId\":\"CVE-NEW\",\"score\":0.8}";
+        String line = "{\"cveId\":\"CVE-2026-9001\",\"score\":0.8}";
         String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
                 .digest(line.getBytes(StandardCharsets.UTF_8)));
         String meta = "{\"formatVersion\":2,\"files\":{\"epss.jsonl\":{\"sha256\":\"" + hash + "\",\"lines\":" + lines + "}}}";
@@ -855,7 +855,7 @@ class SnapshotImportTransactionTest {
         metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("epss")
                 .recordCount(1).importedAt(java.time.LocalDateTime.now())
                 .sourceAsOf(oldDate == null ? null : java.time.LocalDate.parse(oldDate)).build());
-        String line = "{\"cveId\":\"CVE-NEW\",\"score\":0.8}";
+        String line = "{\"cveId\":\"CVE-2026-9001\",\"score\":0.8}";
         String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
                 .digest(line.getBytes(StandardCharsets.UTF_8)));
         String source = newDate == null ? "{}" : "{\"asOf\":\"" + newDate + "\"}";
@@ -865,7 +865,7 @@ class SnapshotImportTransactionTest {
                 AirgappedSnapshotService.ImportMode.valueOf(mode));
         assertThat(metadata.findById("epss").orElseThrow().getSourceAsOf())
                 .isEqualTo(expected == null ? null : java.time.LocalDate.parse(expected));
-        assertThat(service.findEpssScores(List.of("CVE-OLD", "CVE-NEW"))).hasSize(mode.equals("MERGE") ? 2 : 1);
+        assertThat(service.findEpssScores(List.of("CVE-2026-9000", "CVE-2026-9001"))).hasSize(mode.equals("MERGE") ? 2 : 1);
         metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("osv")
                 .recordCount(0).importedAt(java.time.LocalDateTime.now()).sourceAsOf(java.time.LocalDate.of(2026, 1, 1)).build());
         assertThat(service.oldestSourceAsOf()).isEqualTo(expected == null ? null : java.time.LocalDate.parse(expected));
@@ -874,7 +874,7 @@ class SnapshotImportTransactionTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"\"not-a-date\"", "\"2026-02-30\"", "\"2099-01-01\"", "123", "{}", "\"\""})
     void invalidSourceDatesCannotEstablishFreshness(String date) throws Exception {
-        String line = "{\"cveId\":\"CVE-NEW\",\"score\":0.8}";
+        String line = "{\"cveId\":\"CVE-2026-9001\",\"score\":0.8}";
         String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
                 .digest(line.getBytes(StandardCharsets.UTF_8)));
         String meta = "{\"formatVersion\":2,\"sources\":{\"epss\":{\"asOf\":" + date
@@ -885,9 +885,41 @@ class SnapshotImportTransactionTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"CVE-2026-1234", " cve-2026-1234 ", "CVE-2026-1234567"})
+    void validEpssIdentitiesCanBeImportedAndDeleted(String identity) throws Exception {
+        String key = identity.strip().toUpperCase(java.util.Locale.ROOT);
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("epss.jsonl",
+                "{\"cveId\":\"" + identity + "\",\"score\":0}"))));
+        assertThat(service.findEpssScores(List.of(key))).containsOnly(entry(key, 0.0));
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("epss.jsonl",
+                "{\"cveId\":\"" + identity + "\",\"_deleted\":true}"))), AirgappedSnapshotService.ImportMode.MERGE);
+        assertThat(entries.countBySource("epss")).isZero();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"CVE-2026-1", "CVE-26-1234", "GHSA-abcd", "CVE-2026-1234-extra"})
+    void invalidEpssIdentitiesPreserveExistingEvidence(String identity) throws Exception {
+        byte[] original = bundle(Map.of("epss.jsonl", "{\"cveId\":\"CVE-2026-1000\",\"score\":0.25}"));
+        service.importBundle(new ByteArrayInputStream(original));
+        var originalMeta = metadata.findById("epss").orElseThrow();
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("epss").recordCount(1)
+                .importedAt(originalMeta.getImportedAt()).sourceAsOf(java.time.LocalDate.of(2026, 1, 1)).build());
+        var before = service.status();
+        for (var mode : AirgappedSnapshotService.ImportMode.values()) {
+            for (boolean deleted : List.of(false, true)) {
+                String line = "{\"cveId\":\"" + identity + "\",\"score\":0.8,\"_deleted\":" + deleted + "}";
+                assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of("epss.jsonl", line))), mode))
+                        .isInstanceOf(InvalidRequestException.class);
+                assertThat(service.findEpssScores(List.of("CVE-2026-1000"))).containsOnly(entry("CVE-2026-1000", 0.25));
+                assertThat(service.status()).isEqualTo(before);
+            }
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"null", "\"0.5\"", "-0.01", "1.01", "1e999", "{}"})
     void invalidEpssScoresDoNotReplaceExistingData(String score) throws Exception {
-        String line = "{\"cveId\":\"CVE-NEW\",\"score\":" + score + "}";
+        String line = "{\"cveId\":\"CVE-2026-9001\",\"score\":" + score + "}";
         assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of("epss.jsonl", line)))))
                 .isInstanceOf(InvalidRequestException.class);
         assertOldSource();
@@ -896,28 +928,28 @@ class SnapshotImportTransactionTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"NaN", "Infinity", "-Infinity", "-0.01", "1.01"})
     void invalidStoredEpssScoresAreNotReturned(String score) {
-        entries.saveAndFlush(SnapshotEntry.builder().source("epss").entryKey("CVE-INVALID").payload(score).build());
-        assertThat(service.findEpssScores(List.of("CVE-OLD", "CVE-INVALID"))).containsOnly(entry("CVE-OLD", 0.25));
+        entries.saveAndFlush(SnapshotEntry.builder().source("epss").entryKey("CVE-2026-9004").payload(score).build());
+        assertThat(service.findEpssScores(List.of("CVE-2026-9000", "CVE-2026-9004"))).containsOnly(entry("CVE-2026-9000", 0.25));
     }
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(doubles = {0, 0.5, 1})
     void validEpssProbabilitiesRoundTrip(double score) throws Exception {
         service.importBundle(new ByteArrayInputStream(bundle(Map.of("epss.jsonl",
-                "{\"cveId\":\"CVE-NEW\",\"score\":" + score + "}"))));
-        assertThat(service.findEpssScores(List.of("CVE-NEW"))).containsOnly(entry("CVE-NEW", score));
+                "{\"cveId\":\"CVE-2026-9001\",\"score\":" + score + "}"))));
+        assertThat(service.findEpssScores(List.of("CVE-2026-9001"))).containsOnly(entry("CVE-2026-9001", score));
     }
 
     @Test void importsMultipleChunksAndCleansStagingFiles() throws Exception {
         Set<Path> before = stagedFiles();
         StringBuilder lines = new StringBuilder();
-        for (int i = 0; i < 5000; i++) lines.append("{\"cveId\":\"CVE-NEW-").append(i).append("\",\"score\":0.75}\n");
+        for (int i = 0; i < 5000; i++) lines.append("{\"cveId\":\"CVE-2026-").append(10000 + i).append("\",\"score\":0.75}\n");
         byte[] zip = bundle(Map.of("epss.jsonl", lines.toString()));
         long start = System.nanoTime();
         var result = service.importBundle(new ByteArrayInputStream(zip));
         assertThat(result.totalRecords()).isEqualTo(5000);
         assertThat(entries.countBySource("epss")).isEqualTo(5000);
-        assertThat(service.findEpssScores(List.of("CVE-OLD", "CVE-NEW-4999"))).containsOnly(entry("CVE-NEW-4999", .75));
+        assertThat(service.findEpssScores(List.of("CVE-2026-9000", "CVE-2026-14999"))).containsOnly(entry("CVE-2026-14999", .75));
         assertThat(stagedFiles()).isEqualTo(before);
         Path report = Path.of("build/reports/performance/snapshot.txt");
         Files.createDirectories(report.getParent());
@@ -927,7 +959,7 @@ class SnapshotImportTransactionTest {
     @Test void checksumAtEndRejectsBeforeReplaceAndCleansFiles() throws Exception {
         Set<Path> before = stagedFiles();
         Map<String, String> files = new LinkedHashMap<>();
-        files.put("epss.jsonl", "{\"cveId\":\"CVE-NEW\",\"score\":0.8}\n");
+        files.put("epss.jsonl", "{\"cveId\":\"CVE-2026-9001\",\"score\":0.8}\n");
         files.put("meta.json", "{\"formatVersion\":2,\"files\":{\"epss.jsonl\":{\"sha256\":\"wrong\",\"lines\":1}}}");
         assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(files))))
                 .isInstanceOf(InvalidRequestException.class).hasMessageContaining("integrity");
@@ -937,7 +969,7 @@ class SnapshotImportTransactionTest {
 
     @Test void interruptedUploadDoesNotAcquireConnectionOrMutateSource() throws Exception {
         Set<Path> before = stagedFiles();
-        byte[] zip = bundle(Map.of("epss.jsonl", "{\"cveId\":\"CVE-NEW\",\"score\":0.8}\n"));
+        byte[] zip = bundle(Map.of("epss.jsonl", "{\"cveId\":\"CVE-2026-9001\",\"score\":0.8}\n"));
         int activeBefore = ((HikariDataSource) dataSource).getHikariPoolMXBean().getActiveConnections();
         InputStream input = new ByteArrayInputStream(zip) {
             @Override public synchronized int read(byte[] b, int off, int len) {
@@ -955,9 +987,9 @@ class SnapshotImportTransactionTest {
 
     @Test void databaseFailureAfterFirstChunkRollsBackReplace() throws Exception {
         StringBuilder lines = new StringBuilder();
-        for (int i = 0; i < 600; i++) lines.append("{\"cveId\":\"CVE-NEW-").append(i).append("\",\"score\":0.75}\n");
+        for (int i = 0; i < 600; i++) lines.append("{\"cveId\":\"CVE-2026-").append(10000 + i).append("\",\"score\":0.75}\n");
         // Exceeds entry_key length after the first chunk has already been flushed.
-        lines.append("{\"cveId\":\"").append("X".repeat(2000)).append("\",\"score\":0.8}\n");
+        lines.append("{\"cveId\":\"").append("CVE-2026-" + "1".repeat(2000)).append("\",\"score\":0.8}\n");
         assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of("epss.jsonl",lines.toString())))))
                 .isInstanceOf(RuntimeException.class);
         assertOldSource();
@@ -965,7 +997,7 @@ class SnapshotImportTransactionTest {
 
     private void assertOldSource() {
         assertThat(entries.countBySource("epss")).isEqualTo(1);
-        assertThat(service.findEpssScores(List.of("CVE-OLD"))).containsEntry("CVE-OLD", .25);
+        assertThat(service.findEpssScores(List.of("CVE-2026-9000"))).containsEntry("CVE-2026-9000", .25);
         assertThat(metadata.count()).isZero();
     }
 
