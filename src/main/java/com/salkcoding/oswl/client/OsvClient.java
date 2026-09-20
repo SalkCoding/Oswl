@@ -223,6 +223,7 @@ public class OsvClient {
         List<SnapshotVuln> evidence = new ArrayList<>();
         List<OsvLifecycleObservation> lifecycle = new ArrayList<>();
         Map<String, SnapshotVuln> revisions = new java.util.LinkedHashMap<>();
+        Map<String, List<SnapshotVuln>> revisionGroups = new java.util.LinkedHashMap<>();
         Set<String> untrustedIds = new LinkedHashSet<>();
         Set<String> handledOriginalIds = new LinkedHashSet<>();
         // Validate revisions before filtering withdrawn or currently unaffected entries.
@@ -230,11 +231,16 @@ public class OsvClient {
             var original = vuln.osvAdvisory();
             if (original != null && (!sameRevision(original.path("modified").asText(), original.path("modified").asText())
                     || !vuln.fixVersionConflictCandidates().isEmpty())) untrustedIds.add(vuln.osvId());
-            var previous = revisions.putIfAbsent(vuln.osvId(), vuln);
-            if (previous != null && (previous.osvAdvisory() != null || vuln.osvAdvisory() != null)
-                    && (!java.util.Objects.equals(previous.osvAdvisory(), vuln.osvAdvisory())
-                    || !previous.fixVersionConflictCandidates().isEmpty() || !vuln.fixVersionConflictCandidates().isEmpty())) {
-                untrustedIds.add(vuln.osvId());
+            revisions.putIfAbsent(vuln.osvId(), vuln);
+            revisionGroups.computeIfAbsent(vuln.osvId(), ignored -> new ArrayList<>()).add(vuln);
+        }
+        for (var entry : revisionGroups.entrySet()) {
+            if (entry.getValue().size() < 2 || entry.getValue().stream().allMatch(v -> v.osvAdvisory() == null)) continue;
+            SnapshotVuln latest = latestSnapshotRevision(entry.getValue());
+            if (latest == null) {
+                untrustedIds.add(entry.getKey());
+            } else {
+                revisions.put(entry.getKey(), latest);
             }
         }
         for (SnapshotVuln vuln : vulns) {
@@ -249,6 +255,7 @@ public class OsvClient {
                 }
                 continue;
             }
+            if (advisory != null && revisions.get(vuln.osvId()) != vuln) continue;
             if (advisory != null && !handledOriginalIds.add(vuln.osvId())) continue;
             String fix = vuln.fixVersion();
             if (advisory != null) {
@@ -280,6 +287,32 @@ public class OsvClient {
         return new OsvResult(findings, resolved, resolved ? snapshotCommonFix(evidence, query) : null,
                 advisoryRevisions(evidence.stream().map(SnapshotVuln::osvAdvisory).filter(java.util.Objects::nonNull).toList()),
                 advisoryDigests(evidence.stream().map(SnapshotVuln::osvAdvisory).filter(java.util.Objects::nonNull).toList()), validUntil, lifecycle);
+    }
+
+    /** A unique newest, valid original supersedes older revisions without erasing their observations. */
+    private static SnapshotVuln latestSnapshotRevision(List<SnapshotVuln> candidates) {
+        java.time.Instant newest = null;
+        SnapshotVuln selected = null;
+        boolean conflict = false;
+        for (var candidate : candidates) {
+            var original = candidate.osvAdvisory();
+            if (original == null || !candidate.fixVersionConflictCandidates().isEmpty()
+                    || !com.salkcoding.oswl.vdb.OsvRevision.isCurrent(original.path("modified").asText())
+                    || OsvWithdrawal.from(original) == OsvWithdrawal.UNKNOWN) return null;
+            var revision = java.time.Instant.parse(original.path("modified").asText());
+            if (newest == null || revision.isAfter(newest)) {
+                newest = revision;
+                selected = candidate;
+                conflict = false;
+            } else if (revision.equals(newest)) {
+                var left = (com.fasterxml.jackson.databind.node.ObjectNode) selected.osvAdvisory().deepCopy();
+                var right = (com.fasterxml.jackson.databind.node.ObjectNode) original.deepCopy();
+                left.remove("modified");
+                right.remove("modified");
+                conflict |= !left.equals(right);
+            }
+        }
+        return conflict ? null : selected;
     }
 
     private static OsvFixVersionSelector.Selection snapshotCommonFix(List<SnapshotVuln> vulns, OsvQuery query) {

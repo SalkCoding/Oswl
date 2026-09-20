@@ -28,6 +28,53 @@ import static org.assertj.core.api.Assertions.*;
         "spring.jpa.database-platform=${OSWL_SNAPSHOT_IMPORT_TEST_DIALECT:org.hibernate.dialect.H2Dialect}"})
 class SnapshotImportTransactionTest {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,active", "true,active", "false,reactivated", "true,reactivated",
+            "false,withdrawn", "true,withdrawn", "false,unaffected", "true,unaffected"})
+    void newestOsvRevisionInImportedBundleMatchesCurrentOnlineResult(boolean reverse, String state) throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var older = json.readTree("""
+                {"id":"OSV-revision-fixture","modified":"2026-01-01T00:00:00Z","affected":[{
+                "package":{"ecosystem":"npm","name":"revision-fixture"},
+                "ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"2.0.0"}]}]}]}
+                """);
+        var newer = older.deepCopy();
+        ((com.fasterxml.jackson.databind.node.ObjectNode) newer).put("modified", "2026-02-01T00:00:00Z");
+        ((com.fasterxml.jackson.databind.node.ObjectNode) newer.at("/affected/0/ranges/0/events/1"))
+                .put("fixed", state.equals("unaffected") ? "0.5.0" : "3.0.0");
+        if (state.equals("reactivated")) ((com.fasterxml.jackson.databind.node.ObjectNode) older).put("withdrawn", "2026-01-01T00:00:00Z");
+        if (state.equals("withdrawn")) ((com.fasterxml.jackson.databind.node.ObjectNode) newer).put("withdrawn", "2026-02-01T00:00:00Z");
+        var originals = reverse ? List.of(newer, older) : List.of(older, newer);
+        var rows = originals.stream().map(raw -> Map.of("osvId", "OSV-revision-fixture", "osvAdvisory", raw)).toList();
+        String line = json.writeValueAsString(Map.of("ecosystem", "npm", "name", "revision-fixture", "version", "1.0.0", "vulns", rows));
+        String hash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(line.getBytes(StandardCharsets.UTF_8)));
+        String meta = json.writeValueAsString(Map.of("formatVersion", 2, "sources", Map.of("osv", Map.of("asOf", java.time.LocalDate.now().toString())),
+                "files", Map.of("osv.jsonl", Map.of("sha256", hash, "lines", 1))));
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("osv.jsonl", line, "meta.json", meta))));
+        var query = new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "revision-fixture", "1.0.0");
+        var offline = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(query)).getFirst();
+        var builder = org.springframework.web.client.RestClient.builder().baseUrl("https://api.osv.dev");
+        var server = org.springframework.test.web.client.MockRestServiceServer.bindTo(builder).build();
+        server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo("https://api.osv.dev/v1/querybatch"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(
+                        json.writeValueAsString(Map.of("results", List.of(Map.of("vulns", List.of(newer))))), org.springframework.http.MediaType.APPLICATION_JSON));
+        server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo("https://api.osv.dev/v1/vulns/OSV-revision-fixture"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(newer.toString(), org.springframework.http.MediaType.APPLICATION_JSON));
+        var onlineClient = new com.salkcoding.oswl.client.OsvClient();
+        org.springframework.test.util.ReflectionTestUtils.setField(onlineClient, "restClient", builder.build());
+        var online = onlineClient.queryBatch(List.of(query)).getFirst();
+        assertThat(offline.resolved()).isTrue();
+        assertThat(offline.vulns()).isEqualTo(online.vulns());
+        assertThat(offline.commonFix()).isEqualTo(online.commonFix());
+        assertThat(offline.advisoryRevisions()).isEqualTo(online.advisoryRevisions());
+        assertThat(offline.advisoryDigests()).isEqualTo(online.advisoryDigests());
+        assertThat(offline.lifecycleObservations()).hasSize(2);
+        String key = AirgappedSnapshotService.componentKey("npm", "revision-fixture", "1.0.0");
+        assertThat(service.findOsvVulns(List.of(key)).get(key)).extracting(AirgappedSnapshotService.SnapshotVuln::osvAdvisory)
+                .containsExactlyElementsOf(originals);
+        server.verify();
+    }
+
     @Test
     void exportedEpssAttributionSurvivesImportWithoutClaimingRights() throws Exception {
         var library = libraries.saveAndFlush(com.salkcoding.oswl.domain.entity.vulnerability.Library.builder()

@@ -16,8 +16,8 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class OsvPaginationTest {
     @ParameterizedTest
-    @ValueSource(strings = {"changed", "reversed", "withdrawn", "legacy", "metadata", "identical"})
-    void offlineDuplicateRevisionsDoNotAuthorizeIndividualFixes(String state) throws Exception {
+    @ValueSource(strings = {"changed", "reversed", "withdrawn", "legacy", "metadata", "identical", "same-revision-conflict"})
+    void offlineDuplicateRevisionsRequireAnUnambiguousCurrentOriginal(String state) throws Exception {
         var json = new com.fasterxml.jackson.databind.ObjectMapper();
         var original = json.readTree("""
                 {"id":"OSV-duplicate","modified":"2026-01-01T00:00:00Z","affected":[{
@@ -25,7 +25,9 @@ class OsvPaginationTest {
                 "events":[{"introduced":"0"},{"fixed":"2.0.0"}]}]}]}
                 """);
         var other = original.deepCopy();
-        if (!state.equals("identical") && !state.equals("metadata")) ((com.fasterxml.jackson.databind.node.ObjectNode) other).put("modified", "2026-01-02T00:00:00Z");
+        if (!java.util.Set.of("identical", "metadata", "same-revision-conflict").contains(state))
+            ((com.fasterxml.jackson.databind.node.ObjectNode) other).put("modified", "2026-01-02T00:00:00Z");
+        if (state.equals("same-revision-conflict")) ((com.fasterxml.jackson.databind.node.ObjectNode) other).put("summary", "conflicting content");
         if (state.equals("withdrawn")) ((com.fasterxml.jackson.databind.node.ObjectNode) other).put("withdrawn", "2026-01-02T00:00:00Z");
         var first = new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln(
                 "OSV-duplicate", null, null, "2.0.0", null, null, null, null, null, java.util.Set.of(), original);
@@ -43,15 +45,18 @@ class OsvPaginationTest {
         org.mockito.Mockito.when(snapshots.findOsvVulns(org.mockito.ArgumentMatchers.any())).thenReturn(java.util.Map.of(key,
                 state.equals("reversed") ? List.of(second, first, independent) : List.of(first, second, independent)));
         var result = client.queryBatch(List.of(query())).getFirst();
-        assertThat(result.resolved()).isEqualTo(state.equals("identical"));
-        assertThat(result.vulns()).hasSize(2);
-        assertThat(result.vulns()).filteredOn(v -> v.osvId().equals("OSV-duplicate")).singleElement().satisfies(v -> {
+        boolean complete = java.util.Set.of("changed", "reversed", "withdrawn", "identical").contains(state);
+        assertThat(result.resolved()).isEqualTo(complete);
+        assertThat(result.vulns()).hasSize(state.equals("withdrawn") ? 1 : 2);
+        if (state.equals("withdrawn")) {
+            assertThat(result.vulns()).noneMatch(v -> v.osvId().equals("OSV-duplicate"));
+        } else assertThat(result.vulns()).filteredOn(v -> v.osvId().equals("OSV-duplicate")).singleElement().satisfies(v -> {
             assertThat(v.osvId()).isEqualTo("OSV-duplicate");
-            assertThat(v.fixVersion()).isEqualTo(state.equals("identical") ? "2.0.0" : null);
+            assertThat(v.fixVersion()).isEqualTo(complete ? "2.0.0" : null);
         });
         assertThat(result.vulns()).filteredOn(v -> v.osvId().equals("OSV-independent")).singleElement()
                 .satisfies(v -> assertThat(v.fixVersion()).isEqualTo("2.0.0"));
-        assertThat(result.commonFix().version()).isEqualTo(state.equals("identical") ? "2.0.0" : null);
+        assertThat(result.commonFix().version()).isEqualTo(complete ? "2.0.0" : null);
         server.verify();
     }
     private final RestClient.Builder builder = RestClient.builder().baseUrl("https://api.osv.dev");

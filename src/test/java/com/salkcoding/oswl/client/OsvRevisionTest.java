@@ -16,6 +16,58 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 
 class OsvRevisionTest {
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"tie-conflict", "future", "legacy", "stale", "incomplete", "equivalent", "older-conflict"})
+    void snapshotRevisionSelectionPreservesAmbiguityAndCoverage(String state) throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var older = json.readTree("""
+                {"id":"OSV-fixture","modified":"2026-01-01T00:00:00Z","affected":[{
+                "package":{"ecosystem":"npm","name":"example"},
+                "ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"2.0.0"}]}]}]}
+                """);
+        var newer = older.deepCopy();
+        ((com.fasterxml.jackson.databind.node.ObjectNode) newer).put("modified", "2026-02-01T00:00:00Z");
+        ((com.fasterxml.jackson.databind.node.ObjectNode) newer.at("/affected/0/ranges/0/events/1")).put("fixed", "3.0.0");
+        if (state.equals("tie-conflict")) ((com.fasterxml.jackson.databind.node.ObjectNode) older).put("modified", "2026-02-01T00:00:00Z");
+        if (state.equals("future")) ((com.fasterxml.jackson.databind.node.ObjectNode) older).put("modified", "9999-01-01T00:00:00Z");
+        if (state.equals("equivalent")) {
+            older = newer.deepCopy();
+            ((com.fasterxml.jackson.databind.node.ObjectNode) older).put("modified", "2026-02-01T00:00:00.000Z");
+        }
+        List<com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln> records = new java.util.ArrayList<>();
+        records.add(snapshotRevision(state.equals("legacy") ? null : older));
+        records.add(snapshotRevision(newer));
+        if (state.equals("older-conflict")) {
+            var conflictingOld = older.deepCopy();
+            ((com.fasterxml.jackson.databind.node.ObjectNode) conflictingOld.at("/affected/0/ranges/0/events/1")).put("fixed", "4.0.0");
+            records.add(snapshotRevision(conflictingOld));
+        }
+        for (boolean reverse : List.of(false, true)) {
+            var ordered = new java.util.ArrayList<>(records);
+            if (reverse) java.util.Collections.reverse(ordered);
+            String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey("npm", "example", query().version());
+            var snapshots = org.mockito.Mockito.mock(com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.class);
+            org.mockito.Mockito.when(snapshots.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection())).thenReturn(
+                    new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.VulnerabilitySnapshotView(
+                            java.util.Map.of(key, ordered), state.equals("incomplete") ? java.util.Set.of(key) : java.util.Set.of(),
+                            state.equals("stale"), null));
+            var result = new OsvClient(snapshots, true).queryBatch(List.of(query())).getFirst();
+            boolean ambiguous = java.util.Set.of("tie-conflict", "future", "legacy").contains(state);
+            boolean complete = !ambiguous && !java.util.Set.of("stale", "incomplete").contains(state);
+            assertThat(result.resolved()).isEqualTo(complete);
+            assertThat(result.lifecycleObservations()).hasSize(records.size());
+            assertThat(result.vulns()).singleElement().satisfies(v ->
+                    assertThat(v.fixVersion()).isEqualTo(ambiguous || state.equals("stale") ? null : "3.0.0"));
+            assertThat(result.commonFix().version()).isEqualTo(complete ? "3.0.0" : null);
+            if (ambiguous) assertThat(result.advisoryRevisions()).isEmpty();
+        }
+    }
+
+    private static com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln snapshotRevision(
+            com.fasterxml.jackson.databind.JsonNode raw) {
+        return new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln(
+                "OSV-fixture", null, null, null, null, null, null, null, null, java.util.Set.of(), raw);
+    }
     private final RestClient.Builder builder = RestClient.builder().baseUrl("https://api.osv.dev");
     private final MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
     private final OsvClient client = new OsvClient();
