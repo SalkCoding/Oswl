@@ -88,16 +88,23 @@ public interface SnapshotAdminControllerSpec {
 
     @Operation(summary = "Export an offline snapshot bundle",
         description = """
-            Builds a v2 snapshot bundle from the vulnerability/threat-intel data this instance has
+            Builds a versioned snapshot bundle from the vulnerability/threat-intel data this instance has
             already fetched (libraries + CVEs) and downloads it as a zip. Run this on an ONLINE
             instance, then import the bundle on the air-gapped one. `meta.json`'s `origin` is set to
             `"derived-from-scan"` for every source — see the Offline VDB docs for the fidelity limits
-            this implies compared to a bundle built directly from upstream data.
+            this implies compared to a bundle built directly from upstream data. The optional
+            `distributionProfile` query parameter accepts `unreviewed` (the default) or
+            `github-attributed`. The restricted profile retains matching attributed OSV originals only,
+            marks every exported component unresolved, and omits all other data-source files.
+            Attribution is not source authentication or a general redistribution approval.
             """
     )
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Snapshot bundle zip",
             content = @Content(mediaType = "application/zip", schema = @Schema(type = "string", format = "binary")))
     })
-    ResponseEntity<byte[]> exportBundle();
+    ResponseEntity<byte[]> exportBundle(
+        @Parameter(description = "unreviewed (default) or github-attributed")
+        @RequestParam(defaultValue = "unreviewed") String distributionProfile
+    );
 }

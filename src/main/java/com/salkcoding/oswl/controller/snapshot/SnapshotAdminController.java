@@ -155,11 +155,27 @@ public class SnapshotAdminController implements SnapshotAdminControllerSpec {
     }
 
     @GetMapping("/export")
+    public ResponseEntity<byte[]> exportBundle(
+            @RequestParam(defaultValue = "unreviewed") String distributionProfile) {
+        byte[] bundle = "unreviewed".equals(distributionProfile)
+                ? snapshotService.exportBundle()
+                : snapshotService.exportBundle(distributionProfile);
+        return exportResponse(bundle, distributionProfile);
+    }
+
+    /**
+     * Keeps direct Java callers on the existing default export behavior. The mapped endpoint
+     * above is the only entry point that accepts a profile query parameter.
+     */
     public ResponseEntity<byte[]> exportBundle() {
         byte[] bundle = snapshotService.exportBundle();
+        return exportResponse(bundle, "unreviewed");
+    }
+
+    private ResponseEntity<byte[]> exportResponse(byte[] bundle, String distributionProfile) {
         String filename = "oswl-snapshot-" + LocalDate.now() + ".zip";
         auditLogService.log("SNAPSHOT.EXPORT", "SNAPSHOT", null, filename,
-                "sizeBytes=" + bundle.length);
+                "sizeBytes=" + bundle.length + " distributionProfile=" + distributionProfile);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=\"" + filename + "\"")

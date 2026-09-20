@@ -1160,6 +1160,14 @@ public class AirgappedSnapshotService {
      */
     @Transactional(readOnly = true)
     public byte[] exportBundle() {
+        return exportBundle("unreviewed");
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportBundle(String distributionProfile) {
+        if (!"unreviewed".equals(distributionProfile) && !"github-attributed".equals(distributionProfile))
+            throw new InvalidRequestException("Unknown snapshot distribution profile");
+        boolean restricted = "github-attributed".equals(distributionProfile);
         long upperId = libraryRepository.findSnapshotUpperId();
         long afterId = 0;
         int exportedLibraries = 0;
@@ -1194,6 +1202,30 @@ public class AirgappedSnapshotService {
                 String key = componentKey(lib.getEcosystem(), lib.getName(), lib.getVersion());
                 if (key == null) continue;
                 List<Cve> cves = lib.getCves();
+                if (restricted) {
+                    // Filtering does not establish a complete lookup, including when no findings remain.
+                    unresolvedRecords += appendVulnLines(unresolved, lib, List.of());
+                    if (!Objects.equals(key, osvExportKey(lib)) && osvExportKey(lib) != null)
+                        unresolvedRecords += appendVulnLines(unresolved, lib, List.of(), true);
+                    List<Cve> osvFindings = cves.stream().filter(c -> c.getSources() == null || c.getSources().isEmpty()
+                            || c.getSources().contains(CveSource.OSV)).toList();
+                    String originalKey = osvExportKey(lib);
+                    List<SnapshotVuln> matching = originalKey == null ? null
+                            : exportableOriginals(lib, osvFindings, storedOriginals.get(originalKey));
+                    if (matching != null) {
+                        List<SnapshotVuln> attributed = matching.stream()
+                                .filter(v -> com.salkcoding.oswl.vdb.BundleDistributionPolicy.retainsOriginal(v.osvAdvisory()))
+                                // Combined scan summaries may contain fields from other sources; retain only the original.
+                                .map(v -> new SnapshotVuln(v.osvId(), null, null, null, null, null, null, null, null,
+                                        Set.of(), v.osvAdvisory())).toList();
+                        if (!attributed.isEmpty()) {
+                            osvRecords += appendSnapshotVulnLine(osv, lib, attributed, true);
+                            hasOriginals = true;
+                        }
+                    }
+                    continue;
+                }
+
                 String osvKey = osvExportKey(lib);
                 if (!lib.isVulnerabilitiesAnalyzed() || storedUnresolved.contains(key)
                         || (osvKey != null && storedUnresolved.contains(osvKey))) {
@@ -1306,7 +1338,7 @@ public class AirgappedSnapshotService {
         }
 
         String osvContent = osv.toString();
-        Set<String> specKeys = snapshotEntryRepository.findEntryKeysBySource(SOURCE_COCOAPODS_SPECS);
+        Set<String> specKeys = restricted ? Set.of() : snapshotEntryRepository.findEntryKeysBySource(SOURCE_COCOAPODS_SPECS);
         if (specKeys.size() > 1000) throw new InvalidRequestException("CocoaPods store limit is 1000 specs");
         StringBuilder specsContent = new StringBuilder();
         if (!specKeys.isEmpty()) {
@@ -1332,6 +1364,7 @@ public class AirgappedSnapshotService {
         meta.put("mode", "full");
         meta.put("builtAt", builtAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         meta.put("builder", "oswl-airgapped-export");
+        meta.put("distributionProfile", distributionProfile);
         ObjectNode dataNotices = meta.putObject("dataNotices");
         Set<JsonNode> upstreamNotices = allStoredNotices();
         checkNoticeBudget(upstreamNotices);
@@ -1341,6 +1374,9 @@ public class AirgappedSnapshotService {
         dataNotices.put("changes", hasOriginals
                 ? "Exported records are selected from OsWL scan data. Attached OSV originals are preserved where their stored content matches the lookup assessment; other fields may be normalized, omitted or combined across sources."
                 : "Exported records are selected and normalized from OsWL scan data; they are not original advisory documents. Fields may be omitted or combined from multiple sources.");
+        if (restricted) dataNotices.put("coverage", "Only attributed originals matching stored scan evidence are included. "
+                + "Every exported component remains unresolved; omitted findings are not evidence of safety. "
+                + "Attribution checks do not authenticate the source or grant additional rights.");
         ObjectNode githubNotice = dataNotices.putObject("githubAdvisoryDatabase");
         githubNotice.put("appliesTo", "GitHub Advisory Database material, where present; not every record with a GHSA alias.");
         githubNotice.put("attribution", "GitHub Advisory Database and contributors; retain any supplied creator attribution.");
@@ -1355,27 +1391,31 @@ public class AirgappedSnapshotService {
         ObjectNode sources = meta.putObject("sources");
         putSourceMeta(sources, SOURCE_OSV, osvRecords, null);
         putSourceMeta(sources, SOURCE_UNRESOLVED, unresolvedRecords, null);
-        putSourceMeta(sources, SOURCE_COCOAPODS_SPECS, specKeys.size(), null);
-        snapshotMetaRepository.findById(SOURCE_COCOAPODS_SPECS).ifPresent(saved -> {
-            ObjectNode source = (ObjectNode) sources.get(SOURCE_COCOAPODS_SPECS);
-            if (saved.getSourceAsOf() != null) source.put("asOf", saved.getSourceAsOf().toString());
-            if (saved.getOrigin() != null) source.put("origin", saved.getOrigin());
-        });
-        putSourceMeta(sources, SOURCE_DEPSDEV_VERSION, versionRecords, null);
-        putSourceMeta(sources, SOURCE_DEPSDEV_ADVISORY, advisories.size(), null);
-        putSourceMeta(sources, SOURCE_GITHUB_ADVISORY, githubAdvisoryRecords, null);
-        putSourceMeta(sources, SOURCE_NVD, nvdRecords, null);
-        putSourceMeta(sources, SOURCE_EPSS, epss.size(), null);
-        putSourceMeta(sources, SOURCE_KEV, kev.size(), null);
+        if (!restricted) {
+            putSourceMeta(sources, SOURCE_COCOAPODS_SPECS, specKeys.size(), null);
+            snapshotMetaRepository.findById(SOURCE_COCOAPODS_SPECS).ifPresent(saved -> {
+                ObjectNode source = (ObjectNode) sources.get(SOURCE_COCOAPODS_SPECS);
+                if (saved.getSourceAsOf() != null) source.put("asOf", saved.getSourceAsOf().toString());
+                if (saved.getOrigin() != null) source.put("origin", saved.getOrigin());
+            });
+            putSourceMeta(sources, SOURCE_DEPSDEV_VERSION, versionRecords, null);
+            putSourceMeta(sources, SOURCE_DEPSDEV_ADVISORY, advisories.size(), null);
+            putSourceMeta(sources, SOURCE_GITHUB_ADVISORY, githubAdvisoryRecords, null);
+            putSourceMeta(sources, SOURCE_NVD, nvdRecords, null);
+            putSourceMeta(sources, SOURCE_EPSS, epss.size(), null);
+            putSourceMeta(sources, SOURCE_KEV, kev.size(), null);
+        }
         ObjectNode files = meta.putObject("files");
         putFileMeta(files, "osv.jsonl", osvContent, osvRecords);
         putFileMeta(files, "unresolved.jsonl", unresolved.toString(), unresolvedRecords);
-        putFileMeta(files, "cocoapods-specs.jsonl", specsContent.toString(), specKeys.size());
-        putFileMeta(files, "depsdev.jsonl", depsdevContent, versionRecords + advisories.size());
-        putFileMeta(files, "github-advisory.jsonl", githubAdvisoryContent, githubAdvisoryRecords);
-        putFileMeta(files, "nvd.jsonl", nvdContent, nvdRecords);
-        putFileMeta(files, "epss.jsonl", epssContent, epss.size());
-        putFileMeta(files, "kev.jsonl", kevContent, kev.size());
+        if (!restricted) {
+            putFileMeta(files, "cocoapods-specs.jsonl", specsContent.toString(), specKeys.size());
+            putFileMeta(files, "depsdev.jsonl", depsdevContent, versionRecords + advisories.size());
+            putFileMeta(files, "github-advisory.jsonl", githubAdvisoryContent, githubAdvisoryRecords);
+            putFileMeta(files, "nvd.jsonl", nvdContent, nvdRecords);
+            putFileMeta(files, "epss.jsonl", epssContent, epss.size());
+            putFileMeta(files, "kev.jsonl", kevContent, kev.size());
+        }
 
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -1383,12 +1423,14 @@ public class AirgappedSnapshotService {
                 writeZipEntry(zos, "meta.json", writeJson(meta));
                 writeZipEntry(zos, "osv.jsonl", osvContent);
                 writeZipEntry(zos, "unresolved.jsonl", unresolved.toString());
-                writeZipEntry(zos, "cocoapods-specs.jsonl", specsContent.toString());
-                writeZipEntry(zos, "depsdev.jsonl", depsdevContent);
-                writeZipEntry(zos, "github-advisory.jsonl", githubAdvisoryContent);
-                writeZipEntry(zos, "nvd.jsonl", nvdContent);
-                writeZipEntry(zos, "epss.jsonl", epssContent);
-                writeZipEntry(zos, "kev.jsonl", kevContent);
+                if (!restricted) {
+                    writeZipEntry(zos, "cocoapods-specs.jsonl", specsContent.toString());
+                    writeZipEntry(zos, "depsdev.jsonl", depsdevContent);
+                    writeZipEntry(zos, "github-advisory.jsonl", githubAdvisoryContent);
+                    writeZipEntry(zos, "nvd.jsonl", nvdContent);
+                    writeZipEntry(zos, "epss.jsonl", epssContent);
+                    writeZipEntry(zos, "kev.jsonl", kevContent);
+                }
             }
             log.info("[Snapshot] Exported offline snapshot bundleId={}: {} libraries, {} osv, {} github-advisory, {} nvd, {} version records, {} advisories, {} epss, {} kev",
                     bundleId, exportedLibraries, osvRecords, githubAdvisoryRecords, nvdRecords,

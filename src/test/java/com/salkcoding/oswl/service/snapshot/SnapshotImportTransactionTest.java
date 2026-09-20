@@ -29,6 +29,61 @@ import static org.assertj.core.api.Assertions.*;
 class SnapshotImportTransactionTest {
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void attributedExportFiltersOtherSourcesAndKeepsPartialCoverage(boolean changedEvidence) throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        String name = "restricted-export-" + UUID.randomUUID();
+        String id = "GHSA-2345-6789-cfgh";
+        String source = "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2024/09/" + id + "/" + id + ".json";
+        var original = json.readTree("""
+                {"id":"%s","modified":"2024-09-01T00:00:00Z","credits":[{"name":"fixture author"}],
+                "affected":[{"package":{"ecosystem":"npm","name":"%s"},"database_specific":{"source":"%s"},
+                "ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"2.0.0"}]}]}]}
+                """.formatted(id, name, source));
+        var foreign = json.readTree(original.toString().replace(id, "OTHER-fixture"));
+        String key = "NPM|" + name + "|1.0.0";
+        String payload = json.writeValueAsString(List.of(Map.of("osvId", id, "osvAdvisory", original),
+                Map.of("osvId", "OTHER-fixture", "osvAdvisory", foreign)));
+        entries.saveAndFlush(SnapshotEntry.builder().source("osv").entryKey(key).payload(payload).build());
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder().source("osv")
+                .recordCount(1).importedAt(java.time.LocalDateTime.now()).sourceAsOf(java.time.LocalDate.now()).build());
+        var query = new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", name, "1.0.0");
+        var assessment = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(query)).getFirst();
+        assertThat(assessment.resolved()).isTrue();
+        var library = com.salkcoding.oswl.domain.entity.vulnerability.Library.builder().name(name).version("1.0.0").ecosystem("NPM").build();
+        library.recordLookupOutcomes(Map.of("OSV", "RESOLVED"));
+        library.recordOsvFixAssessment("2.0.0", "SOURCE_FIXED_EVENT", assessment.advisoryRevisions(), Set.of(id, "OTHER-fixture"),
+                java.time.Instant.now().plusSeconds(3600), assessment.advisoryDigests());
+        library = libraries.saveAndFlush(library);
+        cves.saveAndFlush(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder().library(library).ghsaId(id)
+                .cveId("CVE-2026-123450").summary("combined-source-text-must-not-leak").epssScore(.9).kevListed(true)
+                .sources(Set.of(com.salkcoding.oswl.domain.enums.CveSource.OSV, com.salkcoding.oswl.domain.enums.CveSource.NVD)).build());
+        if (changedEvidence) {
+            entries.deleteAll();
+            entries.saveAndFlush(SnapshotEntry.builder().source("osv").entryKey(key)
+                    .payload(payload.replace("fixture author", "changed author")).build());
+        }
+        byte[] bytes = service.exportBundle("github-attributed");
+        Map<String, String> files = new LinkedHashMap<>();
+        try (var zip = new ZipInputStream(new ByteArrayInputStream(bytes))) {
+            ZipEntry file;
+            while ((file = zip.getNextEntry()) != null) files.put(file.getName(), new String(zip.readAllBytes(), StandardCharsets.UTF_8));
+        }
+        assertThat(files.keySet()).containsExactlyInAnyOrder("meta.json", "osv.jsonl", "unresolved.jsonl");
+        assertThat(files.get("osv.jsonl")).doesNotContain("OTHER-fixture", "combined-source-text-must-not-leak");
+        assertThat(exportedMeta(bytes).path("distributionProfile").asText()).isEqualTo("github-attributed");
+        if (changedEvidence) assertThat(files.get("osv.jsonl")).isEmpty();
+        else assertThat(json.readTree(files.get("osv.jsonl").strip()).path("vulns").get(0).path("osvAdvisory")).isEqualTo(original);
+        service.importBundle(new ByteArrayInputStream(bytes));
+        assertThat(service.findUnresolvedKeys(List.of(key))).containsExactly(key);
+        var result = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(query)).getFirst();
+        assertThat(result.resolved()).isFalse();
+        assertThat(result.commonFix().version()).isNull();
+        assertThat(result.vulns()).hasSize(changedEvidence ? 0 : 1);
+        assertThatThrownBy(() -> service.exportBundle("approved")).isInstanceOf(InvalidRequestException.class);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"false,false", "true,false", "false,true", "true,true"})
     void exportKeepsStoredUncertaintyDespiteResolvedLibraryFlag(boolean unresolved, boolean alias) throws Exception {
         String name = "export-coverage-" + UUID.randomUUID();

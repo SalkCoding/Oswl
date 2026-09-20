@@ -21,6 +21,10 @@ public final class BundleDistributionPolicy {
         this.delta = delta;
     }
 
+    public static boolean retainsOriginal(JsonNode original) {
+        return OsvOriginalAttribution.githubSource(original) != null;
+    }
+
     public String profile() {
         return attributed ? "github-attributed" : "unreviewed";
     }
