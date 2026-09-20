@@ -36,6 +36,8 @@
 
 ### 1. 원천별 데이터 권리·재배포 승인 목록 — P0 · [권한 확인]
 
+- **2026-09-21 선언된 GitHub 출처로 제한하는 CLI 프로파일:** `--distribution-profile github-attributed --wanted <파일>`을 추가했다. 이 선택은 OSV만 수집하고 앞서 원출처 경로/주 GHSA ID가 연결된 원본만 출력에 남긴다. 다른 출처 명시는 수집 전에 거절하며, 전체 데이터의 일부만 포함하므로 모든 요청 컴포넌트(남은 공지/빈 결과 포함)를 unresolved로 내보내 전체 탐지 완료·공통 패치 확정을 막는다. 기본 `unreviewed`는 기존 동작을 유지하되 승인으로 표시하지 않는다. manifest에 프로파일을 기록하고 증분 기준의 프로파일 변경을 거절해 전체 번들 재생성을 요구한다. 실제 CLI→H2 전체/증분 반입에서 혼합 출처 중 해당 원본만 보존, known/absent 모두 미확인, 공통 후보 보류, 프로파일 변경 실패와 기존 출력 보존을 확인했다. 옵션 거절/정상 기본값 대조 포함 `test --tests '*Vdb*Test' --tests '*PreviousBundle*Test' --tests '*SnapshotImportTransactionTest' bootJar verifyProdJar` 260건 통과·실패/오류/skip 0, 운영 JAR 검사 통과(44초). 로그 `build/vdb-distribution-profile-checked.log`. 커밋 제목 `feat: restrict cli bundles to attributed github data on request`. 세 언어 Administration 문서 갱신. 기존 공식 GitHub Advisory Database CC-BY-4.0 출처/고지 조건을 적용하며 새 외부 데이터/라이브러리 도입 없음. 선언된 출처에 따른 출력 제한이지 캐시 진위 인증·전체 권리 승인·기존 반입 데이터의 런타임 출처 제한은 아니다. 다른 원천 승인·앱 내보내기/보고서 정책·배포 환경별 지원 명세·실제 PostgreSQL/UI 검증은 잔여다. 전체 항목 완료가 아니다.
+
 - 현재·대상: OSV 원천, GHSA, NVD/CVE, KEV, EPSS, deps.dev, Specs, 내장 Conda 매핑. 일부 고지는 보완됐지만 모든 이용권이 확인된 것은 아니다. 아래 부록 A의 조사 근거를 사용한다.
 - [ ] 수정: 출처별 사내 이용/고객 DB 전달/공개 표시/변형/재배포 조건을 나누고 검증 URL·확인일·권리자·담당자를 기록한다. EPSS·Debian/Alpine·NVD의 미확인 범위, Conda 원본 revision을 해결한다. 확인 불가 시 대체·제외와 커버리지 공백을 명시한다.
 - 선행: 없음. 권한 문의·데이터 도입은 해당 작업의 실제 사용자 승인 범위를 따른다.

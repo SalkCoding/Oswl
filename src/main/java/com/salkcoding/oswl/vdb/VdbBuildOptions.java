@@ -22,7 +22,8 @@ public record VdbBuildOptions(
         Path offlineSources,
         String githubAdvisoryToken,
         String githubApiBase,
-        String nvdApiKey
+        String nvdApiKey,
+        String distributionProfile
 ) {
     static final List<String> ALL_SOURCES = List.of("osv", "epss", "kev", "depsdev");
 
@@ -38,13 +39,17 @@ public record VdbBuildOptions(
         String githubApiBase = System.getenv("OSWL_GITHUB_API_BASE");
         String nvdApiKey = System.getenv("OSWL_NVD_API_KEY");
         String mode = "full";
+        String distributionProfile = "unreviewed";
+        boolean explicitSources = false;
         for (int i = 0; i < args.size(); i++) {
             String a = args.get(i);
             String v = (i + 1 < args.size()) ? args.get(i + 1) : null;
             switch (a) {
+                case "--distribution-profile" -> { distributionProfile = require(v, "--distribution-profile"); i++; }
                 case "--out" -> { out = Path.of(require(v, "--out")); i++; }
                 case "--wanted" -> { wanted = Path.of(require(v, "--wanted")); i++; }
                 case "--sources" -> {
+                    explicitSources = true;
                     sources = parseSelection(v, "--sources");
                     i++;
                 }
@@ -69,6 +74,14 @@ public record VdbBuildOptions(
                 default -> throw new IllegalArgumentException("Unknown option: " + a);
             }
         }
+        if (!Set.of("unreviewed", "github-attributed").contains(distributionProfile))
+            throw new IllegalArgumentException("Unknown distribution profile: " + distributionProfile);
+        if (distributionProfile.equals("github-attributed")) {
+            if (explicitSources && !sources.equals(Set.of("osv")))
+                throw new IllegalArgumentException("github-attributed profile supports only --sources osv");
+            if (wanted == null) throw new IllegalArgumentException("github-attributed profile requires --wanted");
+            sources = Set.of("osv");
+        }
         if (out == null) {
             out = Path.of("oswl-vdb-" + java.time.LocalDate.now() + ".zip");
         }
@@ -88,7 +101,7 @@ public record VdbBuildOptions(
         }
         Path finalSince = mode.equals("delta") ? since : null;
         return new VdbBuildOptions(out, wanted, sources, ecosystems, cacheDir, finalSince, offlineSources,
-                githubAdvisoryToken, githubApiBase, nvdApiKey);
+                githubAdvisoryToken, githubApiBase, nvdApiKey, distributionProfile);
     }
 
     boolean isDelta() {

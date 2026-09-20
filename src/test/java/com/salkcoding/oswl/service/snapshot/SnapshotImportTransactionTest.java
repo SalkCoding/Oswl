@@ -28,6 +28,54 @@ import static org.assertj.core.api.Assertions.*;
         "spring.jpa.database-platform=${OSWL_SNAPSHOT_IMPORT_TEST_DIALECT:org.hibernate.dialect.H2Dialect}"})
 class SnapshotImportTransactionTest {
 
+    @Test void distributionProfileRetainsAttributedFindingsWithoutConfirmingCompleteCoverage(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        String id = "GHSA-2345-6789-cfgh";
+        String source = "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2024/09/" + id + "/" + id + ".json";
+        String known = """
+                {"id":"%s","modified":"2024-09-01T00:00:00Z","affected":[{"package":{"ecosystem":"npm","name":"example"},
+                "database_specific":{"source":"%s"},"ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"2.0.0"}]}]}]}
+                """.formatted(id, source);
+        String other = known.replace(id, "OTHER-fixture").replace(source, "https://example.invalid/source");
+        Files.write(directory.resolve("osv-npm-all.zip"), bundle(Map.of("known.json", known, "other.json", other)));
+        Files.writeString(directory.resolve("osv-npm-all.zip.lastmodified"), java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString());
+        Path wanted = directory.resolve("wanted.jsonl");
+        Files.writeString(wanted, """
+                {"ecosystem":"npm","name":"example","version":"1.0.0"}
+                {"ecosystem":"npm","name":"absent","version":"1.0.0"}
+                """);
+        Path baseline = directory.resolve("base.zip");
+        for (boolean delta : List.of(false, true)) {
+            Path output = delta ? directory.resolve("delta.zip") : baseline;
+            var args = new java.util.ArrayList<>(List.of("build", "--distribution-profile", "github-attributed", "--wanted", wanted.toString(),
+                    "--offline-sources", directory.toString(), "--out", output.toString()));
+            if (delta) args.addAll(List.of("--since", baseline.toString()));
+            int exit = org.springframework.test.util.ReflectionTestUtils.invokeMethod(new com.salkcoding.oswl.vdb.VdbBuilderCli(),
+                    "run", (Object) args.toArray(String[]::new));
+            assertThat(exit).isZero();
+            byte[] bytes = Files.readAllBytes(output);
+            assertThat(exportedMeta(bytes).path("distributionProfile").asText()).isEqualTo("github-attributed");
+            assertThat(exportedMeta(bytes).path("resolvedCount").asInt()).isZero();
+            service.importBundle(new ByteArrayInputStream(bytes), delta ? AirgappedSnapshotService.ImportMode.MERGE : AirgappedSnapshotService.ImportMode.REPLACE);
+            assertThat(service.findOsvVulns(List.of("NPM|example|1.0.0")).get("NPM|example|1.0.0"))
+                    .extracting(AirgappedSnapshotService.SnapshotVuln::osvId).containsExactly(id);
+            var results = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(
+                    new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "example", "1.0.0"),
+                    new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "absent", "1.0.0")));
+            assertThat(results).allSatisfy(result -> {
+                assertThat(result.resolved()).isFalse();
+                assertThat(result.commonFix().version()).isNull();
+            });
+        }
+        Path rejected = directory.resolve("rejected.zip");
+        Files.writeString(rejected, "preserve");
+        int exit = org.springframework.test.util.ReflectionTestUtils.invokeMethod(new com.salkcoding.oswl.vdb.VdbBuilderCli(),
+                "run", (Object) new String[] {"build", "--sources", "osv", "--wanted", wanted.toString(), "--since", baseline.toString(),
+                        "--offline-sources", directory.toString(), "--out", rejected.toString()});
+        assertThat(exit).isEqualTo(1);
+        assertThat(Files.readString(rejected)).isEqualTo("preserve");
+    }
+
     @Test void manyAttributedOriginalsRemainImportableWithoutLosingSourceLinks(
             @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
         Map<String, String> originals = new LinkedHashMap<>();

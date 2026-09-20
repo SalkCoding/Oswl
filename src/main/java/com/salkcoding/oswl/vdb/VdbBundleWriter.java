@@ -41,12 +41,18 @@ final class VdbBundleWriter {
 
     private final ObjectMapper mapper;
     private final java.util.Set<String> collectedSources;
+    private final String distributionProfile;
 
     VdbBundleWriter(ObjectMapper mapper) {
         this(mapper, java.util.Set.copyOf(VdbBuildOptions.ALL_SOURCES));
     }
 
     VdbBundleWriter(ObjectMapper mapper, java.util.Set<String> collectedSources) {
+        this(mapper, collectedSources, "unreviewed");
+    }
+
+    VdbBundleWriter(ObjectMapper mapper, java.util.Set<String> collectedSources, String distributionProfile) {
+        this.distributionProfile = distributionProfile;
         this.mapper = mapper;
         this.collectedSources = java.util.Set.copyOf(collectedSources);
     }
@@ -65,6 +71,15 @@ final class VdbBundleWriter {
                int unresolvedComponentCount, WantedListInfo wantedListInfo,
                List<WantedComponent> unresolvedComponents,
                PreviousBundleReader.PreviousBundle previous) throws IOException {
+
+        if (previous != null && !distributionProfile.equals(previous.distributionProfile()))
+            throw new IOException("Delta distribution profile differs; build a new full bundle");
+        if (distributionProfile.equals("github-attributed")) {
+            if (!java.util.Set.of("osv").containsAll(collectedSources)
+                    || osvByComponentKey.values().stream().flatMap(List::stream)
+                    .anyMatch(v -> OsvOriginalAttribution.githubSource(v.osvAdvisory()) == null))
+                throw new IOException("Distribution profile contains data without supported GitHub attribution");
+        }
 
         // Missing records imply deletion only when both builds describe the same wanted inventory.
         if (previous != null && (collectedSources.contains("osv") || collectedSources.contains("depsdev"))
@@ -154,6 +169,7 @@ final class VdbBundleWriter {
         }
         meta.put("builtAt", builtAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         meta.put("builder", BUILDER_VERSION);
+        meta.put("distributionProfile", distributionProfile);
         if (componentCollection && wantedListInfo != null) {
             meta.put("wantedListId", wantedListInfo.wantedListId());
             meta.put("wantedCount", wantedListInfo.wantedCount());
@@ -162,6 +178,8 @@ final class VdbBundleWriter {
         ObjectNode dataNotices = meta.putObject("dataNotices");
         dataNotices.put("scope", "These notices are not a redistribution clearance for the bundle or its other data sources. "
                 + "The OsWL software license does not relicense third-party data. Retain supplied record-level credits and notices.");
+        if (distributionProfile.equals("github-attributed"))
+            dataNotices.put("coverage", "Source-filtered findings only. All requested components remain unresolved for complete coverage. This profile does not certify cache authenticity or grant additional rights.");
         dataNotices.put("changes", "Bundle records are selected and normalized from upstream data for requested components. "
                 + "Summary fields may be omitted or combined across sources; retained osvAdvisory objects preserve supplied fields. "
                 + "Delta bundles contain only changes relative to their base bundle.");

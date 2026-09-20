@@ -87,6 +87,7 @@ public final class VdbBuilderCli {
                 Usage:
                   oswl-vdb build --out <bundle.zip> [--wanted <wanted.jsonl>] [--sources osv,epss,kev,depsdev]
                                  [--ecosystems MAVEN,NPM,...] [--cache-dir <dir>]
+                                 [--distribution-profile unreviewed|github-attributed]
                                  [--mode delta --since <previous-bundle.zip>]
                                  [--offline-sources <dir>]  (no network at all; osv/epss/kev only)
                   oswl-vdb verify <bundle.zip>
@@ -208,6 +209,23 @@ public final class VdbBuilderCli {
             return 1;
         }
 
+        if (opts.distributionProfile().equals("github-attributed")) {
+            var selected = new java.util.LinkedHashMap<String, List<com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln>>();
+            osvVulns.forEach((key, findings) -> {
+                var retained = findings.stream().filter(v -> OsvOriginalAttribution.githubSource(v.osvAdvisory()) != null).toList();
+                if (!retained.isEmpty()) selected.put(key, retained);
+            });
+            osvVulns = selected;
+            var incomplete = new java.util.LinkedHashSet<>(osvUnresolvedKeys);
+            for (var component : wanted) {
+                String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(
+                        component.ecosystem(), component.name(), component.version());
+                if (key != null) incomplete.add(key);
+            }
+            osvUnresolvedKeys = incomplete;
+            unresolvedCount = incomplete.size();
+        }
+
         VdbBundleWriter.WantedListInfo wantedListInfo = null;
         List<WantedComponent> unresolvedComponents = List.of();
         if (opts.wantedList() != null && (effectiveSources.contains("osv") || effectiveSources.contains("depsdev"))) {
@@ -228,7 +246,7 @@ public final class VdbBuilderCli {
             collectedSources.remove("osv");
             collectedSources.remove("depsdev");
         }
-        new VdbBundleWriter(mapper, collectedSources).write(opts.out(), osvVulns, osvAsOf, depsdevVersions, depsdevAdvisories,
+        new VdbBundleWriter(mapper, collectedSources, opts.distributionProfile()).write(opts.out(), osvVulns, osvAsOf, depsdevVersions, depsdevAdvisories,
                 depsdevSkippedSystems,
                 epssScores, epssAsOf, kevIds, kevAsOf, unresolvedCount, wantedListInfo, unresolvedComponents, previous);
 

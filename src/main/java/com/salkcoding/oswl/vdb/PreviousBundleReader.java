@@ -25,7 +25,11 @@ import java.util.zip.CRC32;
  */
 final class PreviousBundleReader {
 
-    record PreviousBundle(String bundleId, Map<String, Map<String, String>> linesByFileAndKey, String wantedListId) {}
+    record PreviousBundle(String bundleId, Map<String, Map<String, String>> linesByFileAndKey, String wantedListId, String distributionProfile) {
+        PreviousBundle(String bundleId, Map<String, Map<String, String>> linesByFileAndKey, String wantedListId) {
+            this(bundleId, linesByFileAndKey, wantedListId, "unreviewed");
+        }
+    }
 
     static PreviousBundle read(Path bundlePath, ObjectMapper mapper) throws IOException {
         return read(bundlePath, mapper, true);
@@ -71,6 +75,7 @@ final class PreviousBundleReader {
                 .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
         String bundleId = null;
         String wantedListId = null;
+        String distributionProfile = "unreviewed";
         if (!baseline && metaBytes == null) throw new IOException("Verification requires a files manifest");
         if (metaBytes != null) {
             JsonNode meta = strictReader.readTree(metaBytes);
@@ -82,6 +87,12 @@ final class PreviousBundleReader {
                 }
             }
             if (!baseline && !meta.path("files").isObject()) throw new IOException("Verification requires a files manifest");
+            if (meta.has("distributionProfile")) {
+                var profile = meta.path("distributionProfile");
+                if (!profile.isTextual() || !java.util.Set.of("unreviewed", "github-attributed").contains(profile.asText()))
+                    throw new IOException("Unknown bundle distribution profile");
+                distributionProfile = profile.asText();
+            }
             verifyManifest(meta, files);
             bundleId = meta.path("bundleId").asText(null);
             JsonNode wantedId = meta.path("wantedListId");
@@ -117,7 +128,7 @@ final class PreviousBundleReader {
             }
             result.put(e.getKey(), keyed);
         }
-        return new PreviousBundle(bundleId, result, wantedListId);
+        return new PreviousBundle(bundleId, result, wantedListId, distributionProfile);
     }
 
     private static void verifyManifest(JsonNode meta, Map<String, byte[]> files) throws IOException {
