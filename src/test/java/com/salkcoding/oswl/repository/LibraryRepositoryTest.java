@@ -1,6 +1,15 @@
 package com.salkcoding.oswl.repository;
 
 import com.salkcoding.oswl.domain.entity.vulnerability.Library;
+import com.salkcoding.oswl.domain.entity.project.Project;
+import com.salkcoding.oswl.domain.entity.scan.ScanComponent;
+import com.salkcoding.oswl.domain.entity.scan.ScanResult;
+import com.salkcoding.oswl.domain.entity.vulnerability.Cve;
+import com.salkcoding.oswl.domain.enums.CveSource;
+import com.salkcoding.oswl.repository.scan.ScanComponentRepository;
+import com.salkcoding.oswl.repository.scan.ScanResultRepository;
+import com.salkcoding.oswl.repository.vulnerability.CveRepository;
+import com.salkcoding.oswl.repository.project.ProjectRepository;
 import com.salkcoding.oswl.domain.enums.LicenseStatus;
 import com.salkcoding.oswl.repository.vulnerability.LibraryRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -8,6 +17,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
+
+import jakarta.persistence.EntityManager;
+import org.hibernate.SessionFactory;
+import java.util.List;
+import java.util.Set;
 
 import java.util.Optional;
 
@@ -19,6 +33,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class LibraryRepositoryTest {
 
     @Autowired LibraryRepository libraryRepository;
+    @Autowired CveRepository cveRepository;
+    @Autowired ProjectRepository projectRepository;
+    @Autowired ScanResultRepository scanResultRepository;
+    @Autowired ScanComponentRepository scanComponentRepository;
+    @Autowired EntityManager entityManager;
 
     @Test
     @DisplayName("name+version+ecosystem 조합으로 라이브러리를 찾을 수 있다")
@@ -63,6 +82,65 @@ class LibraryRepositoryTest {
 
         assertThat(found).isPresent();
         assertThat(found.get().getLicenseStatus()).isEqualTo(LicenseStatus.UNKNOWN);
+    }
+
+    @Test
+    @DisplayName("CVE with multiple sources is loaded once by every CVE fetch query")
+    void cveWithMultipleSourcesIsNotDuplicatedByCveFetchQueries() {
+        Project project = projectRepository.save(Project.builder().name("library-repository-cve-sources").build());
+        ScanResult scan = scanResultRepository.save(ScanResult.builder().project(project).build());
+        Library library = libraryRepository.save(lib("multi-source-cve", "1.0.0", "CONAN"));
+        cveRepository.save(Cve.builder().library(library).cveId("CVE-2026-7654")
+                .sources(Set.of(CveSource.NVD, CveSource.CPE)).build());
+        scanComponentRepository.save(ScanComponent.builder().scanResult(scan).library(library).build());
+        libraryRepository.flush();
+        entityManager.clear();
+
+        assertLoadedOnce(libraryRepository.findByIdInWithCves(List.of(library.getId())));
+        entityManager.clear();
+        assertLoadedOnce(libraryRepository.findByScanResultIdWithCves(scan.getId()));
+        entityManager.clear();
+        assertLoadedOnce(libraryRepository.findByScanResultIdInWithCves(List.of(scan.getId())));
+    }
+
+    @Test
+    @DisplayName("bulk CVE source loading stays batched")
+    void bulkCveSourceLoadingStaysBatched() {
+        Library library = libraryRepository.save(lib("bulk-multi-source-cve", "1.0.0", "CONAN"));
+        for (int i = 0; i < 60; i++) {
+            cveRepository.save(Cve.builder().library(library)
+                    .cveId("CVE-2026-" + String.format("%04d", i))
+                    .fixVersionConflictCandidates(Set.of("2.0.0", "3.0.0"))
+                    .sources(Set.of(CveSource.NVD, CveSource.CPE)).build());
+        }
+        libraryRepository.flush();
+        entityManager.clear();
+
+        var statistics = entityManager.getEntityManagerFactory().unwrap(SessionFactory.class).getStatistics();
+        boolean previouslyEnabled = statistics.isStatisticsEnabled();
+        statistics.setStatisticsEnabled(true);
+        try {
+            statistics.clear();
+            List<Library> found = libraryRepository.findByIdInWithCves(List.of(library.getId()));
+            assertThat(found).singleElement().satisfies(result -> {
+                assertThat(result.getCves()).hasSize(60)
+                        .extracting(Cve::getCveId).doesNotHaveDuplicates();
+                assertThat(result.getCves()).allSatisfy(cve -> {
+                    assertThat(cve.getSources()).containsExactlyInAnyOrder(CveSource.NVD, CveSource.CPE);
+                    assertThat(cve.getFixVersionConflictCandidates()).containsExactlyInAnyOrder("2.0.0", "3.0.0");
+                });
+            });
+            assertThat(statistics.getPrepareStatementCount()).isLessThanOrEqualTo(5);
+        } finally {
+            statistics.setStatisticsEnabled(previouslyEnabled);
+        }
+    }
+
+    private static void assertLoadedOnce(List<Library> libraries) {
+        assertThat(libraries).singleElement().satisfies(library -> {
+            assertThat(library.getCves()).singleElement().satisfies(cve ->
+                    assertThat(cve.getSources()).containsExactlyInAnyOrder(CveSource.NVD, CveSource.CPE));
+        });
     }
 
     // ── 헬퍼 ─────────────────────────────────────────────────────────────

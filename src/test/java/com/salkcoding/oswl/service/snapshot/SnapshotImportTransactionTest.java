@@ -1072,6 +1072,86 @@ class SnapshotImportTransactionTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void nvdApplicabilityAndConfidenceSurviveExportImport(boolean missingConfigurations) throws Exception {
+        String cpe = "cpe:2.3:a:fixture:product:1.0:*:*:*:*:*:*:*";
+        String cveId = "CVE-2026-7654";
+        String configurations = """
+                ,"configurations":[{"operator":"OR","negate":false,"nodes":[
+                  {"operator":"AND","negate":false,"cpeMatch":[{"vulnerable":false,"criteria":"%s","versionStartIncluding":"1.0","versionEndExcluding":"2.0"}]},
+                  {"operator":"OR","negate":true,"cpeMatch":[{"vulnerable":false,"criteria":"%s"}]}
+                ]}]
+                """.formatted(cpe, cpe);
+        String response = """
+                {"startIndex":0,"totalResults":1,"resultsPerPage":1,"vulnerabilities":[{"cve":{
+                  "id":"%s","sourceIdentifier":"fixture@nvd","lastModified":"2026-01-01T00:00:00Z",
+                  "vulnStatus":"Analyzed","descriptions":[{"lang":"en","value":"fixture finding"}]%s
+                }}]}
+                """.formatted(cveId, missingConfigurations ? "" : configurations);
+        var builder = org.springframework.web.client.RestClient.builder();
+        var server = org.springframework.test.web.client.MockRestServiceServer.bindTo(builder).build();
+        server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo(
+                        "https://services.nvd.nist.gov/rest/json/cves/2.0?cpeName="
+                                + java.net.URLEncoder.encode(cpe, StandardCharsets.UTF_8)))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(
+                        response, org.springframework.http.MediaType.APPLICATION_JSON));
+        var online = new com.salkcoding.oswl.client.NvdClient();
+        org.springframework.test.util.ReflectionTestUtils.setField(online, "restClient", builder.build());
+        org.springframework.test.util.ReflectionTestUtils.setField(online, "minIntervalMs", 0L);
+        var finding = online.findByCpeName(cpe, com.salkcoding.oswl.domain.enums.MatchConfidence.HIGH).getFirst();
+        assertThat(finding.cveId()).isEqualTo(cveId);
+        assertThat(finding.matchConfidence()).isEqualTo(com.salkcoding.oswl.domain.enums.MatchConfidence.HIGH);
+        assertThat(finding.nvdApplicability()).isNotNull();
+        if (missingConfigurations) assertThat(finding.nvdApplicability()).doesNotContain("configurations");
+        else assertThat(finding.nvdApplicability()).contains("versionStartIncluding", "vulnerable");
+
+        String name = "nvd-roundtrip-" + UUID.randomUUID();
+        var library = libraries.saveAndFlush(com.salkcoding.oswl.domain.entity.vulnerability.Library.builder()
+                .name(name).version("1.0.0").ecosystem("CONAN").build());
+        cves.saveAndFlush(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder()
+                .library(library).cveId(finding.cveId()).summary(finding.description())
+                .matchConfidence(finding.matchConfidence()).nvdApplicability(finding.nvdApplicability())
+                .sources(Set.of(com.salkcoding.oswl.domain.enums.CveSource.NVD,
+                        com.salkcoding.oswl.domain.enums.CveSource.CPE)).build());
+        library.recordLookupOutcomes(Map.of("NVD", "RESOLVED"));
+        libraries.saveAndFlush(library);
+
+        byte[] exported = service.exportBundle();
+        service.importBundle(new ByteArrayInputStream(exported));
+        String key = AirgappedSnapshotService.componentKey("CONAN", name, "1.0.0");
+        var offline = new com.salkcoding.oswl.client.NvdClient(service, true, null,
+                java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1));
+        var lookup = offline.findSnapshotByComponentKeys(List.of(key)).get(key);
+        assertThat(lookup).isNotNull();
+        assertThat(lookup.complete()).isFalse(); // export has no verified NVD source date
+        assertThat(lookup.findings()).singleElement().satisfies(actual -> {
+            assertThat(actual.cveId()).isEqualTo(finding.cveId());
+            assertThat(actual.matchConfidence()).isEqualTo(finding.matchConfidence());
+            assertThat(actual.nvdApplicability()).isEqualTo(finding.nvdApplicability());
+        });
+        server.verify();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"{\"vulnStatus\":\"Rejected\"}", "[]", "true", "1", "\" \""})
+    void nonTextNvdApplicabilityCannotBypassImportRollback(String applicability) {
+        String oldKey = "CONAN|old-evidence|1.0.0";
+        entries.saveAndFlush(SnapshotEntry.builder().source("nvd").entryKey(oldKey)
+                .payload("[{\"cveId\":\"CVE-2026-7653\"}]").build());
+        String line = "{\"ecosystem\":\"conan\",\"name\":\"fixture\",\"version\":\"1.0.0\","
+                + "\"vulns\":[{\"cveId\":\"CVE-2026-7654\",\"nvdApplicability\":" + applicability + ","
+                + "\"matchConfidence\":\"HIGH\"}]}";
+        for (var mode : AirgappedSnapshotService.ImportMode.values()) {
+            assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of("nvd.jsonl", line))), mode))
+                    .isInstanceOf(InvalidRequestException.class);
+            assertThat(entries.countBySource("nvd")).isEqualTo(1);
+            assertThat(service.findNvdVulns(List.of(oldKey)).get(oldKey)).singleElement()
+                    .satisfies(v -> assertThat(v.cveId()).isEqualTo("CVE-2026-7653"));
+            assertOldSource();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"0,false", "7,false", "8,true", "40,true", "-1,true", "999,true"})
     void offlineGithubRetainsFindingsButWithholdsStaleCoverageAndFixes(int age, boolean stale) {
         String key = AirgappedSnapshotService.componentKey("npm", "fixture", "1.0.0");

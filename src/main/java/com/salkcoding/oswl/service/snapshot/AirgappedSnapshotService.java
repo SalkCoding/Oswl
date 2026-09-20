@@ -953,6 +953,9 @@ public class AirgappedSnapshotService {
             for (JsonNode v : node.path("vulns")) {
                 if (!v.isObject() || (isBlank(text(v, "osvId")) && isBlank(text(v, "cveId"))))
                     throw new InvalidRequestException("Snapshot vulnerability requires an advisory identity");
+                if (v.hasNonNull("nvdApplicability") && (!v.path("nvdApplicability").isTextual()
+                        || v.path("nvdApplicability").asText().isBlank()))
+                    throw new InvalidRequestException("Snapshot NVD evidence must be a nonblank string");
                 vulns.add(new SnapshotVuln(text(v, "osvId"), text(v, "cveId"),
                         text(v, "summary"), text(v, "fixVersion"), text(v, "cweId"),
                         text(v, "severity"), number(v, "cvssScore"), text(v, "cvss3Vector"), text(v, "matchConfidence"), readFixConflicts(v), v.get("osvAdvisory"), text(v, "nvdApplicability")));
