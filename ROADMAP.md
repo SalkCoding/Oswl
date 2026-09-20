@@ -6,6 +6,8 @@
 
 ## 실행 규칙과 출시 기준
 
+- **2026-09-21 앱 출력 제한·EPSS 고지 누적 검증:** `e64860cd`까지의 제한 프로파일 출력, 완성 ZIP 전송 제한 검사/고압축 항목 원문 보존, EPSS 고지 전파를 포함해 Windows/Java 25의 `.\gradlew.bat build verifyProdJar` 성공(2분 45초). 전체 5,113건 중 5,099건 통과·선택/환경 의존 skip 14건·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/roadmap-export-notices-build.log`. 새 NVD 반입 회귀 작업 전에 컴파일한 현재 HEAD 기준이며 이후 변경의 검증으로 확대하지 않는다. 별도 uiTest·실제 공급자·PostgreSQL·최대 용량 부하·전체 데이터 재배포 권한 검증은 포함하지 않았다. 전체 로드맵은 미완료다.
+
 - **2026-09-21 프로파일 저장·출처 교체·내보내기 누적 검증:** `243112f2`까지의 증분 기준 선언 필수화/일반 MERGE 기준 해제, V46 프로파일 저장과 혼합 방지, 남아 있는 제한 프로파일 OSV의 미확인 상태 보존 및 내보내기에서 npm/SwiftURL 미확인 상태 유지 변경을 포함해 Windows/Java 25의 `.\gradlew.bat build verifyProdJar` 성공(2분 40초). 전체 5,103건 중 5,089건 통과·선택/환경 의존 skip 14건·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/snapshot-profile-export-cumulative-build.log`. 앞선 실제 PostgreSQL 결과는 1번/38번의 해당 기록을 따른다. 이 실행은 별도 uiTest·실제 공급자·전체 마이그레이션 체인 또는 모든 데이터 이용권을 검증한 것은 아니다. 작업 트리 변경 없이 검증했으며 문서만 기록한다. 앱 exportBundle은 아직 출처가 섞인 스캔 데이터를 재구성하므로 CLI github-attributed와 같은 제한 출력 보장을 제공하지 않는 것이 다음 작업이다. 커밋 제목 `docs: record cumulative snapshot profile and export validation`. 전체 로드맵은 미완료 상태를 유지한다.
 
 - **2026-09-21 프로파일·증분 미확인 상태 누적 검증:** `bfabb357`까지의 CLI/앱 공통 프로파일 검사, 엄격한 메타데이터 파싱 및 증분 반입 후 미확인 상태 보존을 포함해 Windows/Java 25의 `.\gradlew.bat build verifyProdJar` 성공(2분 44초). 전체 5,077건 중 5,063건 통과·선택/환경 의존 skip 14건·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/profile-coverage-cumulative-build.log`. PostgreSQL 반입 185건 별도 검증 근거는 1번에 기록했다. uiTest·실제 공급자 호출은 이번 실행에 포함하지 않았다. 새 데이터/라이브러리 또는 권리 승인 확대 없음. 전체 로드맵과 출처별 재배포 정책은 미완료다. 커밋 제목 `docs: record postgres and cumulative profile validation`.
