@@ -27,6 +27,78 @@ import static org.assertj.core.api.Assertions.*;
         "spring.datasource.password=${OSWL_SNAPSHOT_IMPORT_TEST_PASSWORD:}",
         "spring.jpa.database-platform=${OSWL_SNAPSHOT_IMPORT_TEST_DIALECT:org.hibernate.dialect.H2Dialect}"})
 class SnapshotImportTransactionTest {
+    @Test
+    @org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable(named = "OSWL_VERIFY_OSV_IMPORT", matches = "true")
+    void officialOsvResultsMatchAfterActualBundleImport() throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var versions = List.of("4.0.3", "4.0.4");
+        var queries = versions.stream().map(version -> new com.salkcoding.oswl.client.OsvClient.OsvQuery(
+                "npm", "form-data", version)).toList();
+        var online = new com.salkcoding.oswl.client.OsvClient().queryBatch(queries);
+        assertThat(online).hasSize(versions.size()).allSatisfy(result -> assertThat(result.resolved()).isTrue());
+        var originals = new LinkedHashMap<String, com.fasterxml.jackson.databind.JsonNode>();
+        try (var http = java.net.http.HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(15)).build()) {
+            for (var result : online) {
+                for (String id : result.advisoryRevisions().keySet()) {
+                    assertThat(id).matches("GHSA-[23456789cfghjmpqrvwx]{4}-[23456789cfghjmpqrvwx]{4}-[23456789cfghjmpqrvwx]{4}");
+                    if (!originals.containsKey(id)) {
+                        var response = http.send(java.net.http.HttpRequest.newBuilder(
+                                        java.net.URI.create("https://api.osv.dev/v1/vulns/" + id))
+                                .timeout(java.time.Duration.ofSeconds(20)).GET().build(), java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+                        assertThat(response.statusCode()).isEqualTo(200);
+                        originals.put(id, json.reader().with(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                                .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(response.body()));
+                    }
+                    var original = originals.get(id);
+                    assertThat(original.path("id").asText()).isEqualTo(id);
+                    assertThat(original.path("modified").asText()).isEqualTo(result.advisoryRevisions().get(id));
+                    assertThat(com.salkcoding.oswl.vdb.OsvOriginalDigest.of(original)).isEqualTo(result.advisoryDigests().get(id));
+                }
+            }
+        }
+        assertThat(originals).containsKey("GHSA-fjxv-7rqg-78g4");
+        Map<String, List<AirgappedSnapshotService.SnapshotVuln>> findings = new LinkedHashMap<>();
+        Set<String> unknown = new LinkedHashSet<>();
+        var bulkConstructor = Class.forName("com.salkcoding.oswl.vdb.OsvBulkSource")
+                .getDeclaredConstructor(com.fasterxml.jackson.databind.ObjectMapper.class);
+        bulkConstructor.setAccessible(true);
+        var bulkSource = bulkConstructor.newInstance(json);
+        for (var original : originals.values()) {
+            org.springframework.test.util.ReflectionTestUtils.invokeMethod(bulkSource,
+                    "processVulnEntry", original.toString().getBytes(StandardCharsets.UTF_8), "NPM",
+                    Map.of("form-data", Set.copyOf(versions)), findings, unknown);
+        }
+        assertThat(unknown).isEmpty();
+        var lines = new ArrayList<String>();
+        for (String version : versions) {
+            var vulns = findings.getOrDefault("NPM|form-data|" + version, List.of());
+            // Bulk retention permits originals only for the supported attributed GitHub source.
+            assertThat(vulns).allSatisfy(v -> assertThat(v.osvAdvisory()).isEqualTo(originals.get(v.osvId())).isNotNull());
+            lines.add(json.writeValueAsString(Map.of("ecosystem", "npm", "name", "form-data", "version", version, "vulns", vulns)));
+        }
+        String rows = String.join("\n", lines);
+        String hash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(rows.getBytes(StandardCharsets.UTF_8)));
+        String meta = json.writeValueAsString(Map.of("formatVersion", 2,
+                "sources", Map.of("osv", Map.of("asOf", java.time.LocalDate.now().toString())),
+                "files", Map.of("osv.jsonl", Map.of("sha256", hash, "lines", lines.size()))));
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("meta.json", meta, "osv.jsonl", rows))));
+        var offline = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(queries);
+        for (int i = 0; i < versions.size(); i++) {
+            assertThat(offline.get(i).resolved()).isTrue();
+            assertThat(offline.get(i).vulns()).containsExactlyInAnyOrderElementsOf(online.get(i).vulns());
+            assertThat(offline.get(i).commonFix()).isEqualTo(online.get(i).commonFix());
+            assertThat(offline.get(i).advisoryRevisions()).isEqualTo(online.get(i).advisoryRevisions());
+            assertThat(offline.get(i).advisoryDigests()).isEqualTo(online.get(i).advisoryDigests());
+            assertThat(offline.get(i).validUntil()).isAfter(java.time.Instant.now());
+            System.out.println("Imported official OSV parity: form-data " + versions.get(i)
+                    + " revisions=" + online.get(i).advisoryRevisions() + " digests=" + online.get(i).advisoryDigests());
+        }
+        assertThat(offline.getFirst().vulns()).anySatisfy(v -> {
+            assertThat(v.osvId()).isEqualTo("GHSA-fjxv-7rqg-78g4");
+            assertThat(v.fixVersion()).isEqualTo("4.0.4");
+        });
+        assertThat(offline.getLast().vulns()).noneMatch(v -> "GHSA-fjxv-7rqg-78g4".equals(v.osvId()));
+    }
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"online,0", "offline,0", "offline,8", "offline,999"})

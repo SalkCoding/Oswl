@@ -1226,6 +1226,8 @@
 
 ### 43. 동일 revision의 온라인·망분리 동등성 — P1 · [출시 필수 검증]
 
+- **2026-09-21 공식 OSV→실제 ZIP 반입→DB 오프라인 조회 동등성:** SnapshotImportTransactionTest.officialOsvResultsMatchAfterActualBundleImport를 OSWL_VERIFY_OSV_IMPORT=true일 때만 실행하는 읽기 전용 외부 검증으로 추가했다. 실제 OSV에서 공개 form-data 4.0.3/4.0.4를 조회하고, 조회 결과와 같은 revision·digest의 원문만 사용한다. 기존 bulk 변환의 GitHub 원문 보존 조건을 통과해 원문이 유지되는지 확인한 뒤 체크섬/기준일 metadata를 가진 메모리 ZIP을 실제 AirgappedSnapshotService로 반입한다. 실제 repository를 사용하는 오프라인 클라이언트의 resolved·발견·공통 수정·revision·digest를 온라인과 비교했다. H2 1건 통과(28초), 별도 PostgreSQL 15.19 DB 1건 통과(1분5초), 모두 실패/오류/skip 0. GHSA-fjxv-7rqg-78g4는 4.0.3에서 수정 4.0.4, 4.0.4에서는 제외됐으며 별도 GHSA-hmw2-7cc7-3qxx는 남아 다른 공지를 안전하다고 간주하지 않았다. 로그 `build/official-osv-import-h2.log`, `build/pg-verification/official-osv-import-pg.log`; 연결·실제 revision/digest XML `build/pg-verification/official-osv-import-{h2,pg}.xml`. 전용 DB 삭제 후 카탈로그 0건과 직접 시작한 서버 종료를 확인했다. 커밋 제목 `test: verify official osv parity through real bundle imports`. 원문은 메모리 ZIP과 임시 테스트 DB에만 사용하고 fixture/배포물로 추가하지 않았다. 기존 GitHub 출처 식별·원문 고지 보존 제한을 그대로 사용하며 이 테스트가 전체 OSV 데이터의 재배포 권한을 승인하지 않는다. 앱 코드를 변경하지 않았고 전체 build·브라우저·다른 생태계/공급자 및 전체 dump coverage 동등성을 검증한 것은 아니므로 항목 전체 완료로 표시하지 않는다.
+
 - 현재·대상: 현재 live와 offline matcher/데이터 범위가 다르므로 동일 정확도를 보장하지 않는다.
 - [ ] 수정: 같은 inventory/engine/rule/DB/policy revision을 고정해 결과·fixed 제안·coverage·reason·원문 출처를 대조한다. 외부 차단 환경에서 신규 package/version, stale·실패·철회·부재 자료를 검증한다.
 - 선행: 5·10~38번 중 지원 프로파일의 필수 기능, 42번 정답 집합.
