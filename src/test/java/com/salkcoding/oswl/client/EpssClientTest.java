@@ -14,6 +14,27 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class EpssClientTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
+    void normalizesValidIdentitiesAndNeverQueriesMalformedOnes(boolean offline) {
+        var ids = java.util.Arrays.asList(null, "", "CVE-2026-1", "CVE-2026-1000&limit=999", "GHSA-test",
+                " cve-2026-1000 ", "CVE-2026-1000", "CVE-2026-1234567");
+        var expectedIds = List.of("CVE-2026-1000", "CVE-2026-1234567");
+        var scores = java.util.Map.of("CVE-2026-1000", 0.0, "CVE-2026-1234567", 0.5);
+        var snapshot = org.mockito.Mockito.mock(com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.class);
+        org.mockito.Mockito.when(snapshot.readEpssSnapshot(expectedIds)).thenReturn(scores);
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        if (!offline) server.expect(requestTo("https://api.first.org/data/v1/epss?cve=CVE-2026-1000,CVE-2026-1234567"))
+                .andRespond(withSuccess("{\"data\":[{\"cve\":\"CVE-2026-1000\",\"epss\":\"0\"},{\"cve\":\"CVE-2026-1234567\",\"epss\":\"0.5\"}]}", MediaType.APPLICATION_JSON));
+        var client = new EpssClient(snapshot, offline);
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        assertThat(client.fetchScores(ids)).isEqualTo(scores);
+        if (offline) org.mockito.Mockito.verify(snapshot).readEpssSnapshot(expectedIds);
+        else org.mockito.Mockito.verifyNoInteractions(snapshot);
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     void queriesEveryBatchAndPreservesLaterResultsAfterFailure(boolean firstFails) throws Exception {
         var ids = java.util.stream.IntStream.range(1000, 1051).mapToObj(i -> "CVE-2026-" + i).toList();
         var builder = RestClient.builder();

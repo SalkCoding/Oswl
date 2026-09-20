@@ -55,8 +55,9 @@ public class EpssClient {
     public Map<String, Double> fetchScores(List<String> cveIds) {
         if (cveIds == null || cveIds.isEmpty()) return Map.of();
         List<String> ids = cveIds.stream()
-                .filter(id -> id != null && id.startsWith("CVE-"))
-                .map(String::strip)
+                .filter(java.util.Objects::nonNull)
+                .map(id -> id.strip().toUpperCase(java.util.Locale.ROOT))
+                .filter(NvdClient::isValidCveId)
                 .distinct()
                 .toList();
         if (ids.isEmpty()) return Map.of();
