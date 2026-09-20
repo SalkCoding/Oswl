@@ -76,6 +76,7 @@ final class PreviousBundleReader {
         String bundleId = null;
         String wantedListId = null;
         String distributionProfile = "unreviewed";
+        boolean delta = false;
         if (!baseline && metaBytes == null) throw new IOException("Verification requires a files manifest");
         if (metaBytes != null) {
             JsonNode meta = strictReader.readTree(metaBytes);
@@ -94,6 +95,7 @@ final class PreviousBundleReader {
                 distributionProfile = profile.asText();
             }
             verifyManifest(meta, files);
+            delta = "delta".equals(meta.path("mode").asText());
             bundleId = meta.path("bundleId").asText(null);
             JsonNode wantedId = meta.path("wantedListId");
             if (wantedId.isTextual() && !wantedId.asText().isBlank()) wantedListId = wantedId.asText();
@@ -128,7 +130,39 @@ final class PreviousBundleReader {
             }
             result.put(e.getKey(), keyed);
         }
+        if (distributionProfile.equals("github-attributed")) verifyAttributedProfile(files.keySet(), result, mapper, delta);
         return new PreviousBundle(bundleId, result, wantedListId, distributionProfile);
+    }
+
+    private static void verifyAttributedProfile(java.util.Set<String> files, Map<String, Map<String, String>> rows,
+                                                ObjectMapper mapper, boolean delta) throws IOException {
+        if (!java.util.Set.of("osv.jsonl", "unresolved.jsonl").containsAll(files))
+            throw new IOException("Distribution profile contains unsupported source files");
+        var unresolved = rows.getOrDefault("unresolved.jsonl", Map.of());
+        for (String line : unresolved.values()) {
+            var node = mapper.readTree(line);
+            if (node.has("_deleted") && (!node.path("_deleted").isBoolean() || node.path("_deleted").asBoolean()))
+                throw new IOException("Distribution profile cannot remove incomplete coverage");
+        }
+        for (var entry : rows.getOrDefault("osv.jsonl", Map.of()).entrySet()) {
+            var node = mapper.readTree(entry.getValue());
+            if (node.has("_deleted") && !node.path("_deleted").isBoolean())
+                throw new IOException("Distribution profile deletion marker must be boolean");
+            if (node.path("_deleted").asBoolean(false)) {
+                if (!delta) throw new IOException("Full distribution profile cannot contain deletion records");
+                continue;
+            }
+            if (!delta && !unresolved.containsKey(entry.getKey()))
+                throw new IOException("Distribution profile requires incomplete coverage for every finding component");
+            if (!node.path("vulns").isArray()) throw new IOException("Distribution profile requires a vulnerability array");
+            for (JsonNode vulnerability : node.path("vulns")) {
+                JsonNode original = vulnerability.path("osvAdvisory");
+                if (OsvOriginalAttribution.githubSource(original) == null
+                        || !vulnerability.path("osvId").isTextual()
+                        || !vulnerability.path("osvId").asText().equals(original.path("id").asText()))
+                    throw new IOException("Distribution profile requires matching attributed originals");
+            }
+        }
     }
 
     private static void verifyManifest(JsonNode meta, Map<String, byte[]> files) throws IOException {
