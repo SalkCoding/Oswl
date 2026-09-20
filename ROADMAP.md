@@ -6,6 +6,8 @@
 
 ## 실행 규칙과 출시 기준
 
+- **2026-09-21 NVD 관측·과거 CSV 누적 검증:** 깨끗한 작업 트리의 `64d3169d`까지 NVD revision 검증, 철회 원문 관측 전달과 보안 센터 CSV의 보존 판정 사용을 포함해 Windows/Java 25에서 `build verifyProdJar` 성공(2분 46초). 전체 5,142건 중 5,128건 통과·선택/환경 의존 skip 14건·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/historic-assessment-cumulative-build.log`. 별도 uiTest·실제 공급자·PostgreSQL 재검증은 포함하지 않았다. 신규 외부 자료/라이브러리 도입 및 이용권 확대 없음. 전체 로드맵 완료를 뜻하지 않는다.
+
 - **2026-09-21 앱 출력 제한·EPSS 고지 누적 검증:** `e64860cd`까지의 제한 프로파일 출력, 완성 ZIP 전송 제한 검사/고압축 항목 원문 보존, EPSS 고지 전파를 포함해 Windows/Java 25의 `.\gradlew.bat build verifyProdJar` 성공(2분 45초). 전체 5,113건 중 5,099건 통과·선택/환경 의존 skip 14건·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/roadmap-export-notices-build.log`. 새 NVD 반입 회귀 작업 전에 컴파일한 현재 HEAD 기준이며 이후 변경의 검증으로 확대하지 않는다. 별도 uiTest·실제 공급자·PostgreSQL·최대 용량 부하·전체 데이터 재배포 권한 검증은 포함하지 않았다. 전체 로드맵은 미완료다.
 
 - **2026-09-21 프로파일 저장·출처 교체·내보내기 누적 검증:** `243112f2`까지의 증분 기준 선언 필수화/일반 MERGE 기준 해제, V46 프로파일 저장과 혼합 방지, 남아 있는 제한 프로파일 OSV의 미확인 상태 보존 및 내보내기에서 npm/SwiftURL 미확인 상태 유지 변경을 포함해 Windows/Java 25의 `.\gradlew.bat build verifyProdJar` 성공(2분 40초). 전체 5,103건 중 5,089건 통과·선택/환경 의존 skip 14건·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/snapshot-profile-export-cumulative-build.log`. 앞선 실제 PostgreSQL 결과는 1번/38번의 해당 기록을 따른다. 이 실행은 별도 uiTest·실제 공급자·전체 마이그레이션 체인 또는 모든 데이터 이용권을 검증한 것은 아니다. 작업 트리 변경 없이 검증했으며 문서만 기록한다. 앱 exportBundle은 아직 출처가 섞인 스캔 데이터를 재구성하므로 CLI github-attributed와 같은 제한 출력 보장을 제공하지 않는 것이 다음 작업이다. 커밋 제목 `docs: record cumulative snapshot profile and export validation`. 전체 로드맵은 미완료 상태를 유지한다.
@@ -571,6 +573,8 @@
 - DoD: 혼합 monorepo·일부 lock 부재·중복 버전·사내 패키지·산출물 차이를 잃지 않는다. Auto Import와 CLI의 동일 입력은 동일 inventory/누락 근거를 생성한다.
 
 ### 16. 불변 scanId·재시도·재평가 이력 분리 — P0 · [부분 구현]
+
+- **2026-09-21 상세 조회의 남은 연결 확인:** `ComponentDetailService.populateModel`은 건수·개별 CVE·조회 상태·라이선스뿐 아니라 현재 수정 후보/PR 대상과 AI 재생성용 공용 CVE DB ID도 Library에서 읽는다. 보존 assessment에는 발견 출처·CPE 검토 판정 근거가 있지만 CPE 문자열·최신 릴리스 정보·공용 CVE DB ID는 없다. 후속 전환에서는 보존된 판정을 표시 근거로 사용하고, 현재 데이터로 재검증하는 PR 조치와 현재 AI 설명을 별도로 식별해야 한다. 모든 새 스캔이 assessment를 가진다는 이유로 PR 기능을 일괄 제거하는 것은 기존 기능 유지 요건에 맞지 않는다. 보존된 finding의 ID를 현재 DB ID로 추정하지 않고, 잘못되거나 구성과 맞지 않는 assessment를 최신 값으로 조용히 대체하지 않아야 한다. 현재 `createPullRequest`의 라이브 대상 재계산 및 RemediationTargetVerifier 검사는 유지한다. 이번은 코드 경로 확인이며 상세 UI 전환/브라우저 검증 완료가 아니다.
 
 - **2026-09-21 보안 센터 CSV 판정 보존:** CSV가 공유 Library/CVE를 직접 읽어 과거 스캔 요약과 달라지는 경로를 수정했다. 공유 취약점·라이선스·조회 결과 갱신 후 과거 값 변경, 컴포넌트 삭제 후 행 누락, 손상된 assessment의 라이브 데이터 대체를 수정 전 3실패로 재현했다. assessment가 있으면 구성 목록·심각도·CPE 후보·패치 가능 여부·라이선스·조회 상태/시각을 보존된 값으로 출력하며, 없는 과거 스캔만 기존 라이브 경로를 사용한다. 보관 처리 후에도 판정 행을 출력하되 없는 범위/검토 상태를 추정하지 않고 빈칸으로 남긴다. 같은 라이브러리의 여러 컴포넌트는 각 범위와 현재 검토/예외 상태를 유지한다. 정상 조회·조회 실패·CPE 후보·수정 버전 충돌과 보관/손상 회귀를 포함해 `test --tests '*SecurityCenter*Test' --tests '*ScanAssessment*Test' --tests '*ScanSummaryReaderTest' --tests '*ComplianceReportServiceTest' bootJar verifyProdJar` 67건 통과·실패/오류/skip 0(39초), 운영 JAR 검사 통과. 로그 `build/historic-csv-before.log`, `build/historic-csv-final.log`. 세 언어 Administration 반영. 커밋 제목 `fix: export preserved scan assessments in security csv`. 자체 합성 데이터만 사용했고 신규 외부 자료·라이브러리·권리 확대 없음. UI 템플릿 변경 없이 CSV 생성 경로를 검증했으며 브라우저·실제 공급자·PostgreSQL·전체 build는 이번에 실행하지 않았다. 화면 목록/상세의 보존 판정 전환, 과거 근거 없는 스캔 정책, 출처별 관측/철회 재평가 등은 남아 있어 전체 항목은 미완료다.
 
