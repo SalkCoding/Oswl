@@ -29,12 +29,13 @@ final class NvdSource {
         this.mapper = mapper;
     }
 
-    record Result(Map<String, List<SnapshotVuln>> vulnsByComponentKey) {}
+    record Result(Map<String, List<SnapshotVuln>> vulnsByComponentKey, java.util.Set<String> unresolvedKeys) {}
 
     Result fetch(List<WantedComponent> wanted, String apiKey) {
         NvdClient client = new NvdClient(
                 null, false, apiKey, Duration.ofSeconds(5), Duration.ofSeconds(20));
         Map<String, List<SnapshotVuln>> result = new LinkedHashMap<>();
+        java.util.Set<String> unresolvedKeys = new java.util.LinkedHashSet<>();
         int done = 0;
         for (WantedComponent w : wanted) {
             done++;
@@ -42,30 +43,46 @@ final class NvdSource {
                 System.err.println("[oswl-vdb] nvd: " + done + "/" + wanted.size());
             }
             String key = AirgappedSnapshotService.componentKey(w.ecosystem(), w.name(), w.version());
-            if (key == null) continue;
-            if (!isCpeEcosystem(w.ecosystem())) continue;
-            if (w.version() == null || w.version().isBlank()) continue;
+            if (key == null) throw new IllegalArgumentException("Missing NVD wanted identity cannot be recorded as unresolved");
+            if (!isCpeEcosystem(w.ecosystem())) {
+                unresolvedKeys.add(key);
+                continue;
+            }
             try {
                 List<CpeNameMapper.CpeCandidate> candidates = CpeNameMapper.infer(w.name(), w.version());
                 List<SnapshotVuln> vulns = new ArrayList<>();
                 for (CpeNameMapper.CpeCandidate c : candidates) {
                     String cpeName = String.format(Locale.ROOT, "cpe:2.3:a:%s:%s:%s:*:*:*:*:*:*:*",
                             c.vendor(), c.product(), c.version());
-                    List<NvdClient.NvdCve> cves = client.findByCpeName(cpeName, c.confidence());
+                    List<NvdClient.NvdCve> cves;
+                    try {
+                        cves = client.findByCpeName(cpeName, c.confidence());
+                    } catch (NvdClient.IncompleteLookupException e) {
+                        unresolvedKeys.add(key);
+                        cves = e.findings();
+                    } catch (Exception e) {
+                        unresolvedKeys.add(key);
+                        System.err.println("[oswl-vdb] nvd candidate lookup failed for " + w.name() + "@" + w.version()
+                                + ": " + e.getMessage());
+                        continue;
+                    }
                     for (NvdClient.NvdCve nvd : cves) {
                         vulns.add(toSnapshotVuln(nvd));
                     }
                 }
                 if (!candidates.isEmpty()) {
                     result.put(key, vulns);
+                } else {
+                    unresolvedKeys.add(key);
                 }
             } catch (Exception e) {
+                unresolvedKeys.add(key);
                 System.err.println("[oswl-vdb] nvd lookup failed for " + w.name() + "@" + w.version()
                         + ": " + e.getMessage());
             }
         }
-        System.err.println("[oswl-vdb] nvd: " + result.size() + " component(s) with completed queries");
-        return new Result(result);
+        System.err.println("[oswl-vdb] nvd: " + result.size() + " component(s) with retained lookup results");
+        return new Result(result, java.util.Set.copyOf(unresolvedKeys));
     }
 
     private static SnapshotVuln toSnapshotVuln(NvdClient.NvdCve nvd) {
@@ -78,7 +95,8 @@ final class NvdSource {
                 severityName(nvd.severity()),
                 nvd.cvssScore(),
                 nvd.cvss3Vector(),
-                nvd.matchConfidence() != null ? nvd.matchConfidence().name() : null
+                nvd.matchConfidence() != null ? nvd.matchConfidence().name() : null,
+                java.util.Set.of(), null, nvd.nvdApplicability()
         );
     }
 
