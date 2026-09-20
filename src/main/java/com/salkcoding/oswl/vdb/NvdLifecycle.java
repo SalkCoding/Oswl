@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
-/** A rejected source record is excluded only when its identity and revision are usable. */
+/** Supplied revisions must be usable; excluding a rejected record additionally requires a revision. */
 public final class NvdLifecycle {
     private static final ObjectMapper JSON = new ObjectMapper()
             .enable(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
@@ -20,18 +20,22 @@ public final class NvdLifecycle {
             if (record == null || !record.isObject() || !record.path("id").isTextual()
                     || !record.path("id").asText().equals(id)) return State.UNVERIFIED;
             if (record.has("conflictingRecords")) return State.UNVERIFIED;
+            boolean hasRevision = record.has("lastModified");
+            if (hasRevision) {
+                if (!record.path("lastModified").isTextual()) return State.UNVERIFIED;
+                String timestamp = record.path("lastModified").asText();
+                Instant modified;
+                try { modified = Instant.parse(timestamp); }
+                catch (java.time.format.DateTimeParseException noOffset) {
+                    modified = LocalDateTime.parse(timestamp).toInstant(ZoneOffset.UTC);
+                }
+                if (modified.isAfter(Instant.now())) return State.UNVERIFIED;
+            }
             var status = record.get("vulnStatus");
             if (status == null) return State.CURRENT;
             if (!status.isTextual()) return State.UNVERIFIED;
             if (!"Rejected".equals(status.asText())) return State.CURRENT;
-            if (!record.path("lastModified").isTextual()) return State.UNVERIFIED;
-            String timestamp = record.path("lastModified").asText();
-            Instant modified;
-            try { modified = Instant.parse(timestamp); }
-            catch (java.time.format.DateTimeParseException noOffset) {
-                modified = LocalDateTime.parse(timestamp).toInstant(ZoneOffset.UTC);
-            }
-            return modified.isAfter(Instant.now()) ? State.UNVERIFIED : State.REJECTED;
+            return hasRevision ? State.REJECTED : State.UNVERIFIED;
         } catch (Exception invalid) {
             return State.UNVERIFIED;
         }

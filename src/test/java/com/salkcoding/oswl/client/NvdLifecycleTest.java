@@ -123,19 +123,24 @@ class NvdLifecycleTest {
     }
 
     static Stream<org.junit.jupiter.params.provider.Arguments> states() {
-        return Stream.of(false,true).flatMap(offline -> Stream.of("rejected","active","future","missing-time","invalid-time")
+        return Stream.of(false,true).flatMap(offline -> Stream.of("rejected","active","future","missing-time","invalid-time",
+                        "active-future", "active-invalid-time", "active-null-time", "active-number-time",
+                        "active-missing-time", "missing-status-future", "missing-status-valid")
                 .map(state -> org.junit.jupiter.params.provider.Arguments.of(offline,state)));
     }
     @ParameterizedTest @MethodSource("states")
     void rejectionNeedsUsableRevisionEvidenceAcrossModes(boolean offline, String state) throws Exception {
         var json = new ObjectMapper();
         var record = json.createObjectNode().put("id","CVE-2026-123450")
-                .put("vulnStatus",state.equals("active") ? "Analyzed" : "Rejected");
-        if (!state.equals("missing-time")) record.put("lastModified", switch(state) {
-            case "future" -> "2999-01-01T00:00:00.000";
-            case "invalid-time" -> "not-a-time";
+                .put("vulnStatus",state.startsWith("active") ? "Analyzed" : "Rejected");
+        if (state.startsWith("missing-status")) record.remove("vulnStatus");
+        if (!state.endsWith("missing-time")) record.put("lastModified", switch(state) {
+            case "future", "active-future", "missing-status-future" -> "2999-01-01T00:00:00.000";
+            case "invalid-time", "active-invalid-time" -> "not-a-time";
             default -> "2020-01-01T00:00:00.000";
         });
+        if (state.equals("active-null-time")) record.putNull("lastModified");
+        if (state.equals("active-number-time")) record.put("lastModified", 1);
         var cpe = mock(CpeMatchService.class);
         var builder = RestClient.builder();
         var server = MockRestServiceServer.bindTo(builder).build();
@@ -154,8 +159,11 @@ class NvdLifecycleTest {
             result = source.lookup("fixture","1",null,List.of());
             server.verify();
         }
-        assertThat(result.lookupFailed()).isEqualTo(!Set.of("active","rejected").contains(state));
+        assertThat(result.lookupFailed()).isEqualTo(!Set.of("active","rejected","active-missing-time","missing-status-valid").contains(state));
         assertThat(result.findings()).hasSize(state.equals("rejected") ? 0 : 1);
-        if (!state.equals("rejected")) assertThat(result.findings().getFirst().cveId()).isEqualTo("CVE-2026-123450");
+        if (!state.equals("rejected")) {
+            assertThat(result.findings().getFirst().cveId()).isEqualTo("CVE-2026-123450");
+            assertThat(json.readTree(result.findings().getFirst().nvdApplicability())).isEqualTo(record);
+        }
     }
 }
