@@ -53,6 +53,8 @@ final class EpssSource {
                     if (!Double.isFinite(score) || score < 0 || score > 1)
                         throw new NumberFormatException("Invalid EPSS probability");
                     String key = parts[0].strip().toUpperCase(Locale.ROOT);
+                    if (!com.salkcoding.oswl.client.NvdClient.isValidCveId(key))
+                        throw new IOException("Invalid EPSS CVE identity; source coverage is unknown");
                     Double previous = scores.putIfAbsent(key, score);
                     if (previous != null && previous.doubleValue() != score)
                         throw new IOException("Conflicting EPSS scores for the same CVE");

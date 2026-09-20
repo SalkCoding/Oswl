@@ -14,6 +14,27 @@ class EpssSourceTest {
     @TempDir Path directory;
 
     @ParameterizedTest
+    @ValueSource(strings = {"", "CVE-2026-1", "CVE-26-1000", "GHSA-abcd-1234-abcd", "CVE-2026-1000suffix",
+            "CVE-2026-1000\"", "CVE-2026-1000", "cve-2026-1000", "CVE-2026-1234567"})
+    void validatesCveIdentityBeforePublishingScores(String cve) throws Exception {
+        try (var output = new GZIPOutputStream(Files.newOutputStream(directory.resolve("epss_scores-current.csv.gz")))) {
+            output.write(("#score_date:2026-01-01\ncve,epss,percentile\nCVE-2026-0001,0.5,0.5\n"
+                    + cve + ",0.2,0.5\n").getBytes(StandardCharsets.UTF_8));
+        }
+        if (java.util.Set.of("CVE-2026-1000", "cve-2026-1000", "CVE-2026-1234567").contains(cve)) {
+            org.assertj.core.api.Assertions.assertThat(new EpssSource().fetch(new HttpCache(directory, true)).scores())
+                    .containsEntry(cve.toUpperCase(java.util.Locale.ROOT), 0.2).hasSize(2);
+        } else {
+            assertThatThrownBy(() -> new EpssSource().fetch(new HttpCache(directory, true))).isInstanceOf(IOException.class);
+            Path output = directory.resolve("output.zip");
+            Files.writeString(output, "existing-output");
+            org.assertj.core.api.Assertions.assertThat(new VdbBuilderCli().run(new String[]{"build", "--sources", "epss",
+                    "--offline-sources", directory.toString(), "--out", output.toString()})).isEqualTo(1);
+            org.assertj.core.api.Assertions.assertThat(Files.readString(output)).isEqualTo("existing-output");
+        }
+    }
+
+    @ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"0.2,0.8", "0.8,0.2", "0.2,0.2"})
     void conflictingDuplicateScoresFailCollection(String first, String second) throws Exception {
         try (var output = new GZIPOutputStream(Files.newOutputStream(directory.resolve("epss_scores-current.csv.gz")))) {

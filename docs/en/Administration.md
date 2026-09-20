@@ -518,3 +518,5 @@ Snapshot component identities cannot contain the internal `|` key separator in e
 The OSV and GitHub Advisory identity validators also apply the shared snapshot-key rule before accepting a query identity. Ambiguous coordinates containing `|` must not become a successful zero-finding result from an empty online response or a complete snapshot. Normal coordinates retain their existing lookup behavior.
 
 The source cache rejects future HTTP Last-Modified instants and future dates in local sidecar metadata as unknown freshness. Valid HTTP timestamps are converted to the UTC calendar date before caching. Unknown dates are not replaced with the download date; OSV collection continues to require a known source date.
+
+EPSS bulk collection validates each normalized CVE identifier before accepting its score. A malformed identifier fails collection without replacing the output bundle; it is not silently skipped. Lowercase identifiers are normalized, and valid longer CVE sequence numbers remain supported. This validation concerns bulk collection, not a complete review of live EPSS request handling.
