@@ -917,6 +917,8 @@
 
 ### 36. 재포장·부분 갱신으로 freshness가 바뀌지 않게 수정 — P0 · [코드 확인]
 
+- **2026-09-21 UTC 캐시 날짜 테스트 정합성:** 한국 자정 이후 OSV 통합 검사의 합성 lastmodified 파일이 LocalDate.now()를 써 UTC 기준으로 미래가 되는 5개 실패를 확인했다. 두 fixture 작성 지점만 LocalDate.now(UTC)로 수정하고 정상/미확인/증분 결과 단언은 유지했다. EPSS 변경을 포함한 관련 380건 중 379건 통과·1건 skip 및 운영 JAR 검사 통과. 로그 `build/epss-json-checked.log`. 커밋 제목 `test: use utc dates for source cache fixtures`. 제품의 미래 기준일 거절을 완화하지 않았다.
+
 - **2026-09-20 원천 캐시 미래 기준일·UTC 변환 보완:** 미래 HTTP Last-Modified 2조건, 미래 legacy sidecar 날짜, UTC 날짜 경계 변환 누락의 4개 실패를 로컬 HTTP 서버/임시 캐시로 재현했다. HTTP 시각을 Instant로 검증한 뒤 UTC LocalDate로 저장하며 미래 시각/sidecar 날짜는 unknown으로 유지한다. 다운로드일 대체 없이 OSV의 기준일 필수 계약을 유지한다. 정상 과거 날짜·오프라인 재읽기·세대 불일치·실패 갱신 대조를 포함해 `test --tests '*HttpCache*Test' --tests '*OsvBulk*Test' --tests '*Vdb*Test' --tests '*Snapshot*Test' bootJar verifyProdJar` 성공: 328건 중 327건 통과·1건 skip·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/source-date-validation-before.log`, `build/source-date-validation-checked.log`. 커밋 제목 `fix: validate source cache dates before freshness use`. 세 언어 Administration 반영. 신규 외부 자료·라이브러리·UI·운영 DB 변경 없음. 원천 날짜의 진위 인증·레코드별 최신성 및 전체 build·PG·브라우저·실제 공급자 검증은 이번 범위가 아니며 전체 항목은 미완료다. 별도 Docker 변경은 보존했다.
 
 - **2026-09-11 deps.dev 공지 상세의 오래된 덮어쓰기 방지:** `depsdev-advisory` source 기준일을 `AdvisoryInfo.current`로 전달한다. 미래·미상·경고 임계값 초과인 오프라인 공지는 기존 취약점의 제목/CVSS/심각도를 덮어쓰지 않는다. 공지 ID·alias·과거 내용은 보존하며 처음 발견한 취약점은 누락시키지 않는다. 이 플래그는 live 조회 또는 설정된 source-date 유효기간을 뜻하며, 이전 행보다 최신 revision이라는 보증은 아니다. 패치는 기존 OSV 근거에서만 가져온다.

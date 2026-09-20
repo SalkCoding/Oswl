@@ -33,7 +33,7 @@ class SnapshotImportTransactionTest {
     void cliEmptyOsvLookupRetainsCoverage(boolean filtered, boolean delta, @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
         Path wanted = directory.resolve("wanted.jsonl");
         Files.writeString(wanted, "{\"ecosystem\":\"npm\",\"name\":\"example\",\"version\":\"1.0.0\"}");
-        Files.writeString(directory.resolve("osv-npm-all.zip.lastmodified"), java.time.LocalDate.now().toString());
+        Files.writeString(directory.resolve("osv-npm-all.zip.lastmodified"), java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString());
         Path base = directory.resolve("base.zip");
         if (delta) {
             Files.write(directory.resolve("osv-npm-all.zip"), bundle(Map.of("known.json", """
@@ -121,7 +121,7 @@ class SnapshotImportTransactionTest {
         Files.writeString(wanted, """
                 {"ecosystem":"npm","name":"example","version":"1.0.0"}
                 """);
-        Files.writeString(directory.resolve("osv-npm-all.zip.lastmodified"), java.time.LocalDate.now().toString());
+        Files.writeString(directory.resolve("osv-npm-all.zip.lastmodified"), java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString());
         Path base = directory.resolve("base.zip");
         for (int step = 0; step < 2; step++) {
             boolean partial = step == 0 ? initiallyPartial : !initiallyPartial;
