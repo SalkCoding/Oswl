@@ -27,13 +27,18 @@ import static org.assertj.core.api.Assertions.*;
         "spring.datasource.password=${OSWL_SNAPSHOT_IMPORT_TEST_PASSWORD:}",
         "spring.jpa.database-platform=${OSWL_SNAPSHOT_IMPORT_TEST_DIALECT:org.hibernate.dialect.H2Dialect}"})
 class SnapshotImportTransactionTest {
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "npm,NPM,form-data,4.0.3,4.0.4,GHSA-fjxv-7rqg-78g4",
+            "NuGet,NUGET,System.Text.Json,8.0.3,8.0.4,GHSA-hh2w-p6rv-4g7w",
+            "NuGet,NUGET,System.Text.Json,6.0.9,6.0.10,GHSA-8g4q-xg66-9fp4"})
     @org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable(named = "OSWL_VERIFY_OSV_IMPORT", matches = "true")
-    void officialOsvResultsMatchAfterActualBundleImport() throws Exception {
+    void officialOsvResultsMatchAfterActualBundleImport(String ecosystem, String internalEcosystem, String name,
+                                                      String affectedVersion, String fixedVersion, String advisoryId) throws Exception {
         var json = new com.fasterxml.jackson.databind.ObjectMapper();
-        var versions = List.of("4.0.3", "4.0.4");
+        var versions = List.of(affectedVersion, fixedVersion);
         var queries = versions.stream().map(version -> new com.salkcoding.oswl.client.OsvClient.OsvQuery(
-                "npm", "form-data", version)).toList();
+                ecosystem, name, version)).toList();
         var online = new com.salkcoding.oswl.client.OsvClient().queryBatch(queries);
         assertThat(online).hasSize(versions.size()).allSatisfy(result -> assertThat(result.resolved()).isTrue());
         var originals = new LinkedHashMap<String, com.fasterxml.jackson.databind.JsonNode>();
@@ -56,7 +61,7 @@ class SnapshotImportTransactionTest {
                 }
             }
         }
-        assertThat(originals).containsKey("GHSA-fjxv-7rqg-78g4");
+        assertThat(originals).containsKey(advisoryId);
         Map<String, List<AirgappedSnapshotService.SnapshotVuln>> findings = new LinkedHashMap<>();
         Set<String> unknown = new LinkedHashSet<>();
         var bulkConstructor = Class.forName("com.salkcoding.oswl.vdb.OsvBulkSource")
@@ -65,16 +70,16 @@ class SnapshotImportTransactionTest {
         var bulkSource = bulkConstructor.newInstance(json);
         for (var original : originals.values()) {
             org.springframework.test.util.ReflectionTestUtils.invokeMethod(bulkSource,
-                    "processVulnEntry", original.toString().getBytes(StandardCharsets.UTF_8), "NPM",
-                    Map.of("form-data", Set.copyOf(versions)), findings, unknown);
+                    "processVulnEntry", original.toString().getBytes(StandardCharsets.UTF_8), internalEcosystem,
+                    Map.of(name, Set.copyOf(versions)), findings, unknown);
         }
         assertThat(unknown).isEmpty();
         var lines = new ArrayList<String>();
         for (String version : versions) {
-            var vulns = findings.getOrDefault("NPM|form-data|" + version, List.of());
+            var vulns = findings.getOrDefault(AirgappedSnapshotService.componentKey(internalEcosystem, name, version), List.of());
             // Bulk retention permits originals only for the supported attributed GitHub source.
             assertThat(vulns).allSatisfy(v -> assertThat(v.osvAdvisory()).isEqualTo(originals.get(v.osvId())).isNotNull());
-            lines.add(json.writeValueAsString(Map.of("ecosystem", "npm", "name", "form-data", "version", version, "vulns", vulns)));
+            lines.add(json.writeValueAsString(Map.of("ecosystem", ecosystem, "name", name, "version", version, "vulns", vulns)));
         }
         String rows = String.join("\n", lines);
         String hash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(rows.getBytes(StandardCharsets.UTF_8)));
@@ -90,14 +95,14 @@ class SnapshotImportTransactionTest {
             assertThat(offline.get(i).advisoryRevisions()).isEqualTo(online.get(i).advisoryRevisions());
             assertThat(offline.get(i).advisoryDigests()).isEqualTo(online.get(i).advisoryDigests());
             assertThat(offline.get(i).validUntil()).isAfter(java.time.Instant.now());
-            System.out.println("Imported official OSV parity: form-data " + versions.get(i)
+            System.out.println("Imported official OSV parity: " + ecosystem + "/" + name + " " + versions.get(i)
                     + " revisions=" + online.get(i).advisoryRevisions() + " digests=" + online.get(i).advisoryDigests());
         }
         assertThat(offline.getFirst().vulns()).anySatisfy(v -> {
-            assertThat(v.osvId()).isEqualTo("GHSA-fjxv-7rqg-78g4");
-            assertThat(v.fixVersion()).isEqualTo("4.0.4");
+            assertThat(v.osvId()).isEqualTo(advisoryId);
+            assertThat(v.fixVersion()).isEqualTo(fixedVersion);
         });
-        assertThat(offline.getLast().vulns()).noneMatch(v -> "GHSA-fjxv-7rqg-78g4".equals(v.osvId()));
+        assertThat(offline.getLast().vulns()).noneMatch(v -> advisoryId.equals(v.osvId()));
     }
 
     @org.junit.jupiter.params.ParameterizedTest
