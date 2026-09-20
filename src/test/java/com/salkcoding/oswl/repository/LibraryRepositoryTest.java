@@ -84,29 +84,39 @@ class LibraryRepositoryTest {
         assertThat(found.get().getLicenseStatus()).isEqualTo(LicenseStatus.UNKNOWN);
     }
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"libraryIds", "scan", "scans", "components", "detail"})
     @DisplayName("CVE with multiple sources is loaded once by every CVE fetch query")
-    void cveWithMultipleSourcesIsNotDuplicatedByCveFetchQueries() {
+    void cveWithMultipleSourcesIsNotDuplicatedByCveFetchQueries(String query) {
         Project project = projectRepository.save(Project.builder().name("library-repository-cve-sources").build());
         ScanResult scan = scanResultRepository.save(ScanResult.builder().project(project).build());
         Library library = libraryRepository.save(lib("multi-source-cve", "1.0.0", "CONAN"));
         cveRepository.save(Cve.builder().library(library).cveId("CVE-2026-7654")
                 .sources(Set.of(CveSource.NVD, CveSource.CPE)).build());
-        scanComponentRepository.save(ScanComponent.builder().scanResult(scan).library(library).build());
+        ScanComponent component = scanComponentRepository.save(ScanComponent.builder().scanResult(scan).library(library).build());
         libraryRepository.flush();
         entityManager.clear();
 
-        assertLoadedOnce(libraryRepository.findByIdInWithCves(List.of(library.getId())));
-        entityManager.clear();
-        assertLoadedOnce(libraryRepository.findByScanResultIdWithCves(scan.getId()));
-        entityManager.clear();
-        assertLoadedOnce(libraryRepository.findByScanResultIdInWithCves(List.of(scan.getId())));
+        var found = switch (query) {
+            case "libraryIds" -> libraryRepository.findByIdInWithCves(List.of(library.getId()));
+            case "scan" -> libraryRepository.findByScanResultIdWithCves(scan.getId());
+            case "scans" -> libraryRepository.findByScanResultIdInWithCves(List.of(scan.getId()));
+            case "components" -> scanComponentRepository.findByScanResultId(scan.getId()).stream().map(ScanComponent::getLibrary).toList();
+            case "detail" -> scanComponentRepository.findByIdAndProjectIdWithCves(component.getId(), project.getId()).stream()
+                    .map(ScanComponent::getLibrary).toList();
+            default -> throw new IllegalArgumentException(query);
+        };
+        assertLoadedOnce(found);
     }
 
-    @Test
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"library", "components", "detail"})
     @DisplayName("bulk CVE source loading stays batched")
-    void bulkCveSourceLoadingStaysBatched() {
+    void bulkCveSourceLoadingStaysBatched(String query) {
         Library library = libraryRepository.save(lib("bulk-multi-source-cve", "1.0.0", "CONAN"));
+        var project = projectRepository.save(Project.builder().name("bulk-source-query").build());
+        var scan = scanResultRepository.save(ScanResult.builder().project(project).build());
+        var component = scanComponentRepository.save(ScanComponent.builder().scanResult(scan).library(library).build());
         for (int i = 0; i < 60; i++) {
             cveRepository.save(Cve.builder().library(library)
                     .cveId("CVE-2026-" + String.format("%04d", i))
@@ -121,7 +131,13 @@ class LibraryRepositoryTest {
         statistics.setStatisticsEnabled(true);
         try {
             statistics.clear();
-            List<Library> found = libraryRepository.findByIdInWithCves(List.of(library.getId()));
+            List<Library> found = switch (query) {
+                case "library" -> libraryRepository.findByIdInWithCves(List.of(library.getId()));
+                case "components" -> scanComponentRepository.findByScanResultId(scan.getId()).stream().map(ScanComponent::getLibrary).toList();
+                case "detail" -> scanComponentRepository.findByIdAndProjectIdWithCves(component.getId(), project.getId())
+                        .stream().map(ScanComponent::getLibrary).toList();
+                default -> throw new IllegalArgumentException(query);
+            };
             assertThat(found).singleElement().satisfies(result -> {
                 assertThat(result.getCves()).hasSize(60)
                         .extracting(Cve::getCveId).doesNotHaveDuplicates();

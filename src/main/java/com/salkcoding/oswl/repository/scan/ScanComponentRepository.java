@@ -44,28 +44,26 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
      * All ScanComponents for a given scan, with library and its CVEs fetch-joined so the
      * result stays fully usable after the query's own transaction ends (the async
      * enrichment pipeline and the version-diff analyzer run without an outer transaction).
-     * {@code Cve.sources} is an EAGER element collection — without the explicit fetch join
-     * Hibernate issues one extra SELECT per CVE to populate it.
+     * CVE element collections use eager subselect loading. Joining sources here would
+     * multiply entries in the library's CVE list for findings with multiple sources.
      */
     @Query("""
             SELECT DISTINCT sc FROM ScanComponent sc
             JOIN FETCH sc.library l
-            LEFT JOIN FETCH l.cves c
-            LEFT JOIN FETCH c.sources
+            LEFT JOIN FETCH l.cves
             WHERE sc.scanResult.id = :scanResultId
             """)
     List<ScanComponent> findByScanResultId(@Param("scanResultId") Long scanResultId);
 
     /**
-     * Single component with library + CVEs for the detail panel. Also fetch-joins
-     * {@code Cve.sources} (EAGER element collection — one SELECT per CVE otherwise) and the
-     * LAZY {@code scanResult} association the detail page reads for the project version.
+     * Single component with library + CVEs for the detail panel. CVE element collections
+     * load by eager subselect; only the LAZY scanResult association is additionally joined
+     * for the project version read by the detail page.
      */
     @Query("""
             SELECT sc FROM ScanComponent sc
             JOIN FETCH sc.library l
-            LEFT JOIN FETCH l.cves c
-            LEFT JOIN FETCH c.sources
+            LEFT JOIN FETCH l.cves
             JOIN FETCH sc.scanResult
             WHERE sc.id = :componentId
               AND sc.scanResult.project.id = :projectId
