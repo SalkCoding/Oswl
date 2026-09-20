@@ -711,6 +711,12 @@ public class AirgappedSnapshotService {
                 throw new InvalidRequestException("Distribution profile requires retained incomplete coverage for every finding component");
         }
 
+        String resultingOsvProfile = rawFiles.containsKey("osv.jsonl") ? policy.profile()
+                : snapshotMetaRepository.findById(SOURCE_OSV).map(SnapshotMeta::getDistributionProfile).orElse(null);
+        if ("github-attributed".equals(resultingOsvProfile)
+                && snapshotEntryRepository.countWithoutCompanion(SOURCE_OSV, SOURCE_UNRESOLVED) > 0)
+            throw new InvalidRequestException("Distribution profile requires incomplete coverage for retained OSV components");
+
         // recordCount is always a fresh count query, never an accumulated delta — a MERGE
         // over existing keys must not double-count, and a REPLACE's true count is simply "what's
         // there now" regardless of how many lines the bundle had (duplicates within one bundle

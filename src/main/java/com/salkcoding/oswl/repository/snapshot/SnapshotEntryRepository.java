@@ -21,6 +21,12 @@ public interface SnapshotEntryRepository extends JpaRepository<SnapshotEntry, Lo
 
     long countBySource(String source);
 
+    /** Count records whose required companion state would be lost after an import. */
+    @Query("select count(e) from SnapshotEntry e where e.source = :source and not exists "
+            + "(select c.id from SnapshotEntry c where c.source = :requiredSource and c.entryKey = e.entryKey)")
+    long countWithoutCompanion(@Param("source") String source, @Param("requiredSource") String requiredSource);
+
+
     /** Bulk delete before re-importing a source (avoids one DELETE per row). */
     @Modifying
     @Query("delete from SnapshotEntry e where e.source = :source")

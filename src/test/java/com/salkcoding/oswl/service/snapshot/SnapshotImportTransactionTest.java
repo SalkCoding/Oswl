@@ -29,6 +29,33 @@ import static org.assertj.core.api.Assertions.*;
 class SnapshotImportTransactionTest {
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"empty", "other", "keep", "remove-osv"})
+    void replacingCoverageCannotResolveRetainedAttributedData(String replacement) throws Exception {
+        String row = "{\"ecosystem\":\"npm\",\"name\":\"fixture\",\"version\":\"1.0.0\"}";
+        String meta = "{\"distributionProfile\":\"github-attributed\",\"sources\":{\"osv\":{\"asOf\":\""
+                + java.time.LocalDate.now() + "\"}}}";
+        service.importBundle(new ByteArrayInputStream(versionedBundle(Map.of("meta.json", meta,
+                "osv.jsonl", row.substring(0, row.length() - 1) + ",\"vulns\":[]}", "unresolved.jsonl", row), "base", null)));
+        Map<String, String> files = new LinkedHashMap<>();
+        files.put("unresolved.jsonl", replacement.equals("keep") ? row : replacement.equals("other") ? row.replace("fixture", "other") : "");
+        if (replacement.equals("remove-osv")) files.put("osv.jsonl", "");
+        byte[] archive = versionedBundle(files, "next", null);
+        if (replacement.equals("empty") || replacement.equals("other")) {
+            assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(archive), AirgappedSnapshotService.ImportMode.REPLACE))
+                    .isInstanceOf(InvalidRequestException.class).hasMessageContaining("profile");
+            assertThat(metadata.findById("unresolved").orElseThrow().getBundleId()).isEqualTo("base");
+            assertThat(service.findUnresolvedKeys(List.of("NPM|fixture|1.0.0"))).containsExactly("NPM|fixture|1.0.0");
+        } else {
+            service.importBundle(new ByteArrayInputStream(archive), AirgappedSnapshotService.ImportMode.REPLACE);
+            assertThat(entries.countBySource("osv")).isEqualTo(replacement.equals("remove-osv") ? 0 : 1);
+        }
+        var result = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(
+                new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "fixture", "1.0.0"))).getFirst();
+        assertThat(result.resolved()).isFalse();
+        assertThat(result.commonFix().version()).isNull();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
             "unreviewed,github-attributed,MERGE,false", "github-attributed,unreviewed,MERGE,false",
             "github-attributed,github-attributed,MERGE,true", "unreviewed,unreviewed,MERGE,true",
