@@ -6,6 +6,8 @@
 
 ## 실행 규칙과 출시 기준
 
+- **2026-09-21 프로파일·증분 미확인 상태 누적 검증:** `bfabb357`까지의 CLI/앱 공통 프로파일 검사, 엄격한 메타데이터 파싱 및 증분 반입 후 미확인 상태 보존을 포함해 Windows/Java 25의 `.\gradlew.bat build verifyProdJar` 성공(2분 44초). 전체 5,077건 중 5,063건 통과·선택/환경 의존 skip 14건·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/profile-coverage-cumulative-build.log`. PostgreSQL 반입 185건 별도 검증 근거는 1번에 기록했다. uiTest·실제 공급자 호출은 이번 실행에 포함하지 않았다. 새 데이터/라이브러리 또는 권리 승인 확대 없음. 전체 로드맵과 출처별 재배포 정책은 미완료다. 커밋 제목 `docs: record postgres and cumulative profile validation`.
+
 - **2026-09-21 EPSS·기준일 누적 검증:** `4308c458`까지의 원천 캐시 미래 시각/UTC 날짜 처리, EPSS 벌크·요청 CVE 검증, 응답 JSON 무결성 및 UTC fixture 변경을 포함해 깨끗한 작업 트리에서 Windows/Java 25의 `.\gradlew.bat build verifyProdJar` 성공(2분 40초). 전체 5,021건 중 5,009건 통과·환경 의존/선택 실행 skip 12건·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/roadmap-epss-date-cumulative-build.log`. 정적 추가 점검에서 AirgappedSnapshotService.ingestEpssLine은 비어 있지 않은 cveId만 검사해 벌크/클라이언트의 CVE 형식 검증과 다름을 확인했다. 실제 반입 실패 재현과 형식 검증 및 기존 합성 fixture 정합성 보완을 다음 작업으로 남긴다. 이번 전체 build는 별도 uiTest·실제 공급자·PG 검증 또는 원천 이용권 완료를 뜻하지 않는다. 커밋 제목 `docs: record cumulative epss validation and ingest gap`.
 
 - **2026-09-20 증분·식별자 누적 검증:** `86c5c7d0`까지의 wanted 범위 방어, 전역 출처 갱신의 패키지 상태 보존, 정상 빈 OSV 조회, 컴포넌트 키/온라인 식별자 일치 변경을 포함해 Windows/Java 25의 `.\gradlew.bat build verifyProdJar` 성공(2분 39초). 전체 5,002건 중 4,990건 통과·환경 의존/선택 실행 skip 12건·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/roadmap-identity-coverage-cumulative-build.log`. 별도 Docker 배포 작업의 미커밋 변경이 존재하는 상태에서 실행했으며 해당 파일은 이번 변경/커밋에서 제외했다. 컨테이너 배포나 별도 uiTest·실제 공급자 검증을 완료했다는 의미는 아니다. PostgreSQL 반입 검증은 38번의 별도 기록을 따른다.
@@ -35,6 +37,8 @@
 ## 1단계 — 데이터 권한과 지원 계약 확정
 
 ### 1. 원천별 데이터 권리·재배포 승인 목록 — P0 · [권한 확인]
+
+- **2026-09-21 프로파일 반입의 PostgreSQL 검증:** `bfabb357`까지의 프로파일 내용 검사와 증분 반입 후 미확인 상태 보존을 격리 PostgreSQL 15.19 DB `oswl_profile_coverage_20260921`에서 검증했다. 실제 PgConnection/JDBC URL/DB 버전을 출력에서 확인하고 `test --tests '*SnapshotImportTransactionTest' --rerun-tasks` 185건 통과·실패/오류/skip 0(1분 15초). 미확인 상태 누락 거절, REPLACE 삭제 롤백, 정상 상태 상속 및 기존 반입 회귀를 포함한다. 로그 `build/profile-coverage-postgres.log`, 보존 결과 `build/pg-verification/profile-coverage-result.xml`. 연결 0 확인 후 해당 임시 DB 삭제·카탈로그 부재 확인 및 테스트 서버 종료 완료. 사용자 DB는 변경하지 않았다. 신규 외부 자료·이용 허가 확대 없음. 원천 인증/내보내기 정책 완료를 의미하지 않는다. 정적 점검상 CLI가 기록하는 basedOnBundleId는 앱 반입 경로에서 아직 검증하지 않으며 기준 번들 연결을 다음 구현 대상으로 남긴다.
 
 - **2026-09-21 증분 반입 후 미확인 상태 보존:** github-attributed 증분의 OSV 행에 대응하는 미확인 행이 번들·기존 DB 모두에 없어도 MERGE/REPLACE가 수용되는 2건의 실패를 재현했다. 전체/증분의 반입 OSV 키를 추적하고 게시 트랜잭션 안에서 반입 후 미확인 행 존재를 500건씩 조회해 확인한다. 상태가 없으면 전체 반입을 롤백한다. 기존 상태 상속·동시 반입·빈 unresolved 파일의 MERGE/REPLACE 차이와 기존 데이터 복원을 7개 조건으로 검증했다. 정상 반입 후 실제 오프라인 OsvClient도 resolved=false·공통 수정 후보 없음임을 확인했다. `test --tests '*SnapshotImportTransactionTest' --tests '*Vdb*Test' --tests '*PreviousBundle*Test' bootJar verifyProdJar` 277건 통과·실패/오류/skip 0(39초). 로그 `build/snapshot-delta-coverage-before.log`, `build/snapshot-delta-coverage-checked.log`. 커밋 제목 `fix: preserve incomplete coverage when importing attributed deltas`. 세 언어 문서 반영. 신규 외부 자료·라이브러리·허가 확대 없음. 이번 검증은 H2이며 PostgreSQL·UI·실제 공급자 재검증은 하지 않았다. 프로파일의 DB 영속화/다른 프로파일과의 혼합 방지, 증분 기준 세대 연결, 반입에 없는 기존 OSV 행의 상태 보호 및 내보내기 정책은 여전히 잔여다. 1번 전체 완료로 처리하지 않는다.
 
