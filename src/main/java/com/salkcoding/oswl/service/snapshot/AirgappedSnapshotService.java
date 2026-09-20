@@ -207,7 +207,7 @@ public class AirgappedSnapshotService {
     /** Parsed {@code meta.json} (v2 only — v1/missing meta never reaches this type, see {@link #parseMetaV2}). */
     private record BundleSourceMeta(Integer records, LocalDate asOf, String origin) {}
     private record BundleFileMeta(String sha256, Integer lines) {}
-    private record BundleMetaV2(String mode, LocalDateTime builtAt, String bundleId,
+    private record BundleMetaV2(String mode, LocalDateTime builtAt, String bundleId, String basedOnBundleId,
                                 Map<String, BundleSourceMeta> sources, Map<String, BundleFileMeta> files, int formatVersion) {}
 
     /** One decoded JSONL line: either a normal upsert ({@code deleted=false}) or a delete marker. */
@@ -563,6 +563,14 @@ public class AirgappedSnapshotService {
             profileFiles.remove("meta.json");
             policy.validateFiles(profileFiles);
             BundleMetaV2 meta = metaBytes == null ? null : parseMetaV2(metaBytes);
+            if (profileMeta != null && profileMeta.has("basedOnBundleId")) {
+                JsonNode base = profileMeta.path("basedOnBundleId");
+                JsonNode id = profileMeta.path("bundleId");
+                if (meta == null || !"delta".equals(meta.mode()) || !base.isTextual() || base.asText().isBlank()
+                        || base.asText().length() > 64 || !id.isTextual() || id.asText().isBlank()
+                        || id.asText().length() > 64 || id.asText().equals(base.asText()))
+                    throw new InvalidRequestException("Snapshot delta base requires distinct valid bundle IDs and versioned delta metadata");
+            }
             Set<JsonNode> notices = incomingNotices(metaBytes);
             if (rawFiles.containsKey("cocoapods-specs.jsonl") && meta == null)
                 throw new InvalidRequestException("CocoaPods specs require a version 2 bundle with checksums");
@@ -617,6 +625,7 @@ public class AirgappedSnapshotService {
 
     private SnapshotImportResult applyBundle(Map<String, Path> rawFiles, BundleMetaV2 meta, ImportMode mode, Set<JsonNode> notices,
                                              com.salkcoding.oswl.vdb.BundleDistributionPolicy policy) {
+        verifyDeltaBase(rawFiles.keySet(), meta, mode);
         Map<String, LocalDate> retainedDates = new LinkedHashMap<>();
         if (mode == ImportMode.MERGE) {
             for (String source : SOURCES) {
@@ -738,6 +747,37 @@ public class AirgappedSnapshotService {
         entityManager.flush();
         generations.publish();
         return new SnapshotImportResult(counts, total, mode.name());
+    }
+
+    private void verifyDeltaBase(Set<String> files, BundleMetaV2 meta, ImportMode mode) {
+        if (meta == null || meta.basedOnBundleId() == null) return;
+        if (mode != ImportMode.MERGE)
+            throw new InvalidRequestException("Snapshot delta base cannot be applied with REPLACE; import its full bundle instead");
+        Set<String> sources = new LinkedHashSet<>();
+        for (String file : files) {
+            switch (file) {
+                case "osv.jsonl" -> sources.add(SOURCE_OSV);
+                case "depsdev.jsonl" -> sources.addAll(Set.of(SOURCE_DEPSDEV_VERSION, SOURCE_DEPSDEV_ADVISORY));
+                case "github-advisory.jsonl" -> sources.add(SOURCE_GITHUB_ADVISORY);
+                case "nvd.jsonl" -> sources.add(SOURCE_NVD);
+                case "epss.jsonl" -> sources.add(SOURCE_EPSS);
+                case "kev.jsonl" -> sources.add(SOURCE_KEV);
+                case "unresolved.jsonl" -> sources.add(SOURCE_UNRESOLVED);
+                case "cocoapods-specs.jsonl" -> sources.add(SOURCE_COCOAPODS_SPECS);
+                default -> throw new InvalidRequestException("Unsupported snapshot delta base source");
+            }
+        }
+        boolean matched = false;
+        for (String source : sources) {
+            var stored = snapshotMetaRepository.findById(source);
+            // A complete baseline may have no unresolved file at all.
+            if (SOURCE_UNRESOLVED.equals(source) && stored.isEmpty()
+                    && snapshotEntryRepository.countBySource(source) == 0) continue;
+            if (stored.isEmpty() || !meta.basedOnBundleId().equals(stored.get().getBundleId()))
+                throw new InvalidRequestException("Snapshot delta base does not match stored source '" + source + "'");
+            matched = true;
+        }
+        if (!matched) throw new InvalidRequestException("Snapshot delta base has no matching stored source");
     }
 
     private static ImportMode resolveModeFromMeta(BundleMetaV2 meta) {
@@ -1052,7 +1092,7 @@ public class AirgappedSnapshotService {
                     // Left null — same reasoning as asOf above.
                 }
             }
-            return new BundleMetaV2(text(root, "mode"), builtAt, text(root, "bundleId"), sources, files, declaredVersion.intValue());
+            return new BundleMetaV2(text(root, "mode"), builtAt, text(root, "bundleId"), text(root, "basedOnBundleId"), sources, files, declaredVersion.intValue());
         } catch (Exception e) {
             throw new InvalidRequestException("Invalid snapshot metadata: " + e.getMessage());
         }
