@@ -29,6 +29,31 @@ import static org.assertj.core.api.Assertions.*;
 class SnapshotImportTransactionTest {
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"MERGE,false,false", "MERGE,true,true", "REPLACE,false,true"})
+    void unbasedMergeCannotClaimAnExactBundleBaseline(AirgappedSnapshotService.ImportMode mode,
+                                                     boolean initiallyEmpty, boolean exact) throws Exception {
+        if (initiallyEmpty) entries.deleteAll();
+        String row = "{\"cveId\":\"CVE-2026-9001\",\"score\":0.8}";
+        String hash = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(row.getBytes(StandardCharsets.UTF_8)));
+        String manifest = "\"files\":{\"epss.jsonl\":{\"sha256\":\"" + hash + "\",\"lines\":1}}";
+        String full = "{\"formatVersion\":2,\"mode\":\"full\",\"bundleId\":\"base\"," + manifest + "}";
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("meta.json", full, "epss.jsonl", row))), mode);
+        assertThat(metadata.findById("epss").orElseThrow().getBundleId()).isEqualTo(exact ? "base" : null);
+        assertThat(service.findEpssScores(List.of("CVE-2026-9001"))).containsEntry("CVE-2026-9001", .8);
+        String delta = "{\"formatVersion\":2,\"mode\":\"delta\",\"bundleId\":\"next\",\"basedOnBundleId\":\"base\"," + manifest + "}";
+        byte[] bytes = bundle(Map.of("meta.json", delta, "epss.jsonl", row));
+        if (exact) {
+            service.importBundle(new ByteArrayInputStream(bytes), AirgappedSnapshotService.ImportMode.MERGE);
+            assertThat(metadata.findById("epss").orElseThrow().getBundleId()).isEqualTo("next");
+        } else {
+            assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bytes), AirgappedSnapshotService.ImportMode.MERGE))
+                    .isInstanceOf(InvalidRequestException.class).hasMessageContaining("base");
+            assertThat(service.findEpssScores(List.of("CVE-2026-9000"))).containsEntry("CVE-2026-9000", .25);
+            assertThat(metadata.findById("epss").orElseThrow().getBundleId()).isNull();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"base,MERGE,true", "other,MERGE,false", "missing,MERGE,false", "base,REPLACE,false"})
     void declaredDeltaBaseMustMatchStoredSource(String storedId, AirgappedSnapshotService.ImportMode mode,
                                                boolean accepted) throws Exception {

@@ -735,7 +735,10 @@ public class AirgappedSnapshotService {
                     LocalDate retained = retainedDates.get(source);
                     asOf = asOf == null || retained == null ? null : (retained.isBefore(asOf) ? retained : asOf);
                 }
-                builder.bundleId(meta.bundleId())
+                // An unbased merge can retain rows absent from this bundle, so its ID is not an exact baseline.
+                boolean establishesBaseline = mode == ImportMode.REPLACE || meta.basedOnBundleId() != null
+                        || !retainedDates.containsKey(source);
+                builder.bundleId(establishesBaseline ? meta.bundleId() : null)
                         .builtAt(meta.builtAt())
                         .sourceAsOf(asOf)
                         .origin(sourceMeta != null ? sourceMeta.origin() : null)
