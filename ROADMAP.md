@@ -6,6 +6,8 @@
 
 ## 실행 규칙과 출시 기준
 
+- **2026-09-20 증분·식별자 누적 검증:** `86c5c7d0`까지의 wanted 범위 방어, 전역 출처 갱신의 패키지 상태 보존, 정상 빈 OSV 조회, 컴포넌트 키/온라인 식별자 일치 변경을 포함해 Windows/Java 25의 `.\gradlew.bat build verifyProdJar` 성공(2분 39초). 전체 5,002건 중 4,990건 통과·환경 의존/선택 실행 skip 12건·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/roadmap-identity-coverage-cumulative-build.log`. 별도 Docker 배포 작업의 미커밋 변경이 존재하는 상태에서 실행했으며 해당 파일은 이번 변경/커밋에서 제외했다. 컨테이너 배포나 별도 uiTest·실제 공급자 검증을 완료했다는 의미는 아니다. PostgreSQL 반입 검증은 38번의 별도 기록을 따른다.
+
 - **2026-09-20 수집기 근거 보존 누적 검증:** `3e865d86`까지의 GHSA 조회 상태/수정 후보 충돌 및 NVD 영향 조건/부분 응답 보존 변경을 포함해 깨끗한 작업 트리에서 Windows/Java 25의 `.\gradlew.bat build verifyProdJar` 성공(2분 33초). 전체 4,980건 중 4,968건 통과·환경 의존/선택 실행 skip 12건·실패/오류 0이며 운영 JAR 검사도 통과했다. 로그 `build/roadmap-bulk-evidence-cumulative-build.log`. 이번 누적 검증은 별도 `uiTest`, 실제 PostgreSQL, 실제 공급자 호출 또는 수집기 CLI 연결 완료를 의미하지 않는다. 다음 정확성 점검 대상은 증분 writer가 현재 결과에서 빠진 이전 키를 삭제하는 경로와 동일 출처의 수집 대상 범위 변경 정책이다. 전체 로드맵은 미완료 상태를 유지한다.
 
 - **2026-09-11 누적 회귀 검증:** `e888efb`까지의 OSV batch 대응/불완전 입력과 Maven 미해석 selector 변경을 포함해 Windows/Java 25에서 `.\gradlew.bat build verifyProdJar` 성공. 전체 2,916건 중 2,907건 통과·기존 환경 의존 skip 9건·실패/오류 0. 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-query-validation-build.log`. `uiTest`, 실제 PostgreSQL, 전체 공급자 실환경 및 API/UI의 불확실성 표시 종단 검증을 완료했다는 의미는 아니다. 전체 로드맵은 계속 진행 중이다.
@@ -38,6 +40,8 @@
 - DoD: 각 배포 프로파일의 포함 데이터가 이용 근거와 대응한다. 미확인을 허용 또는 불법으로 단정하지 않는다. 고지 작성과 사용 권한 확보를 별도로 판정한다.
 
 ### 2. 데이터 provenance와 고지의 배포·내보내기 전파 — P0 · [설계]
+
+- **2026-09-20 원문 보존 전제 재확인:** [OSV 공식 데이터 출처 문서](https://google.github.io/osv.dev/data/)는 여러 원천과 서로 다른 라이선스를 열거하고, 생태계별 dump가 이 자료를 집계한다고 설명한다. [GitHub Advisory Database LICENSE](https://raw.githubusercontent.com/github/advisory-database/main/LICENSE.md)의 CC-BY-4.0 원문도 다시 열어 확인했다. 이를 전체 OSV dump의 일괄 재배포 허가로 해석하지 않는다. 현재 OsvBulkSource.toSnapshotVuln은 요약 5개 필드만 전달하며, OsvClient의 공통 수정 후보 계산은 osvAdvisory가 없으면 NO_RANGE_EVIDENCE로 보류한다. 다음 원문 보존 작업은 원출처/revision/공급된 고지와 실제 번들 출력을 연결하고, 확인되지 않은 출처를 허용으로 승격하지 않는 계약을 함께 구현해야 한다. 이번 확인에서 새로운 취약점 원문·라이브러리를 반입하거나 원문 자동 배포 범위를 확대하지 않았다. 원천별 권리와 레코드별 provenance는 계속 미완료다.
 
 - **2026-09-13 CLI 번들 고지 누락 보완:** 앱의 스캔 내보내기에만 있던 데이터 고지를 CLI 전체·증분 번들의 `meta.json.dataNotices`에도 넣었다. GitHub Advisory Database 자료가 존재하는 경우의 출처·CC-BY-4.0 링크·보증 부인과 선별/정규화/증분 처리 사실을 표시한다. [공식 LICENSE.md](https://raw.githubusercontent.com/github/advisory-database/main/LICENSE.md)의 조건을 재확인했으며 GHSA alias만으로 원천 권리를 판정하거나 다른 원천을 허용하지 않는다. 실제 CLI 생성→H2 REPLACE/MERGE 반입→재내보내기의 두 고지 누락 실패를 재현했고 수정 후 스냅샷/번들 관련 158건 통과·실패/오류/skip 0 및 `bootJar verifyProdJar` 성공(37초). 세 언어 Administration 문서 반영. 로그 `build/cli-notice-before.log`, `build/cli-notice-checked.log`. 커밋 제목 `fix: include data notices in cli vulnerability bundles`. 자체 합성 자료로 검사했으며 외부 공지/코드 도입·운영 DB·UI 변경 없음. 전체 build·PG·브라우저는 이번에 미검증. 원문 범위 보존, 개별 크레딧의 자동 전달, 레코드별 권리 검증과 미승인 원천 배포 차단은 여전히 미완료이며 고지를 재배포 승인으로 해석하지 않는다.
 
