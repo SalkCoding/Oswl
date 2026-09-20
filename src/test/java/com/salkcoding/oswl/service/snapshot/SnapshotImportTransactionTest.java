@@ -29,11 +29,27 @@ import static org.assertj.core.api.Assertions.*;
 class SnapshotImportTransactionTest {
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
-    void cliEmptyOsvLookupRetainsCoverage(boolean filtered, @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+    @org.junit.jupiter.params.provider.CsvSource({"false,false", "true,false", "false,true", "true,true"})
+    void cliEmptyOsvLookupRetainsCoverage(boolean filtered, boolean delta, @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
         Path wanted = directory.resolve("wanted.jsonl");
         Files.writeString(wanted, "{\"ecosystem\":\"npm\",\"name\":\"example\",\"version\":\"1.0.0\"}");
         Files.writeString(directory.resolve("osv-npm-all.zip.lastmodified"), java.time.LocalDate.now().toString());
+        Path base = directory.resolve("base.zip");
+        if (delta) {
+            Files.write(directory.resolve("osv-npm-all.zip"), bundle(Map.of("known.json", """
+                    {"id":"OSV-known","modified":"2026-01-01T00:00:00Z","affected":[{"package":{"ecosystem":"npm","name":"example"},
+                    "ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"2.0.0"}]}]}]}
+                    """)));
+            Integer baseExit = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                    new com.salkcoding.oswl.vdb.VdbBuilderCli(), "run", (Object) new String[]{"build", "--sources", "osv",
+                            "--wanted", wanted.toString(), "--offline-sources", directory.toString(), "--out", base.toString()});
+            assertThat(baseExit).isZero();
+            service.importBundle(new ByteArrayInputStream(Files.readAllBytes(base)));
+            var prior = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(
+                    new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "example", "1.0.0"))).getFirst();
+            assertThat(prior.resolved()).isTrue();
+            assertThat(prior.vulns()).extracting(com.salkcoding.oswl.client.OsvClient.OsvVuln::osvId).containsExactly("OSV-known");
+        }
         Files.write(directory.resolve("osv-npm-all.zip"), bundle(Map.of("other.json", """
                 {"id":"OSV-other","modified":"2026-01-01T00:00:00Z","affected":[{"package":{"ecosystem":"npm","name":"other"},
                 "ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"2.0.0"}]}]}]}
@@ -42,10 +58,12 @@ class SnapshotImportTransactionTest {
         var args = new ArrayList<>(List.of("build", "--sources", "osv", "--wanted", wanted.toString(),
                 "--offline-sources", directory.toString(), "--out", output.toString()));
         if (filtered) args.addAll(List.of("--ecosystems", "PYPI"));
+        if (delta) args.addAll(List.of("--since", base.toString()));
         Integer exit = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
                 new com.salkcoding.oswl.vdb.VdbBuilderCli(), "run", (Object) args.toArray(String[]::new));
         assertThat(exit).isZero();
-        service.importBundle(new ByteArrayInputStream(Files.readAllBytes(output)));
+        service.importBundle(new ByteArrayInputStream(Files.readAllBytes(output)), delta
+                ? AirgappedSnapshotService.ImportMode.MERGE : AirgappedSnapshotService.ImportMode.REPLACE);
         var result = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(
                 new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "example", "1.0.0"))).getFirst();
         assertThat(result.resolved()).isEqualTo(!filtered);
