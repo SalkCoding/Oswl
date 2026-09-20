@@ -318,7 +318,7 @@ public final class VdbBuilderCli {
 
     private int verify(Path bundle) throws Exception {
         PreviousBundleReader.verify(bundle, mapper);
-        System.err.println("[oswl-vdb] verify: archive and manifest integrity checks passed; source authenticity is not verified");
+        System.err.println("[oswl-vdb] verify: import transport limits, archive and manifest integrity checks passed; source authenticity is not verified");
         return 0;
     }
 

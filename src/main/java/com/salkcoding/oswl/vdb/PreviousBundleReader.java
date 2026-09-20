@@ -36,6 +36,14 @@ final class PreviousBundleReader {
     }
 
     private static PreviousBundle read(Path bundlePath, ObjectMapper mapper, boolean baseline) throws IOException {
+        try {
+            com.salkcoding.oswl.service.snapshot.SnapshotBundleStager.validateImportLimits(bundlePath,
+                    java.util.Set.of("osv.jsonl", "depsdev.jsonl", "github-advisory.jsonl", "nvd.jsonl",
+                            "epss.jsonl", "kev.jsonl", "unresolved.jsonl"));
+        } catch (com.salkcoding.oswl.exception.InvalidRequestException e) {
+            throw new IOException("Bundle exceeds import transport constraints: " + e.getMessage(), e);
+        }
+
         Map<String, byte[]> files = new LinkedHashMap<>();
         byte[] metaBytes = null;
         try (ZipFile zip = new ZipFile(bundlePath.toFile())) {
