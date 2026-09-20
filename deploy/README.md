@@ -2,6 +2,8 @@
 
 Run the commands below from the repository root.
 
+OSV severity recomputation extends the JSON in the existing V48 evidence column with advisory severity/CVSS contributions and a history-completeness marker. No new SQL migration is required. Old JSON remains readable but is not upgraded to complete history. Older application versions may reject the expanded JSON: do not mix writers or roll back only the application; preserve a matching application/database backup. This evidence is not included in snapshot exports.
+
 Apply `src/main/resources/db/migration/V49__cve_row_version.sql` after V48 before deploying CVE optimistic locking. Existing rows start at version 0 without changing their evidence. Keep the column in backups and on rollback; older writers bypass version checks, so mixed application versions are unsupported. Conflicting scans fail instead of retrying stale data automatically. This protects existing CVE rows, not duplicate insert races, all library metadata, or whole-run atomicity.
 
 Apply `src/main/resources/db/migration/V48__osv_revision_evidence.sql` after V47 before deploying OSV revision rollback protection. The nullable column preserves accepted revision/digest pairs per advisory on each CVE; legacy rows are not backfilled. Retain it on rollback and in backups. Older writers do not maintain this evidence, so do not mix application versions. Scan/offline exports do not yet transport it; this guard does not serialize concurrent writers or implement automatic withdrawal.
