@@ -254,6 +254,8 @@ A ready-to-import Grafana dashboard covering these metrics ships at [`deploy/obs
 
 ## Offline snapshot bundles (v1.0.4)
 
+EPSS-containing scan exports and CLI builds selecting EPSS include FIRST/Empirical Security attribution and links to the [EPSS data guidance](https://www.first.org/epss/data), [FAQ](https://www.first.org/epss/faq), and [FIRST service terms](https://www.first.org/about/policies/terms). Reviewed on 2026-09-21: the FAQ requests attribution; the service terms describe limited cybersecurity-purpose copying/distribution with notices preserved. Those terms are not treated as blanket permission for normalized customer databases or externally hosted CSV redistribution. The manifest keeps `rightsStatus: unreviewed` and does not assign an SPDX license. `github-attributed` excludes EPSS records; inherited notices remain preserved. API access is for targeted lookups; use daily CSV files for bulk synchronization.
+
 Application exports validate the completed ZIP against import limits before returning a download: decompressed entry and bundle sizes, metadata size, compression ratio, and JSONL line length. Highly repetitive entries are stored without compression to preserve the full evidence within the ratio limit; this can increase download size. Other limit violations fail the export without truncating advisory evidence. Validation uses temporary disk space and removes its staging files afterward; this check does not establish source completeness or redistribution rights.
 
 **Settings → Admin → Offline Snapshot**

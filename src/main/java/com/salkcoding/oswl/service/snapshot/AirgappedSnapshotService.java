@@ -1367,6 +1367,7 @@ public class AirgappedSnapshotService {
         meta.put("builder", "oswl-airgapped-export");
         meta.put("distributionProfile", distributionProfile);
         ObjectNode dataNotices = meta.putObject("dataNotices");
+        if (!restricted && !epss.isEmpty()) com.salkcoding.oswl.vdb.BundleDataNotices.addEpss(dataNotices);
         Set<JsonNode> upstreamNotices = allStoredNotices();
         checkNoticeBudget(upstreamNotices);
         meta.set("upstreamDataNotices", objectMapper.valueToTree(upstreamNotices));

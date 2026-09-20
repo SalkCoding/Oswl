@@ -29,6 +29,30 @@ import static org.assertj.core.api.Assertions.*;
 class SnapshotImportTransactionTest {
 
     @Test
+    void exportedEpssAttributionSurvivesImportWithoutClaimingRights() throws Exception {
+        var library = libraries.saveAndFlush(com.salkcoding.oswl.domain.entity.vulnerability.Library.builder()
+                .name("epss-notice-" + UUID.randomUUID()).version("1.0.0").ecosystem("NPM").build());
+        cves.saveAndFlush(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder().library(library)
+                .cveId("CVE-2026-123450").epssScore(0.4)
+                .sources(Set.of(com.salkcoding.oswl.domain.enums.CveSource.OSV)).build());
+        byte[] bytes = service.exportBundle();
+        var notices = exportedMeta(bytes).path("dataNotices");
+        assertThat(notices.has("epss")).isTrue();
+        {
+            var epss = notices.path("epss");
+            assertThat(epss.path("attribution").asText()).contains("FIRST", "Empirical Security");
+            assertThat(epss.path("sourceUrl").asText()).isEqualTo("https://www.first.org/epss/");
+            assertThat(epss.path("termsUrl").asText()).isEqualTo("https://www.first.org/about/policies/terms");
+            assertThat(epss.path("rightsStatus").asText()).isEqualTo("unreviewed");
+            assertThat(epss.has("license")).isFalse();
+            service.importBundle(new ByteArrayInputStream(bytes));
+            var inherited = exportedMeta(service.exportBundle()).path("upstreamDataNotices");
+            assertThat(inherited.findValues("epss")).contains(epss);
+        }
+        assertThat(exportedMeta(service.exportBundle("github-attributed")).path("dataNotices").has("epss")).isFalse();
+    }
+
+    @Test
     void exportPreservesHighlyCompressibleEvidenceAcrossImport() throws Exception {
         var library = libraries.saveAndFlush(com.salkcoding.oswl.domain.entity.vulnerability.Library.builder()
                 .name("compressible-export").version("1.0.0").ecosystem("NPM").build());

@@ -178,6 +178,7 @@ final class VdbBundleWriter {
             meta.put("resolvedCount", wantedListInfo.resolvedCount());
         }
         ObjectNode dataNotices = meta.putObject("dataNotices");
+        if (collectedSources.contains("epss")) BundleDataNotices.addEpss(dataNotices);
         dataNotices.put("scope", "These notices are not a redistribution clearance for the bundle or its other data sources. "
                 + "The OsWL software license does not relicense third-party data. Retain supplied record-level credits and notices.");
         if (distributionProfile.equals("github-attributed"))
