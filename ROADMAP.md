@@ -6,6 +6,8 @@
 
 ## 실행 규칙과 출시 기준
 
+- **2026-09-20 수집기 근거 보존 누적 검증:** `3e865d86`까지의 GHSA 조회 상태/수정 후보 충돌 및 NVD 영향 조건/부분 응답 보존 변경을 포함해 깨끗한 작업 트리에서 Windows/Java 25의 `.\gradlew.bat build verifyProdJar` 성공(2분 33초). 전체 4,980건 중 4,968건 통과·환경 의존/선택 실행 skip 12건·실패/오류 0이며 운영 JAR 검사도 통과했다. 로그 `build/roadmap-bulk-evidence-cumulative-build.log`. 이번 누적 검증은 별도 `uiTest`, 실제 PostgreSQL, 실제 공급자 호출 또는 수집기 CLI 연결 완료를 의미하지 않는다. 다음 정확성 점검 대상은 증분 writer가 현재 결과에서 빠진 이전 키를 삭제하는 경로와 동일 출처의 수집 대상 범위 변경 정책이다. 전체 로드맵은 미완료 상태를 유지한다.
+
 - **2026-09-11 누적 회귀 검증:** `e888efb`까지의 OSV batch 대응/불완전 입력과 Maven 미해석 selector 변경을 포함해 Windows/Java 25에서 `.\gradlew.bat build verifyProdJar` 성공. 전체 2,916건 중 2,907건 통과·기존 환경 의존 skip 9건·실패/오류 0. 운영 JAR local controller 제외 검사 통과. 로그 `build/roadmap-query-validation-build.log`. `uiTest`, 실제 PostgreSQL, 전체 공급자 실환경 및 API/UI의 불확실성 표시 종단 검증을 완료했다는 의미는 아니다. 전체 로드맵은 계속 진행 중이다.
 
 - **P0:** 1.0.6의 기본 신뢰성·보안·데이터 배포 경계를 위해 우선 해결할 작업. CVSS 등급이나 실제 침해의 심각도 표시가 아니다.
