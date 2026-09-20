@@ -75,7 +75,8 @@ final class GitHubAdvisorySource {
                 severityName(adv.severity()),
                 adv.cvssScore(),
                 adv.cvss3Vector(),
-                null // GitHub matches are exact package matches, not CPE inference
+                null, // GitHub matches are exact package matches, not CPE inference
+                adv.fixVersionConflictCandidates()
         );
     }
 

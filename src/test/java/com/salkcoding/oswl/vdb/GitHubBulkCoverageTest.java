@@ -11,6 +11,27 @@ import static org.mockito.Mockito.*;
 class GitHubBulkCoverageTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
+    void fixConflictEvidenceSurvivesSnapshotConversion(boolean conflict) throws Exception {
+        var candidates = conflict ? java.util.Set.of("2.0.0", "3.0.0") : java.util.Set.<String>of();
+        var advisory = new GitHubAdvisoryClient.GitHubAdvisory("GHSA-fixture", "CVE-2026-1000", "fixture", null,
+                null, null, "2.0.0", candidates);
+        try (var clients = mockConstruction(GitHubAdvisoryClient.class, (client, context) -> {
+            when(client.canLookup("npm")).thenReturn(true);
+            when(client.findByPackage("npm", "example", "1.0.0")).thenReturn(List.of(advisory));
+        })) {
+            var mapper = new ObjectMapper();
+            var result = new GitHubAdvisorySource(mapper).fetch(List.of(new WantedComponent("npm", "example", "1.0.0")), "fixture-token", null);
+            var finding = result.vulnsByComponentKey().get("NPM|example|1.0.0").getFirst();
+            assertThat(finding.fixVersionConflictCandidates()).isEqualTo(candidates);
+            assertThat(finding.fixVersion()).isEqualTo(conflict ? null : "2.0.0");
+            var restored = mapper.readValue(mapper.writeValueAsBytes(finding), com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln.class);
+            assertThat(restored).isEqualTo(finding);
+            assertThat(result.unresolvedKeys()).isEmpty();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     void unavailableLookupRetainsUnresolvedKey(boolean fails) {
         try (var clients = mockConstruction(GitHubAdvisoryClient.class, (client, context) -> {
             when(client.canLookup("npm")).thenReturn(fails);
