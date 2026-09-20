@@ -65,6 +65,7 @@ public class SnapshotGenerationService {
             node.put("origin", source.getOrigin());
             node.put("formatVersion", source.getFormatVersion());
             node.put("dataNotices", source.getDataNotices());
+            node.put("distributionProfile", source.getDistributionProfile());
         }
         return generations.capture(sources.toString());
     }

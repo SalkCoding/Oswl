@@ -61,4 +61,7 @@ public class SnapshotMeta {
     /** Distinct supplied bundle notices as a JSON array; not a redistribution authorization. */
     @Column(name = "data_notices", columnDefinition = "TEXT")
     private String dataNotices;
+    /** Declared distribution profile; legacy rows remain unknown (null). */
+    @Column(name = "distribution_profile", length = 32)
+    private String distributionProfile;
 }

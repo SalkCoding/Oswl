@@ -619,6 +619,15 @@ public class AirgappedSnapshotService {
     private SnapshotImportResult applyBundle(Map<String, Path> rawFiles, BundleMetaV2 meta, ImportMode mode, Set<JsonNode> notices,
                                              com.salkcoding.oswl.vdb.BundleDistributionPolicy policy) {
         verifyDeltaBase(rawFiles.keySet(), meta, mode);
+        if (mode == ImportMode.MERGE) {
+            for (String source : bundleSources(rawFiles.keySet())) {
+                var previous = snapshotMetaRepository.findById(source);
+                if (previous.isEmpty() && snapshotEntryRepository.countBySource(source) == 0) continue;
+                String priorProfile = previous.map(SnapshotMeta::getDistributionProfile).orElse("unreviewed");
+                if (!policy.profile().equals(priorProfile))
+                    throw new InvalidRequestException("Snapshot distribution profile differs from stored source; import a full replacement");
+            }
+        }
         Map<String, LocalDate> retainedDates = new LinkedHashMap<>();
         if (mode == ImportMode.MERGE) {
             for (String source : SOURCES) {
@@ -714,6 +723,7 @@ public class AirgappedSnapshotService {
             SnapshotMeta.SnapshotMetaBuilder builder = SnapshotMeta.builder()
                     .source(source)
                     .recordCount(actualCount)
+                    .distributionProfile(policy.profile())
                     .importedAt(now);
             Set<JsonNode> retainedNotices = new LinkedHashSet<>();
             if (mode == ImportMode.MERGE) snapshotMetaRepository.findById(source)
@@ -745,10 +755,7 @@ public class AirgappedSnapshotService {
         return new SnapshotImportResult(counts, total, mode.name());
     }
 
-    private void verifyDeltaBase(Set<String> files, BundleMetaV2 meta, ImportMode mode) {
-        if (meta == null || meta.basedOnBundleId() == null) return;
-        if (mode != ImportMode.MERGE)
-            throw new InvalidRequestException("Snapshot delta base cannot be applied with REPLACE; import its full bundle instead");
+    private static Set<String> bundleSources(Set<String> files) {
         Set<String> sources = new LinkedHashSet<>();
         for (String file : files) {
             switch (file) {
@@ -763,6 +770,14 @@ public class AirgappedSnapshotService {
                 default -> throw new InvalidRequestException("Unsupported snapshot delta base source");
             }
         }
+        return sources;
+    }
+
+    private void verifyDeltaBase(Set<String> files, BundleMetaV2 meta, ImportMode mode) {
+        if (meta == null || meta.basedOnBundleId() == null) return;
+        if (mode != ImportMode.MERGE)
+            throw new InvalidRequestException("Snapshot delta base cannot be applied with REPLACE; import its full bundle instead");
+        Set<String> sources = bundleSources(files);
         boolean matched = false;
         for (String source : sources) {
             var stored = snapshotMetaRepository.findById(source);

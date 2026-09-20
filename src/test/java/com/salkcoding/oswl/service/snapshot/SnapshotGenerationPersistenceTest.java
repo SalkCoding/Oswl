@@ -202,7 +202,7 @@ class SnapshotGenerationPersistenceTest {
         String notices = "[{\"credit\":\"자체 검증 저작자\",\"license\":\"fixture only\"}]";
         entries.saveAndFlush(SnapshotEntry.builder().source("epss").entryKey(first).payload("0.1").build());
         metadata.saveAndFlush(SnapshotMeta.builder().source("epss").recordCount(1).importedAt(LocalDateTime.now())
-                .sourceAsOf(LocalDate.now().minusDays(30)).dataNotices(notices).build());
+                .sourceAsOf(LocalDate.now().minusDays(30)).dataNotices(notices).distributionProfile("unreviewed").build());
         assertThat(generations.activeId()).isNull();
         snapshots.importBundle(new ByteArrayInputStream(bundle(first, "0.5")), AirgappedSnapshotService.ImportMode.REPLACE);
         long baseline = jdbc.queryForObject("SELECT MIN(id) FROM snapshot_generations", Long.class);
@@ -213,11 +213,13 @@ class SnapshotGenerationPersistenceTest {
         var original = json.readTree(generations.metadata(baseline)).path("epss");
         assertThat(original.path("sourceAsOf").asText()).isEqualTo(LocalDate.now().minusDays(30).toString());
         assertThat(original.path("dataNotices").asText()).isEqualTo(notices);
+        assertThat(original.path("distributionProfile").asText()).isEqualTo("unreviewed");
         assertThat(generations.payloads(replaced, "epss", List.of(first))).containsExactlyEntriesOf(Map.of(first, "0.5"));
         assertThat(json.readTree(generations.metadata(replaced)).path("epss").path("sourceAsOf").isNull()).isTrue();
 
         snapshots.importBundle(new ByteArrayInputStream(bundle(second, "0.8")), AirgappedSnapshotService.ImportMode.MERGE);
         long merged = generations.activeId();
+        assertThat(json.readTree(generations.metadata(merged)).path("epss").path("distributionProfile").asText()).isEqualTo("unreviewed");
         assertThat(merged).isNotEqualTo(replaced);
         assertThat(generations.payloads(merged, "epss", List.of(first, second)))
                 .containsExactlyInAnyOrderEntriesOf(Map.of(first, "0.5", second, "0.8"));

@@ -7,6 +7,8 @@ Run the commands below from the repository root.
 - [`docker/compose.prod.yml`](docker/compose.prod.yml) is a separate, complete production configuration with PostgreSQL 15, loopback host-port publishing, and log volumes. It requires `OSWL_IMAGE` to be a reviewed release tag or digest. Use it by itself, not as an override layered over the other file.
 - [`observability/grafana/oswl-dashboard.json`](observability/grafana/oswl-dashboard.json) is an importable dashboard, not a documentation page.
 
+Before deploying snapshot distribution-profile checks, apply [`V46__snapshot_distribution_profile.sql`](../src/main/resources/db/migration/V46__snapshot_distribution_profile.sql). The nullable column preserves legacy rows as unknown; never backfill them as approved. Imports retain the declared profile in current source metadata and new generation metadata. MERGE cannot change an existing source profile; use a full REPLACE. Keep the additive column on rollback. Older application versions do not enforce these restrictions, so mixed-version writers are unsupported. This records a restriction, not a grant of redistribution rights.
+
 ## Docker Hub images
 
 Every GitHub release tag publishes `salk1104/oswl:<release version>`. After the GitHub Release is public, CI promotes that exact digest to `salk1104/oswl:latest`. The release also includes a `DOCKER_IMAGE_DIGEST` asset for immutable production pinning. For example:

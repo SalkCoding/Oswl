@@ -29,6 +29,33 @@ import static org.assertj.core.api.Assertions.*;
 class SnapshotImportTransactionTest {
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "unreviewed,github-attributed,MERGE,false", "github-attributed,unreviewed,MERGE,false",
+            "github-attributed,github-attributed,MERGE,true", "unreviewed,unreviewed,MERGE,true",
+            "unreviewed,github-attributed,REPLACE,true", "github-attributed,unreviewed,REPLACE,true"})
+    void distributionProfilesCannotBeMixedByDelta(String original, String incoming,
+            AirgappedSnapshotService.ImportMode mode, boolean accepted) throws Exception {
+        String row = "{\"ecosystem\":\"npm\",\"name\":\"fixture\",\"version\":\"1.0.0\"}";
+        var files = new LinkedHashMap<String, String>();
+        files.put("osv.jsonl", row.substring(0, row.length() - 1) + ",\"vulns\":[]}");
+        files.put("unresolved.jsonl", row);
+        files.put("meta.json", "{\"distributionProfile\":\"" + original + "\"}");
+        service.importBundle(new ByteArrayInputStream(versionedBundle(files, "base", null)), AirgappedSnapshotService.ImportMode.REPLACE);
+        files.put("meta.json", "{\"distributionProfile\":\"" + incoming + "\"}");
+        byte[] next = versionedBundle(files, "next", mode == AirgappedSnapshotService.ImportMode.MERGE ? "base" : null);
+        if (accepted) {
+            service.importBundle(new ByteArrayInputStream(next), mode);
+            assertThat(metadata.findById("osv").orElseThrow().getBundleId()).isEqualTo("next");
+        } else {
+            assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(next), mode))
+                    .isInstanceOf(InvalidRequestException.class).hasMessageContaining("profile");
+            assertThat(metadata.findById("osv").orElseThrow().getBundleId()).isEqualTo("base");
+        }
+        assertThat(metadata.findById("osv").orElseThrow().getDistributionProfile()).isEqualTo(accepted ? incoming : original);
+        assertThat(service.findUnresolvedKeys(List.of("NPM|fixture|1.0.0"))).containsExactly("NPM|fixture|1.0.0");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {
             "{\"mode\":\"delta\"}",
             "{\"mode\":\"delta\",\"bundleId\":\"next\"}",
@@ -145,9 +172,9 @@ class SnapshotImportTransactionTest {
         String key = "NPM|fixture|1.0.0";
         if (stored) entries.saveAndFlush(SnapshotEntry.builder().source("unresolved").entryKey(key).payload(row).build());
         metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder()
-                .source("osv").recordCount(0).importedAt(java.time.LocalDateTime.now()).bundleId("base").build());
+                .source("osv").recordCount(0).importedAt(java.time.LocalDateTime.now()).bundleId("base").distributionProfile("github-attributed").build());
         if (stored) metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder()
-                .source("unresolved").recordCount(1).importedAt(java.time.LocalDateTime.now()).bundleId("base").build());
+                .source("unresolved").recordCount(1).importedAt(java.time.LocalDateTime.now()).bundleId("base").distributionProfile("github-attributed").build());
         Map<String, String> files = new LinkedHashMap<>();
         files.put("meta.json", "{\"distributionProfile\":\"github-attributed\",\"mode\":\"delta\"}");
         files.put("osv.jsonl", row.substring(0, row.length() - 1) + ",\"vulns\":[]}");

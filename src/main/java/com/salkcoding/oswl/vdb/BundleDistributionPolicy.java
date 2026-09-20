@@ -21,6 +21,10 @@ public final class BundleDistributionPolicy {
         this.delta = delta;
     }
 
+    public String profile() {
+        return attributed ? "github-attributed" : "unreviewed";
+    }
+
     public boolean requiresValidation() {
         return attributed;
     }
