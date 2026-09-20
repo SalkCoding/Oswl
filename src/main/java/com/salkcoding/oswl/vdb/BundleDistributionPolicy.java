@@ -53,7 +53,7 @@ public final class BundleDistributionPolicy {
             unresolved.add(key);
             return;
         }
-        if (!delta) findings.add(key);
+        findings.add(key);
         if (!node.path("vulns").isArray()) throw new IOException("Distribution profile requires a vulnerability array");
         for (JsonNode vulnerability : node.path("vulns")) {
             JsonNode original = vulnerability.path("osvAdvisory");
@@ -62,6 +62,11 @@ public final class BundleDistributionPolicy {
                     || !vulnerability.path("osvId").asText().equals(original.path("id").asText()))
                 throw new IOException("Distribution profile requires matching attributed originals");
         }
+    }
+
+    /** Component keys whose partial coverage must still exist after applying the bundle. */
+    public Set<String> requiredUnresolvedKeys() {
+        return Set.copyOf(findings);
     }
 
     public void finish() throws IOException {

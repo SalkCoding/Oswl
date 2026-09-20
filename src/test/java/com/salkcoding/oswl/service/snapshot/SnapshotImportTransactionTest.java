@@ -58,6 +58,38 @@ class SnapshotImportTransactionTest {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "false,false,MERGE,false,false", "false,false,REPLACE,false,false",
+            "true,false,MERGE,true,false", "false,true,MERGE,true,false", "true,true,REPLACE,true,false",
+            "true,false,REPLACE,false,true", "true,false,MERGE,true,true"})
+    void attributedDeltaRequiresEffectiveUnresolvedCoverage(boolean stored, boolean incoming,
+            AirgappedSnapshotService.ImportMode mode, boolean accepted, boolean emptyCoverageFile) throws Exception {
+        String row = "{\"ecosystem\":\"npm\",\"name\":\"fixture\",\"version\":\"1.0.0\"}";
+        String key = "NPM|fixture|1.0.0";
+        if (stored) entries.saveAndFlush(SnapshotEntry.builder().source("unresolved").entryKey(key).payload(row).build());
+        Map<String, String> files = new LinkedHashMap<>();
+        files.put("meta.json", "{\"distributionProfile\":\"github-attributed\",\"mode\":\"delta\"}");
+        files.put("osv.jsonl", row.substring(0, row.length() - 1) + ",\"vulns\":[]}");
+        if (incoming) files.put("unresolved.jsonl", row);
+        if (emptyCoverageFile) files.put("unresolved.jsonl", "");
+        byte[] archive = bundle(files);
+        if (accepted) {
+            service.importBundle(new ByteArrayInputStream(archive), mode);
+            assertThat(service.findUnresolvedKeys(List.of(key))).containsExactly(key);
+            var result = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(
+                    new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "fixture", "1.0.0"))).getFirst();
+            assertThat(result.resolved()).isFalse();
+            assertThat(result.commonFix().version()).isNull();
+        } else {
+            assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(archive), mode))
+                    .isInstanceOf(InvalidRequestException.class).hasMessageContaining("profile");
+            assertOldSource();
+            assertThat(entries.countBySource("osv")).isZero();
+            assertThat(service.findUnresolvedKeys(List.of(key))).hasSize(stored ? 1 : 0);
+        }
+    }
+
     @Test void distributionProfileRetainsAttributedFindingsWithoutConfirmingCompleteCoverage(
             @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
         String id = "GHSA-2345-6789-cfgh";

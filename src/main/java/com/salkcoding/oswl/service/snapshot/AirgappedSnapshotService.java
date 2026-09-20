@@ -601,7 +601,7 @@ public class AirgappedSnapshotService {
             for (int attempt = 1; ; attempt++) {
                 SnapshotBundleStager.checkInterrupted();
                 try {
-                    SnapshotImportResult result = transaction.execute(status -> applyBundle(rawFiles, meta, mode, notices));
+                    SnapshotImportResult result = transaction.execute(status -> applyBundle(rawFiles, meta, mode, notices, policy));
                     log.info("[Snapshot] Imported offline snapshot ({} mode): {} records across {}", mode,
                             result.totalRecords(), result.sources());
                     return result;
@@ -615,7 +615,8 @@ public class AirgappedSnapshotService {
         }
     }
 
-    private SnapshotImportResult applyBundle(Map<String, Path> rawFiles, BundleMetaV2 meta, ImportMode mode, Set<JsonNode> notices) {
+    private SnapshotImportResult applyBundle(Map<String, Path> rawFiles, BundleMetaV2 meta, ImportMode mode, Set<JsonNode> notices,
+                                             com.salkcoding.oswl.vdb.BundleDistributionPolicy policy) {
         Map<String, LocalDate> retainedDates = new LinkedHashMap<>();
         if (mode == ImportMode.MERGE) {
             for (String source : SOURCES) {
@@ -685,6 +686,18 @@ public class AirgappedSnapshotService {
                 }
                 default -> { /* unreachable — filtered by KNOWN_DATA_FILES above */ }
             }
+        }
+
+        // A delta may omit unchanged coverage rows, but they must exist in the resulting store.
+        // Check inside the publication transaction so rejection also rolls back source replacements.
+        List<String> requiredCoverage = new ArrayList<>(policy.requiredUnresolvedKeys());
+        for (int offset = 0; offset < requiredCoverage.size(); offset += SAVE_CHUNK_SIZE) {
+            SnapshotBundleStager.checkInterrupted();
+            List<String> keys = requiredCoverage.subList(offset, Math.min(offset + SAVE_CHUNK_SIZE, requiredCoverage.size()));
+            Set<String> present = snapshotEntryRepository.findBySourceAndEntryKeyIn(SOURCE_UNRESOLVED, keys).stream()
+                    .map(SnapshotEntry::getEntryKey).collect(Collectors.toSet());
+            if (!present.containsAll(keys))
+                throw new InvalidRequestException("Distribution profile requires retained incomplete coverage for every finding component");
         }
 
         // recordCount is always a fresh count query, never an accumulated delta — a MERGE
