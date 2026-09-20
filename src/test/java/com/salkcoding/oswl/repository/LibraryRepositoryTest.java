@@ -159,6 +159,25 @@ class LibraryRepositoryTest {
         });
     }
 
+    @Test
+    void componentMetadataQueryPreservesOccurrencesWithoutHydratingCurrentFindings() {
+        var project = projectRepository.save(Project.builder().name("snapshot-row-metadata").build());
+        var scan = scanResultRepository.save(ScanResult.builder().project(project).build());
+        var library = libraryRepository.save(lib("snapshot-row-library", "1.0", "NPM"));
+        cveRepository.save(Cve.builder().library(library).cveId("CVE-2026-98765")
+                .sources(Set.of(CveSource.NVD, CveSource.CPE)).build());
+        var runtime = scanComponentRepository.save(ScanComponent.builder().scanResult(scan).library(library).scope("runtime").build());
+        var test = scanComponentRepository.save(ScanComponent.builder().scanResult(scan).library(library).scope("test").build());
+        entityManager.flush();
+        entityManager.clear();
+        var found = scanComponentRepository.findByScanResultIdWithLibrary(scan.getId());
+        assertThat(found).extracting(ScanComponent::getId).containsExactlyInAnyOrder(runtime.getId(), test.getId());
+        assertThat(found).allSatisfy(component -> {
+            assertThat(component.getLibrary().getName()).isEqualTo("snapshot-row-library");
+            assertThat(org.hibernate.Hibernate.isInitialized(component.getLibrary().getCves())).isFalse();
+        });
+    }
+
     // ── 헬퍼 ─────────────────────────────────────────────────────────────
 
     private static Library lib(String name, String version, String ecosystem) {

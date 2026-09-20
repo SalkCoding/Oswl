@@ -92,7 +92,23 @@ class PreservedComponentDetailUiTest extends UiTestBase {
         Files.createDirectories(output);
         page.screenshot(new Page.ScreenshotOptions().setPath(output.resolve(lang + ".png")).setFullPage(true));
         page.navigate(url("/projects/" + project.getId() + "/security-center?lang=" + lang));
-        page.locator("a[data-comp-id='" + component.getId() + "']").click();
+        var row = page.locator("a[data-comp-id='" + component.getId() + "']");
+        assertThat(row.getAttribute("data-sec-high")).isEqualTo("1");
+        assertThat(row.getAttribute("data-sec-critical")).isEqualTo("0");
+        assertThat(row.getAttribute("data-license-status")).isEqualTo("PERMITTED");
+        assertThat(page.locator("[data-preserved-rows]").innerText()).isEqualTo(
+                messages.getMessage("securityCenter.assessment.preserved", null, Locale.forLanguageTag(lang)));
+        String rowsUrl = url("/projects/" + project.getId() + "/security-center/rows?scanId=" + scan.getId());
+        var filtered = context.request().get(rowsUrl + "&secHigh=true&licPermitted=true");
+        assertThat(filtered.status()).isEqualTo(200);
+        assertThat(filtered.text()).contains("data-comp-id=\"" + component.getId() + "\"");
+        for (String filter : List.of("secCritical=true", "licRestricted=true")) {
+            var excluded = context.request().get(rowsUrl + "&" + filter);
+            assertThat(excluded.status()).isEqualTo(200);
+            assertThat(excluded.text()).doesNotContain("data-comp-id=\"" + component.getId() + "\"");
+        }
+        page.screenshot(new Page.ScreenshotOptions().setPath(output.resolve(lang + "-rows.png")).setFullPage(true));
+        row.click();
         var panel = page.locator("#slideout-content #component-detail-content");
         panel.locator("[data-preserved-assessment]").waitFor();
         assertThat(panel.innerText()).contains("Captured advisory title", "MIT").doesNotContain("GPL-3.0");
@@ -106,6 +122,10 @@ class PreservedComponentDetailUiTest extends UiTestBase {
                 """);
         assertThat((Boolean) panel.evaluate("e => e.scrollWidth <= e.clientWidth + 1")).isTrue();
         page.screenshot(new Page.ScreenshotOptions().setPath(output.resolve(lang + "-panel.png")));
+        page.navigate(url("/projects/" + project.getId() + "/security-center/print?scanId=" + scan.getId() + "&lang=" + lang));
+        assertThat(page.locator("[data-preserved-rows]").count()).isEqualTo(1);
+        assertThat(page.locator(".comp-table tbody").innerText()).contains("MIT").doesNotContain("GPL-3.0");
+        page.screenshot(new Page.ScreenshotOptions().setPath(output.resolve(lang + "-print.png")).setFullPage(true));
         assertThat(errors).isEmpty();
     }
 }

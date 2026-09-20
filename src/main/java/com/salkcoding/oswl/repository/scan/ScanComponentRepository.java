@@ -55,6 +55,11 @@ public interface ScanComponentRepository extends JpaRepository<ScanComponent, Lo
             """)
     List<ScanComponent> findByScanResultId(@Param("scanResultId") Long scanResultId);
 
+    /** Components with only their library identity loaded; Security Center preserved scans
+     * derive findings from the immutable assessment and must not fetch current CVEs here. */
+    @Query("SELECT sc FROM ScanComponent sc JOIN FETCH sc.library WHERE sc.scanResult.id = :scanResultId")
+    List<ScanComponent> findByScanResultIdWithLibrary(@Param("scanResultId") Long scanResultId);
+
     /**
      * Single component with library + CVEs for the detail panel. CVE element collections
      * load by eager subselect; only the LAZY scanResult association is additionally joined
