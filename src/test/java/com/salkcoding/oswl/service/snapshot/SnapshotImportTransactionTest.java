@@ -29,6 +29,75 @@ import static org.assertj.core.api.Assertions.*;
 class SnapshotImportTransactionTest {
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"online,0", "offline,0", "offline,8", "offline,999"})
+    void importedSeverityCorrectionMatchesOnlineWithoutTrustingStaleCoverage(String mode, int age) throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        String name = "severity-parity-" + UUID.randomUUID();
+        var library = libraries.save(com.salkcoding.oswl.domain.entity.vulnerability.Library.builder()
+                .name(name).version("1.0.0").ecosystem("NPM").build());
+        var stored = com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder().library(library).ghsaId("OSV-severity")
+                .sources(new HashSet<>(Set.of(com.salkcoding.oswl.domain.enums.CveSource.OSV))).build();
+        try {
+            for (int revision = 1; revision <= 2; revision++) {
+                String vector = revision == 1 ? "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+                        : "CVSS:3.1/AV:L/AC:H/PR:H/UI:R/S:U/C:L/I:N/A:N";
+                var original = json.valueToTree(Map.of("id", "OSV-severity", "modified", "2026-0" + revision + "-01T00:00:00Z",
+                        "severity", List.of(Map.of("type", "CVSS_V3", "score", vector)),
+                        "affected", List.of(Map.of("package", Map.of("ecosystem", "npm", "name", name),
+                                "ranges", List.of(Map.of("type", "SEMVER", "events", List.of(
+                                        Map.of("introduced", "0"), Map.of("fixed", "3.0.0"))))))));
+                String line = json.writeValueAsString(Map.of("ecosystem", "npm", "name", name, "version", "1.0.0",
+                        "vulns", List.of(Map.of("osvId", "OSV-severity", "osvAdvisory", original))));
+                String hash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(line.getBytes(StandardCharsets.UTF_8)));
+                int sourceAge = revision == 1 ? 0 : age;
+                Map<String, String> date = sourceAge == 999 ? Map.of() : Map.of("asOf", java.time.LocalDate.now().minusDays(sourceAge).toString());
+                String meta = json.writeValueAsString(Map.of("formatVersion", 2, "sources", Map.of("osv", date),
+                        "files", Map.of("osv.jsonl", Map.of("sha256", hash, "lines", 1))));
+                service.importBundle(new ByteArrayInputStream(bundle(Map.of("osv.jsonl", line, "meta.json", meta))));
+                var query = new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", name, "1.0.0");
+                var offline = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(query)).getFirst();
+                var builder = org.springframework.web.client.RestClient.builder().baseUrl("https://api.osv.dev");
+                var server = org.springframework.test.web.client.MockRestServiceServer.bindTo(builder).build();
+                server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo("https://api.osv.dev/v1/querybatch"))
+                        .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(
+                                json.writeValueAsString(Map.of("results", List.of(Map.of("vulns", List.of(original))))), org.springframework.http.MediaType.APPLICATION_JSON));
+                server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo("https://api.osv.dev/v1/vulns/OSV-severity"))
+                        .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(original.toString(), org.springframework.http.MediaType.APPLICATION_JSON));
+                var onlineClient = new com.salkcoding.oswl.client.OsvClient();
+                org.springframework.test.util.ReflectionTestUtils.setField(onlineClient, "restClient", builder.build());
+                var online = onlineClient.queryBatch(List.of(query)).getFirst();
+                server.verify();
+                assertThat(online.vulns()).hasSize(1);
+                var currentFinding = online.vulns().getFirst();
+                // An outdated or undated bundle retains findings but cannot confirm a fix.
+                var expectedOfflineFinding = sourceAge == 0 ? currentFinding
+                        : new com.salkcoding.oswl.client.OsvClient.OsvVuln(currentFinding.osvId(), currentFinding.cveId(),
+                                currentFinding.summary(), null, currentFinding.cweId(), currentFinding.severity(),
+                                currentFinding.cvssScore(), currentFinding.cvssVector(), currentFinding.fixVersionConflictCandidates());
+                assertThat(offline.vulns()).containsExactly(expectedOfflineFinding);
+                assertThat(offline.advisoryRevisions()).isEqualTo(online.advisoryRevisions());
+                assertThat(offline.advisoryDigests()).isEqualTo(online.advisoryDigests());
+                assertThat(online.resolved()).isTrue();
+                assertThat(offline.resolved()).isEqualTo(sourceAge == 0);
+                assertThat(online.commonFix().version()).isEqualTo("3.0.0");
+                assertThat(offline.commonFix().version()).isEqualTo(sourceAge == 0 ? "3.0.0" : null);
+                var selected = mode.equals("online") ? online : offline;
+                var finding = selected.vulns().getFirst();
+                stored.mergeSeverity(com.salkcoding.oswl.domain.enums.CveSource.OSV, finding.severity());
+                com.salkcoding.oswl.service.vulnerability.OsvStoredEvidence.record(stored, selected, finding, selected.resolved());
+                cves.save(stored);
+                stored = cves.findById(stored.getId()).orElseThrow();
+                boolean corrected = revision == 2 && (mode.equals("online") || sourceAge == 0);
+                assertThat(stored.getSeverity()).isEqualTo(corrected ? com.salkcoding.oswl.domain.enums.RiskLevel.LOW
+                        : com.salkcoding.oswl.domain.enums.RiskLevel.CRITICAL);
+                assertThat(stored.getCvss3Vector()).isEqualTo(corrected ? vector : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H");
+            }
+        } finally {
+            libraries.deleteById(library.getId());
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"false,active", "true,active", "false,reactivated", "true,reactivated",
             "false,withdrawn", "true,withdrawn", "false,unaffected", "true,unaffected"})
     void newestOsvRevisionInImportedBundleMatchesCurrentOnlineResult(boolean reverse, String state) throws Exception {
