@@ -13,7 +13,7 @@ import java.util.zip.*;
 
 /** Bounded disk staging; ZIP validation completes before the caller opens a write transaction. */
 @Slf4j
-final class SnapshotBundleStager implements AutoCloseable {
+public final class SnapshotBundleStager implements AutoCloseable {
     private static final long ENTRY_LIMIT = 200L * 1024 * 1024;
     private static final long BUNDLE_LIMIT = 512L * 1024 * 1024;
     private static final int LINE_LIMIT = 1024 * 1024;
@@ -23,6 +23,16 @@ final class SnapshotBundleStager implements AutoCloseable {
 
     Map<String, Path> files() { return files; }
     Set<String> entryNames() { return Collections.unmodifiableSet(entryNames); }
+
+    /** Validate producer output with the same decompression and line limits as import. */
+    public static void validateImportLimits(Path bundle, Set<String> knownFiles) throws IOException {
+        try (var stage = new SnapshotBundleStager(); var input = Files.newInputStream(bundle)) {
+            stage.read(input, knownFiles);
+            for (var file : stage.files.entrySet()) {
+                if (!file.getKey().equals("meta.json")) forEachLine(file.getValue(), line -> {});
+            }
+        }
+    }
 
     void read(InputStream input, Set<String> known) throws IOException {
         long bundleBytes = 0;

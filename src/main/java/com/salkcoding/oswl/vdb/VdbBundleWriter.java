@@ -217,16 +217,24 @@ final class VdbBundleWriter {
             putFileMeta(files, "unresolved.jsonl", unresolvedContent, countLines(unresolvedContent));
         }
 
-        Files.createDirectories(out.toAbsolutePath().getParent() != null ? out.toAbsolutePath().getParent() : out.toAbsolutePath());
-        try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(out), StandardCharsets.UTF_8)) {
-            writeZipEntry(zos, "meta.json", writeJson(meta));
-            if (collectedSources.contains("osv")) writeZipEntry(zos, "osv.jsonl", osvContent);
-            if (collectedSources.contains("depsdev")) writeZipEntry(zos, "depsdev.jsonl", depsdevContent);
-            if (collectedSources.contains("epss")) writeZipEntry(zos, "epss.jsonl", epssContent);
-            if (collectedSources.contains("kev")) writeZipEntry(zos, "kev.jsonl", kevContent);
-            if (!unresolvedContent.isEmpty()) {
-                writeZipEntry(zos, "unresolved.jsonl", unresolvedContent);
+        Path destination = out.toAbsolutePath();
+        Files.createDirectories(destination.getParent());
+        Path staged = Files.createTempFile(destination.getParent(), ".oswl-vdb-", ".zip");
+        try {
+            try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(staged), StandardCharsets.UTF_8)) {
+                writeZipEntry(zos, "meta.json", writeJson(meta));
+                if (collectedSources.contains("osv")) writeZipEntry(zos, "osv.jsonl", osvContent);
+                if (collectedSources.contains("depsdev")) writeZipEntry(zos, "depsdev.jsonl", depsdevContent);
+                if (collectedSources.contains("epss")) writeZipEntry(zos, "epss.jsonl", epssContent);
+                if (collectedSources.contains("kev")) writeZipEntry(zos, "kev.jsonl", kevContent);
+                if (!unresolvedContent.isEmpty()) writeZipEntry(zos, "unresolved.jsonl", unresolvedContent);
             }
+            com.salkcoding.oswl.service.snapshot.SnapshotBundleStager.validateImportLimits(staged,
+                    java.util.Set.of("osv.jsonl", "depsdev.jsonl", "epss.jsonl", "kev.jsonl", "unresolved.jsonl"));
+            Files.move(staged, destination, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            Files.deleteIfExists(staged);
         }
     }
 
