@@ -23,6 +23,9 @@ public class CveDto {
     @Schema(description = "Severity (NONE = Unscored, i.e. no CVSS score)", example = "CRITICAL", allowableValues = {"CRITICAL", "HIGH", "MEDIUM", "LOW", "NONE"})
     private final String severity;
 
+    @Schema(description = "True when package applicability remains an unconfirmed CPE match")
+    private final boolean matchReviewRequired;
+
     @Schema(description = "CVSS base score (0.0 – 10.0); null when unavailable", example = "9.8")
     private final Double cvssScore;
 

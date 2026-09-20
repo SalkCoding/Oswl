@@ -233,7 +233,10 @@
     </section>
     <div th:if="${evidenceScan != null}" class="px-[40px] py-[20px] border-b border-[var(--grayscale-15)]">
         <div th:replace="~{fragments/scan-evidence :: notice}"></div>
-        <p class="mt-[8px] text-[12px] text-[var(--grayscale-60)]" th:text="#{scanEvidence.currentDetail}"></p>
+        <p th:if="${preservedAssessment == true}" data-preserved-assessment
+           class="text-[13px] text-[var(--grayscale-60)] mt-[12px]"
+           th:text="#{componentDetail.assessment.preserved}"></p>
+        <p th:if="${preservedAssessment != true}" class="mt-[8px] text-[12px] text-[var(--grayscale-60)]" th:text="#{scanEvidence.currentDetail}"></p>
     </div>
 
 
@@ -506,6 +509,9 @@
                     <p class="flex-1 min-w-0 text-[13px] text-[var(--grayscale-80)] tracking-[-0.13px]"
                        :class="open ? 'whitespace-normal break-words' : 'truncate'"
                        th:text="${cve.title}" th:title="${cve.title}">Vulnerability Title</p>
+                    <span th:if="${cve.matchReviewRequired}" data-cpe-review
+                          class="text-[11px] text-[var(--grayscale-60)]"
+                          th:text="#{scanSummary.matchReviewShort(1)}"></span>
                     <span class="shrink-0 flex items-center gap-[6px] px-[12px] py-[4px] rounded-[40px] border"
                           th:classappend="${cve.severity == 'CRITICAL'} ? 'bg-[rgba(230,39,39,0.05)] border-[rgba(230,39,39,0.2)]'
                                         : (${cve.severity == 'HIGH'} ? 'bg-[rgba(244,122,41,0.05)] border-[rgba(244,122,41,0.2)]'

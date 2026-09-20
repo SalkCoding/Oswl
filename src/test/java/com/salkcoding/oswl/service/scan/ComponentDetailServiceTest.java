@@ -32,6 +32,8 @@ import org.springframework.ui.Model;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.time.LocalDateTime;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -254,6 +256,130 @@ class ComponentDetailServiceTest {
 
         assertThat(model.getAttribute("projectVersion")).isEqualTo("-");
         assertThat(model.getAttribute("dependencyInfo")).isEqualTo("-");
+    }
+
+    @Test
+    void populateModel_preservedAssessment_usesHistoricalEvidenceAfterSharedLibraryChanges() throws Exception {
+        Project project = Project.builder().id(1L).name("P").build();
+        Cve currentCve = Cve.builder().id(77L).cveId("CVE-1").title("current title").build();
+        Library library = Library.builder().id(10L).name("live-name").version("9.0").ecosystem("NPM")
+                .licenseName("GPL-3.0").licenseStatus(LicenseStatus.RESTRICTED).malicious(false)
+                .cves(List.of(currentCve)).build();
+        ScanResult scan = ScanResult.builder().id(5L).version("1").status(ScanStatus.COMPLETED)
+                .assessmentJson(preservedJson(10L, "historical-name", "1.0", "MIT", "historical title", true)).build();
+        ScanComponent component = ScanComponent.builder().id(20L).library(library).scanResult(scan).build();
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L)).thenReturn(Optional.of(component));
+        when(dependencyPathRepository.findByScanComponentIdOrderByPathIndexAsc(20L)).thenReturn(List.of());
+        when(scanComponentRepository.countDistinctProjectsByLibraryId(10L)).thenReturn(1L);
+
+        Model model = new ConcurrentModel();
+        componentDetailService.populateModel(1L, 20L, model);
+
+        assertThat(model.getAttribute("preservedAssessment")).isEqualTo(true);
+        assertThat(model.getAttribute("componentName")).isEqualTo("historical-name");
+        assertThat(model.getAttribute("componentVersion")).isEqualTo("1.0");
+        assertThat(model.getAttribute("licenseName")).isEqualTo("MIT");
+        assertThat(model.getAttribute("malicious")).isEqualTo(true);
+        assertThat(model.getAttribute("vulnerabilityLookupOutcomes")).isEqualTo(Map.of("OSV", "RESOLVED"));
+        assertThat(((List<?>) model.getAttribute("cves"))).hasSize(1);
+        assertThat(((com.salkcoding.oswl.dto.CveDto) ((List<?>) model.getAttribute("cves")).get(0)).getTitle())
+                .isEqualTo("historical title");
+        assertThat(((com.salkcoding.oswl.dto.CveDto) ((List<?>) model.getAttribute("cves")).get(0)).getCveDbId())
+                .isNull();
+    }
+
+    @Test
+    void populateModel_preservedAssessment_missingLibraryOrMalformedTimestamp_failsClosed() throws Exception {
+        Project project = Project.builder().id(1L).name("P").build();
+        Library library = Library.builder().id(10L).name("live").version("1").cves(List.of()).build();
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(dependencyPathRepository.findByScanComponentIdOrderByPathIndexAsc(20L)).thenReturn(List.of());
+        when(scanComponentRepository.countDistinctProjectsByLibraryId(10L)).thenReturn(1L);
+
+        ScanResult malformed = ScanResult.builder().id(5L).version("1").status(ScanStatus.COMPLETED)
+                .assessmentJson(preservedJson(10L, "live", "1", "MIT", "title", false).replace("2026-01-01T00:00:00Z", "bad-time"))
+                .build();
+        when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L))
+                .thenReturn(Optional.of(ScanComponent.builder().id(20L).library(library).scanResult(malformed).build()));
+        assertThatThrownBy(() -> componentDetailService.populateModel(1L, 20L, new ConcurrentModel()))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("timestamp");
+
+        ScanResult missing = ScanResult.builder().id(6L).version("1").status(ScanStatus.COMPLETED)
+                .assessmentJson(preservedJson(99L, "other", "1", "MIT", "title", false)).build();
+        when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L))
+                .thenReturn(Optional.of(ScanComponent.builder().id(20L).library(library).scanResult(missing).build()));
+        assertThatThrownBy(() -> componentDetailService.populateModel(1L, 20L, new ConcurrentModel()))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("does not contain library");
+    }
+
+    @Test
+    void populateModel_preservedFindingDoesNotReplaceLivePrTargetOrInferCompleteness() throws Exception {
+        Project project = Project.builder().id(1L).name("P").build();
+        Library library = Library.builder().id(10L).name("live").version("1").ecosystem("NPM")
+                .latestVersion("CURRENT").isLatestVersion(false).cves(List.of()).build();
+        ScanResult scan = ScanResult.builder().id(5L).version("1").status(ScanStatus.COMPLETED)
+                .assessmentJson(preservedJson(10L, "historical", "1", "MIT", "old", false, "OLD", false)).build();
+        ScanComponent component = ScanComponent.builder().id(20L).library(library).scanResult(scan).build();
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L)).thenReturn(Optional.of(component));
+        when(dependencyPathRepository.findByScanComponentIdOrderByPathIndexAsc(20L)).thenReturn(List.of());
+        when(scanComponentRepository.countDistinctProjectsByLibraryId(10L)).thenReturn(1L);
+
+        Model model = new ConcurrentModel();
+        componentDetailService.populateModel(1L, 20L, model);
+
+        assertThat(model.getAttribute("prTargetVersion")).isEqualTo("CURRENT");
+        assertThat(model.getAttribute("vulnerabilitiesAnalyzed")).isEqualTo(false);
+        assertThat(((com.salkcoding.oswl.dto.CveDto) ((List<?>) model.getAttribute("cves")).get(0)).getFixVersion())
+                .isEqualTo("OLD");
+    }
+
+    @Test
+    void populateModel_preservedMatchingFindingRetainsCurrentCommentaryAndVectorScore() throws Exception {
+        var project = Project.builder().id(1L).name("P").build();
+        var cve = Cve.builder().id(77L).cveId("CVE-2026-123450").title("Same evidence")
+                .severity(com.salkcoding.oswl.domain.enums.RiskLevel.CRITICAL)
+                .cvss3Vector("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H")
+                .aiSummary("Current commentary").build();
+        var library = Library.builder().id(10L).name("fixture").version("1.0").cves(List.of(cve)).build();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
+                new com.salkcoding.oswl.dto.scan.ScanAssessment(1, "2026-01-01T00:00:00Z",
+                        List.of(ScanAssessmentService.fromLibrary(library))));
+        var scan = ScanResult.builder().id(5L).version("1.0").assessmentJson(json).build();
+        var component = ScanComponent.builder().id(20L).library(library).scanResult(scan).build();
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(scanComponentRepository.findByIdAndProjectIdWithCves(20L, 1L)).thenReturn(Optional.of(component));
+        when(dependencyPathRepository.findByScanComponentIdOrderByPathIndexAsc(20L)).thenReturn(List.of());
+        when(scanComponentRepository.countDistinctProjectsByLibraryId(10L)).thenReturn(1L);
+        var model = new ConcurrentModel();
+        componentDetailService.populateModel(1L, 20L, model);
+        var dto = (com.salkcoding.oswl.dto.CveDto) ((List<?>) model.getAttribute("cves")).getFirst();
+        assertThat(dto.getAiSummary()).isEqualTo("Current commentary");
+        assertThat(dto.getCveDbId()).isEqualTo(77L);
+        assertThat(dto.getCvssScore()).isEqualTo(9.8);
+        assertThat(cve.getCvssScore()).isNull();
+        assertThat(library.getCves()).containsExactly(cve);
+    }
+
+    private String preservedJson(Long libraryId, String name, String version, String license,
+                                 String title, boolean malicious) throws Exception {
+        return preservedJson(libraryId, name, version, license, title, malicious, null, true);
+    }
+
+    private String preservedJson(Long libraryId, String name, String version, String license,
+                                 String title, boolean malicious, String fixVersion,
+                                 boolean lookupTimesVerified) throws Exception {
+        var finding = new com.salkcoding.oswl.dto.scan.ScanAssessment.Finding(
+                "CVE-1", null, com.salkcoding.oswl.domain.enums.RiskLevel.HIGH, 8.0, null,
+                title, "summary", null, fixVersion, java.util.Set.of(), null, null,
+                java.util.Set.of(), false, null, null);
+        var assessment = new com.salkcoding.oswl.dto.scan.ScanAssessment(1, "2026-01-01T00:00:00Z",
+                List.of(new com.salkcoding.oswl.dto.scan.ScanAssessment.LibraryAssessment(libraryId, name, version,
+                        "NPM", license, List.of(license), LicenseStatus.PERMITTED, "2026-01-01T00:00:00Z",
+                        "2026-01-01T00:00:00Z", malicious, Map.of("OSV", "RESOLVED"), null,
+                        List.of(finding), lookupTimesVerified)));
+        return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(assessment);
     }
 
     // ── defer ─────────────────────────────────────────────────────────────

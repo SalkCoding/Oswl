@@ -49,10 +49,14 @@ import org.springframework.ui.Model;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import com.salkcoding.oswl.domain.entity.scan.ScanResult;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -158,6 +162,7 @@ public class ComponentDetailService {
                 .aiRecommendedAction(cve.getAiRecommendedAction())
                 .epssScore(cve.getEpssScore())
                 .kevListed(cve.getKevListed())
+                .matchReviewRequired(cve.requiresCpeReview())
                 .cveDbId(cve.getId())
                 .environmentalScore(computeEnvironmentalScore(
                         cve.getCvss3Vector(), project.getDeploymentProfile(), sc.isRuntimeScope()))
@@ -307,12 +312,128 @@ public class ComponentDetailService {
                         .aiRecommendedAction(c.getAiRecommendedAction())
                         .epssScore(c.getEpssScore())
                         .kevListed(c.getKevListed())
+                        .matchReviewRequired(c.requiresCpeReview())
                         .cveDbId(c.getId())
                         .environmentalScore(computeEnvironmentalScore(
                                 c.getCvss3Vector(), project.getDeploymentProfile(), sc.isRuntimeScope()))
                         .build())
                 .collect(Collectors.toList());
         model.addAttribute("cves", cveDtos);
+
+        // A completed scan may carry an immutable data-phase assessment.  Keep the live
+        // library above for recommendations and version metadata, then replace only the
+        // evidence fields with the exact historical projection.  Never attach these values
+        // to the managed Library/Cve instances: shared cache updates must not rewrite history.
+        if (sc.getScanResult().getAssessmentJson() != null) {
+            var assessment = ScanAssessmentService.read(sc.getScanResult().getAssessmentJson());
+            parseHistoricalTimestamp(assessment.capturedAt(), "capturedAt");
+            var preserved = assessment.libraries().stream()
+                    .filter(a -> Objects.equals(a.libraryId(), lib.getId()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Preserved scan assessment does not contain library: " + lib.getId()));
+            applyPreservedAssessment(model, project, sc, lib, preserved);
+        } else {
+            model.addAttribute("preservedAssessment", false);
+        }
+    }
+
+    private void applyPreservedAssessment(Model model, Project project, ScanComponent sc, Library live,
+                                          com.salkcoding.oswl.dto.scan.ScanAssessment.LibraryAssessment a) {
+        LocalDateTime lookupAt = parseHistoricalTimestamp(a.vulnerabilityLookupAt(), "vulnerabilityLookupAt");
+        parseHistoricalTimestamp(a.fetchedAt(), "fetchedAt");
+        List<com.salkcoding.oswl.dto.scan.ScanAssessment.Finding> findings = a.findings();
+        boolean complete = a.lookupComplete();
+        int critical = count(findings, "CRITICAL", false);
+        int high = count(findings, "HIGH", false);
+        int medium = count(findings, "MEDIUM", false);
+        int low = count(findings, "LOW", false);
+        int unscored = count(findings, "NONE", false);
+        int candidates = (int) findings.stream().filter(
+                com.salkcoding.oswl.dto.scan.ScanAssessment.Finding::requiresCpeReview).count();
+
+        model.addAttribute("preservedAssessment", true);
+        model.addAttribute("componentName", a.name());
+        model.addAttribute("componentVersion", a.version() != null ? a.version() : "-");
+        model.addAttribute("ecosystem", a.ecosystem());
+        model.addAttribute("licenseName", a.licenseName());
+        model.addAttribute("licenseRisk", a.licenseStatus().name());
+        boolean nonStandard = a.licenseStatus() == LicenseStatus.UNKNOWN
+                && a.licenseName() != null && !a.licenseName().isBlank();
+        model.addAttribute("licenseIsNonStandard", nonStandard);
+        model.addAttribute("licenseRiskLabel", licenseRiskLabel(a.licenseStatus(), nonStandard));
+        model.addAttribute("vulnerabilitiesAnalyzed", complete);
+        model.addAttribute("vulnerabilityLookupAt", lookupAt);
+        model.addAttribute("vulnerabilityLookupOutcomes", a.lookupOutcomes());
+        model.addAttribute("malicious", Boolean.TRUE.equals(a.malicious()));
+        model.addAttribute("securityCritical", critical);
+        model.addAttribute("securityHigh", high);
+        model.addAttribute("securityMedium", medium);
+        model.addAttribute("securityLow", low);
+        model.addAttribute("securityUnscored", unscored);
+        model.addAttribute("matchReviewCount", candidates);
+        model.addAttribute("hasConfirmedVulnerabilities", critical + high + medium + low + unscored > 0);
+        model.addAttribute("hasVulnerabilities", critical + high + medium + low + unscored + candidates > 0);
+
+        boolean active = findings.stream().anyMatch(f -> com.salkcoding.oswl.util.VulnerabilityPatchability
+                .isActiveFinding(f.severity()));
+        boolean fixed = findings.stream().filter(f -> com.salkcoding.oswl.util.VulnerabilityPatchability
+                .isActiveFinding(f.severity()))
+                .anyMatch(f -> com.salkcoding.oswl.util.VulnerabilityPatchability.hasFixVersion(f.fixVersion()));
+        boolean hasCandidates = candidates > 0;
+        model.addAttribute("patchability", patchabilityLabel(
+                com.salkcoding.oswl.util.VulnerabilityPatchability.evaluate(complete, hasCandidates, active, fixed)));
+
+        var liveFindings = ScanAssessmentService.fromLibrary(live).findings();
+        List<CveDto> historicalDtos = findings.stream()
+                .sorted(Comparator.comparingInt(f -> f.severity() == null ? 999 : f.severity().ordinal()))
+                .map(f -> preservedCveDto(f, live, liveFindings, project, sc))
+                .toList();
+        model.addAttribute("cves", historicalDtos);
+    }
+
+    private CveDto preservedCveDto(com.salkcoding.oswl.dto.scan.ScanAssessment.Finding finding, Library live,
+                                   List<com.salkcoding.oswl.dto.scan.ScanAssessment.Finding> liveFindings,
+                                   Project project, ScanComponent sc) {
+        Cve matching = null;
+        int index = liveFindings.indexOf(finding);
+        if (index >= 0 && index < live.getCves().size()) matching = live.getCves().get(index);
+        String id = finding.cveId() != null ? finding.cveId() : finding.ghsaId();
+        return CveDto.builder().id(id).ghsaId(finding.ghsaId()).title(finding.title())
+                .severity(finding.severity() != null ? finding.severity().name() : "NONE")
+                .cvssScore(resolveCvssScore(finding.cvssScore(), finding.cvss3Vector())).cvss3Vector(finding.cvss3Vector()).cweId(finding.cweId())
+                .summary(finding.summary()).fixVersion(finding.fixVersion()).epssScore(finding.epssScore())
+                .kevListed(finding.kevListed())
+                .matchReviewRequired(finding.requiresCpeReview())
+                .aiSummary(matching != null ? matching.getAiSummary() : null)
+                .aiPriority(matching != null ? matching.getAiPriority() : null)
+                .aiRecommendedAction(matching != null ? matching.getAiRecommendedAction() : null)
+                .cveDbId(matching != null ? matching.getId() : null)
+                .environmentalScore(computeEnvironmentalScore(finding.cvss3Vector(), project.getDeploymentProfile(), sc.isRuntimeScope()))
+                .build();
+    }
+
+    private int count(List<com.salkcoding.oswl.dto.scan.ScanAssessment.Finding> findings, String severity,
+                      boolean candidates) {
+        return (int) findings.stream().filter(f -> f.requiresCpeReview() == candidates)
+                .filter(f -> (f.severity() == null ? "NONE" : f.severity().name()).equals(severity)).count();
+    }
+
+    private LocalDateTime parseHistoricalTimestamp(String value, String field) {
+        if (value == null) return null;
+        try {
+            return LocalDateTime.parse(value);
+        } catch (DateTimeParseException first) {
+            try {
+                return LocalDateTime.ofInstant(OffsetDateTime.parse(value).toInstant(), java.time.ZoneOffset.UTC);
+            } catch (DateTimeParseException second) {
+                try {
+                    return LocalDateTime.ofInstant(Instant.parse(value), java.time.ZoneOffset.UTC);
+                } catch (DateTimeParseException third) {
+                    throw new IllegalStateException("Malformed preserved assessment timestamp: " + field, third);
+                }
+            }
+        }
     }
 
     /**
@@ -323,10 +444,11 @@ public class ComponentDetailService {
      * neither is available (no CVSS data at all).
      */
     private Double resolveCvssScore(Cve c) {
-        if (c.getCvssScore() != null) {
-            return c.getCvssScore();
-        }
-        String vector = c.getCvss3Vector();
+        return resolveCvssScore(c.getCvssScore(), c.getCvss3Vector());
+    }
+
+    private Double resolveCvssScore(Double score, String vector) {
+        if (score != null) return score;
         Double fromVector = switch (CvssVectorVersion.detect(vector)) {
             case V3 -> CvssV3Calculator.baseScore(vector);
             case V4 -> CvssV4Calculator.baseScore(vector);
