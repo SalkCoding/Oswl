@@ -73,6 +73,7 @@ final class VdbBundleWriter {
             throw new IOException("Delta wanted scope differs or is unknown; build a new full bundle with the intended wanted file");
         }
 
+        boolean componentCollection = collectedSources.contains("osv") || collectedSources.contains("depsdev");
         Map<String, String> unresolvedByKey = new LinkedHashMap<>();
         for (WantedComponent w : unresolvedComponents) {
             ObjectNode node = mapper.createObjectNode();
@@ -138,7 +139,7 @@ final class VdbBundleWriter {
         String depsdevContent = renderContent("depsdev.jsonl", depsdevByKey, previous);
         String epssContent = renderContent("epss.jsonl", epssByKey, previous);
         String kevContent = renderContent("kev.jsonl", kevByKey, previous);
-        String unresolvedContent = wantedListInfo == null ? "" : renderContent("unresolved.jsonl", unresolvedByKey, previous);
+        String unresolvedContent = !componentCollection || wantedListInfo == null ? "" : renderContent("unresolved.jsonl", unresolvedByKey, previous);
 
         String bundleId = UUID.randomUUID().toString();
         LocalDateTime builtAt = LocalDateTime.now();
@@ -153,7 +154,7 @@ final class VdbBundleWriter {
         }
         meta.put("builtAt", builtAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         meta.put("builder", BUILDER_VERSION);
-        if (wantedListInfo != null) {
+        if (componentCollection && wantedListInfo != null) {
             meta.put("wantedListId", wantedListInfo.wantedListId());
             meta.put("wantedCount", wantedListInfo.wantedCount());
             meta.put("resolvedCount", wantedListInfo.resolvedCount());
@@ -187,7 +188,7 @@ final class VdbBundleWriter {
         if (collectedSources.contains("depsdev")) putSourceMeta(sources, "depsdev-advisory", depsdevAdvisories.size(), LocalDate.now(), "deps.dev api");
         if (collectedSources.contains("epss")) putSourceMeta(sources, "epss", epssByKey.size(), epssAsOf, "epss current");
         if (collectedSources.contains("kev")) putSourceMeta(sources, "kev", kevByKey.size(), kevAsOf, "cisa kev");
-        if (!unresolvedByKey.isEmpty()) {
+        if (componentCollection && !unresolvedByKey.isEmpty()) {
             // A distinct source (not folded into osv.jsonl) so the app's existing per-source
             // status/import-result plumbing surfaces it automatically — no bespoke
             // "no data" wiring needed on the import side, just a label on the admin UI (see
@@ -195,7 +196,7 @@ final class VdbBundleWriter {
             putSourceMeta(sources, "unresolved", unresolvedByKey.size(), LocalDate.now(),
                     "components this build's wanted-list included but OSV/deps.dev never resolved");
         }
-        if (unresolvedComponentCount > 0) {
+        if (componentCollection && unresolvedComponentCount > 0) {
             ObjectNode coverage = meta.putObject("coverage");
             coverage.put("unresolvedComponents", unresolvedComponentCount);
             coverage.put("note", "These wanted components have unresolved OSV identity or advisory evidence. "

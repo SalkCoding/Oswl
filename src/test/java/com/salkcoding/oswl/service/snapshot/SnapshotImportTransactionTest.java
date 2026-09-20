@@ -28,10 +28,11 @@ import static org.assertj.core.api.Assertions.*;
         "spring.jpa.database-platform=${OSWL_SNAPSHOT_IMPORT_TEST_DIALECT:org.hibernate.dialect.H2Dialect}"})
 class SnapshotImportTransactionTest {
 
-    @Test
-    void cliDeltaKeepsUnselectedSourceData(@org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void cliDeltaKeepsUnselectedSourceData(boolean withWanted, @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
         Path base = directory.resolve("base.zip");
-        byte[] baseline = bundle(Map.of("kev.jsonl", "{\"cveId\":\"CVE-2026-1000\"}",
+        byte[] baseline = bundle(Map.of("unresolved.jsonl", "{\"ecosystem\":\"npm\",\"name\":\"old\",\"version\":\"1\"}", "kev.jsonl", "{\"cveId\":\"CVE-2026-1000\"}",
                 "epss.jsonl", "{\"cveId\":\"CVE-2026-1000\",\"score\":0.4}",
                 "meta.json", "{\"sources\":{\"epss\":{\"asOf\":\"2020-01-01\"}}}"));
         Files.write(base, baseline);
@@ -39,18 +40,26 @@ class SnapshotImportTransactionTest {
         var priorEpssStatus = service.status().stream().filter(status -> status.source().equals("epss")).findFirst().orElseThrow();
         Files.writeString(directory.resolve("kev.json"), "{\"count\":1,\"catalogVersion\":\"fixture\",\"dateReleased\":\"2026-01-01T00:00:00Z\",\"vulnerabilities\":[{\"cveID\":\"CVE-2026-1001\"}]}");
         Path output = directory.resolve("delta.zip");
+        var args = new ArrayList<>(List.of("build", "--sources", "kev", "--offline-sources", directory.toString(),
+                "--since", base.toString(), "--out", output.toString()));
+        if (withWanted) {
+            Path wanted = directory.resolve("wanted.jsonl");
+            Files.writeString(wanted, "{\"ecosystem\":\"npm\",\"name\":\"current\",\"version\":\"1\"}");
+            args.addAll(List.of("--wanted", wanted.toString()));
+        }
         Integer exit = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
-                new com.salkcoding.oswl.vdb.VdbBuilderCli(), "run", (Object) new String[]{"build", "--sources", "kev",
-                        "--offline-sources", directory.toString(), "--since", base.toString(), "--out", output.toString()});
+                new com.salkcoding.oswl.vdb.VdbBuilderCli(), "run", (Object) args.toArray(String[]::new));
         assertThat(exit).isZero();
         var meta = exportedMeta(Files.readAllBytes(output));
         assertThat(meta.path("sources").has("epss")).isFalse();
         assertThat(meta.path("files").has("epss.jsonl")).isFalse();
+        assertThat(meta.path("files").has("unresolved.jsonl")).isFalse();
         service.importBundle(new ByteArrayInputStream(Files.readAllBytes(output)), AirgappedSnapshotService.ImportMode.MERGE);
         assertThat(service.findEpssScores(List.of("CVE-2026-1000"))).containsEntry("CVE-2026-1000", 0.4);
         assertThat(service.status().stream().filter(status -> status.source().equals("epss")).findFirst().orElseThrow())
                 .isEqualTo(priorEpssStatus);
         assertThat(service.loadKevCveIds()).containsExactly("CVE-2026-1001");
+        assertThat(service.findUnresolvedKeys(List.of("NPM|old|1", "NPM|current|1"))).containsExactly("NPM|old|1");
     }
 
     @org.junit.jupiter.params.ParameterizedTest

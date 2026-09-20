@@ -201,7 +201,7 @@ public final class VdbBuilderCli {
 
         VdbBundleWriter.WantedListInfo wantedListInfo = null;
         List<WantedComponent> unresolvedComponents = List.of();
-        if (opts.wantedList() != null) {
+        if (opts.wantedList() != null && (effectiveSources.contains("osv") || effectiveSources.contains("depsdev"))) {
             String wantedListId = sha256Hex(Files.readAllBytes(opts.wantedList()));
             Resolution resolution = partitionResolution(wanted, osvVulns.keySet(), osvUnresolvedKeys, osvProcessedEcosystems, depsdevVersions);
             unresolvedComponents = resolution.unresolved();
