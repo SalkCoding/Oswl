@@ -13,6 +13,25 @@ public final class NvdLifecycle {
     public enum State { CURRENT, REJECTED, UNVERIFIED }
     private NvdLifecycle() {}
 
+    /** A revision orders observations only when the entire lifecycle evidence is usable. */
+    public static java.util.Optional<Instant> revision(String id, String evidence) {
+        if (evidence == null || assess(id, evidence) == State.UNVERIFIED) return java.util.Optional.empty();
+        try {
+            var timestamp = JSON.readTree(evidence).get("lastModified");
+            if (timestamp == null || !timestamp.isTextual()) return java.util.Optional.empty();
+            return java.util.Optional.of(parseRevision(timestamp.asText()));
+        } catch (Exception invalid) {
+            return java.util.Optional.empty();
+        }
+    }
+
+    private static Instant parseRevision(String timestamp) {
+        try { return Instant.parse(timestamp); }
+        catch (java.time.format.DateTimeParseException noOffset) {
+            return LocalDateTime.parse(timestamp).toInstant(ZoneOffset.UTC);
+        }
+    }
+
     public static State assess(String id, String evidence) {
         if (evidence == null) return State.CURRENT;
         try {
@@ -24,11 +43,7 @@ public final class NvdLifecycle {
             if (hasRevision) {
                 if (!record.path("lastModified").isTextual()) return State.UNVERIFIED;
                 String timestamp = record.path("lastModified").asText();
-                Instant modified;
-                try { modified = Instant.parse(timestamp); }
-                catch (java.time.format.DateTimeParseException noOffset) {
-                    modified = LocalDateTime.parse(timestamp).toInstant(ZoneOffset.UTC);
-                }
+                Instant modified = parseRevision(timestamp);
                 if (modified.isAfter(Instant.now())) return State.UNVERIFIED;
             }
             var status = record.get("vulnStatus");

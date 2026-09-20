@@ -2,6 +2,7 @@ package com.salkcoding.oswl.client;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.salkcoding.oswl.domain.enums.MatchConfidence;
+import com.salkcoding.oswl.domain.enums.RiskLevel;
 import com.salkcoding.oswl.dto.snapshot.SnapshotLookup;
 import com.salkcoding.oswl.service.vulnerability.sources.NvdAdvisorySource;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -18,6 +19,120 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class NvdLifecycleTest {
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"Analyzed", "Rejected"})
+    void selectingNewestDoesNotRepairIncompleteSnapshotCoverage(String status) {
+        var older = cve("CVE-2026-700006", "2024-01-01T00:00:00Z", "Analyzed", RiskLevel.HIGH, "older");
+        var newer = cve("CVE-2026-700006", "2024-01-02T00:00:00", status, RiskLevel.LOW, "newer");
+        var source = new NvdAdvisorySource(mock(NvdClient.class), mock(CpeMatchService.class));
+        var result = source.lookupSnapshot("fixture", "1", null, new SnapshotLookup<>(List.of(older, newer), false));
+        assertThat(result.lookupFailed()).isTrue();
+        assertThat(status.equals("Rejected") ? result.withdrawnFindings() : result.findings()).containsExactly(newer);
+        assertThat(status.equals("Rejected") ? result.findings() : result.withdrawnFindings()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,false", "false,true", "true,false", "true,true"})
+    void validRevisionsChooseTheNewestObservationRegardlessOfSourceOrOrder(boolean offline, boolean reverse) {
+        var older = cve("CVE-2026-700001", "2024-01-01T00:00:00Z", "Analyzed", RiskLevel.HIGH, "older");
+        var newer = cve("CVE-2026-700001", "2024-01-02T00:00:00Z", "Analyzed", RiskLevel.LOW, "newer");
+        var records = reverse ? List.of(newer, older) : List.of(older, newer);
+        var result = runLifecycle(offline, records);
+
+        assertThat(result.lookupFailed()).isFalse();
+        assertThat(result.withdrawnFindings()).isEmpty();
+        assertThat(result.findings()).containsExactly(newer);
+        assertThat(result.findings().getFirst().severity()).isEqualTo(RiskLevel.LOW);
+        assertThat(records).containsExactly(reverse ? newer : older, reverse ? older : newer);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,false", "false,true", "true,false", "true,true"})
+    void newestRejectedRevisionIsWithdrawnOnlyRegardlessOfSourceOrOrder(boolean offline, boolean reverse) {
+        var older = cve("CVE-2026-700002", "2024-01-01T00:00:00Z", "Analyzed", RiskLevel.HIGH, "older");
+        var newer = cve("CVE-2026-700002", "2024-01-02T00:00:00Z", "Rejected", RiskLevel.HIGH, "newer");
+        var records = reverse ? List.of(newer, older) : List.of(older, newer);
+        var result = runLifecycle(offline, records);
+
+        assertThat(result.lookupFailed()).isFalse();
+        assertThat(result.findings()).isEmpty();
+        assertThat(result.withdrawnFindings()).containsExactly(newer);
+        assertThat(records).containsExactly(reverse ? newer : older, reverse ? older : newer);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,false", "false,true", "true,false", "true,true"})
+    void newestAnalyzedRevisionReplacesOlderRejectedRevision(boolean offline, boolean reverse) {
+        var older = cve("CVE-2026-700003", "2024-01-01T00:00:00Z", "Rejected", RiskLevel.HIGH, "older");
+        var newer = cve("CVE-2026-700003", "2024-01-02T00:00:00Z", "Analyzed", RiskLevel.LOW, "newer");
+        var records = reverse ? List.of(newer, older) : List.of(older, newer);
+        var result = runLifecycle(offline, records);
+
+        assertThat(result.lookupFailed()).isFalse();
+        assertThat(result.withdrawnFindings()).isEmpty();
+        assertThat(result.findings()).containsExactly(newer);
+        assertThat(result.findings().getFirst().severity()).isEqualTo(RiskLevel.LOW);
+        assertThat(records).containsExactly(reverse ? newer : older, reverse ? older : newer);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false", "true"})
+    void sameNewestRevisionWithDifferentContentRemainsAConflict(boolean offline) {
+        var first = cve("CVE-2026-700004", "2024-01-02T00:00:00Z", "Analyzed", RiskLevel.HIGH, "first");
+        var second = cve("CVE-2026-700004", "2024-01-02T00:00:00Z", "Analyzed", RiskLevel.LOW, "second");
+        var records = List.of(first, second);
+        var result = runLifecycle(offline, records);
+
+        assertThat(result.lookupFailed()).isTrue();
+        assertThat(result.withdrawnFindings()).isEmpty();
+        assertThat(result.findings()).singleElement().satisfies(finding -> {
+            assertThat(finding.cveId()).isEqualTo("CVE-2026-700004");
+            assertThat(finding.nvdApplicability()).contains("conflictingRecords", "first", "second");
+        });
+        assertThat(records).containsExactly(first, second);
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,missing", "false,invalid", "false,future",
+            "true,missing", "true,invalid", "true,future"})
+    void unusableRevisionAnywherePreservesConflictInsteadOfChoosingWinner(boolean offline, String revision) {
+        var valid = cve("CVE-2026-700005", "2024-01-02T00:00:00Z", "Analyzed", RiskLevel.LOW, "valid");
+        String raw = switch (revision) {
+            case "missing" -> "{\"id\":\"CVE-2026-700005\",\"vulnStatus\":\"Analyzed\",\"description\":\"unusable\"}";
+            case "invalid" -> "{\"id\":\"CVE-2026-700005\",\"vulnStatus\":\"Analyzed\",\"lastModified\":\"not-a-time\",\"description\":\"unusable\"}";
+            default -> "{\"id\":\"CVE-2026-700005\",\"vulnStatus\":\"Analyzed\",\"lastModified\":\"2999-01-01T00:00:00Z\",\"description\":\"unusable\"}";
+        };
+        var unusable = new NvdClient.NvdCve("CVE-2026-700005", "unusable", RiskLevel.HIGH, null, null,
+                MatchConfidence.HIGH, raw);
+        var records = List.of(valid, unusable);
+        var result = runLifecycle(offline, records);
+
+        assertThat(result.lookupFailed()).isTrue();
+        assertThat(result.withdrawnFindings()).isEmpty();
+        assertThat(result.findings()).singleElement().satisfies(finding ->
+                assertThat(finding.nvdApplicability()).contains("conflictingRecords", "valid", "unusable"));
+        assertThat(records).containsExactly(valid, unusable);
+    }
+
+    private static NvdClient.NvdCve cve(String id, String revision, String status, RiskLevel severity, String description) {
+        String raw = "{\"id\":\"%s\",\"vulnStatus\":\"%s\",\"lastModified\":\"%s\",\"description\":\"%s\"}"
+                .formatted(id, status, revision, description);
+        return new NvdClient.NvdCve(id, description, severity, null, null, MatchConfidence.HIGH, raw);
+    }
+
+    private static com.salkcoding.oswl.service.vulnerability.sources.AdvisoryFetchResult<NvdClient.NvdCve>
+    runLifecycle(boolean offline, List<NvdClient.NvdCve> records) {
+        var client = mock(NvdClient.class);
+        var cpe = mock(CpeMatchService.class);
+        var source = new NvdAdvisorySource(client, cpe);
+        if (offline) return source.lookupSnapshot("fixture", "1", null, new SnapshotLookup<>(records, true));
+        when(cpe.inferCpes("fixture", "1")).thenReturn(records.stream()
+                .map(r -> new CpeNameMapper.CpeCandidate("fixture", r.description(), "1", MatchConfidence.HIGH)).toList());
+        var responses = records.iterator();
+        when(client.findByCpeName(anyString(), any())).thenAnswer(invocation -> List.of(responses.next()));
+        return source.lookup("fixture", "1", null, List.of());
+    }
+
     static Stream<org.junit.jupiter.params.provider.Arguments> ambiguousEvidence() {
         return Stream.of("duplicate-status", "duplicate-id", "trailing-record")
                 .flatMap(shape -> Stream.of("alone", "valid-first", "invalid-first")
