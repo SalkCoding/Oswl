@@ -133,6 +133,12 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	def liveOsvVerification = providers.environmentVariable('OSWL_VERIFY_LIVE_OSV').orElse('false')
+	inputs.property('liveOsvVerification', liveOsvVerification)
+	outputs.upToDateWhen { liveOsvVerification.get() != 'true' }
+	outputs.doNotCacheIf('Live advisory verification must contact the current upstream data') {
+		liveOsvVerification.get() == 'true'
+	}
 }
 
 tasks.named('compileLocalJava') {

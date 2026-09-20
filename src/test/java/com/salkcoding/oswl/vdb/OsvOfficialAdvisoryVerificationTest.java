@@ -53,13 +53,33 @@ class OsvOfficialAdvisoryVerificationTest {
         }
     }
 
-    @Test void actualQueryBatchRespectsTheOfficialFixedBoundaries() {
+    @Test void actualQueryBatchRespectsTheOfficialFixedBoundaries() throws Exception {
         var pairs = Map.of("2.5.3", "2.5.4", "3.0.3", "3.0.4", "4.0.3", "4.0.4");
         var versions = pairs.entrySet().stream().flatMap(pair -> java.util.stream.Stream.of(pair.getKey(), pair.getValue())).toList();
         var queries = versions.stream().map(version -> new com.salkcoding.oswl.client.OsvClient.OsvQuery(
                 "npm", "form-data", version)).toList();
         var results = new com.salkcoding.oswl.client.OsvClient().queryBatch(queries);
         assertThat(results).hasSize(queries.size());
+        Map<String, JsonNode> originals = new LinkedHashMap<>();
+        try (var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15)).build()) {
+            for (var result : results) {
+                for (String id : result.advisoryRevisions().keySet()) {
+                    if (!originals.containsKey(id)) originals.put(id, fetch(http, "https://api.osv.dev/v1/vulns/" + id));
+                    var original = originals.get(id);
+                    assertThat(OsvOriginalAttribution.githubSource(original)).as("declared upstream source of %s", id).isNotNull();
+                    assertThat(original.path("modified").asText()).isEqualTo(result.advisoryRevisions().get(id));
+                    assertThat(OsvOriginalDigest.of(original)).isEqualTo(result.advisoryDigests().get(id));
+                }
+            }
+        }
+        Map<String, List<SnapshotVuln>> findings = new LinkedHashMap<>();
+        Set<String> unknown = new LinkedHashSet<>();
+        for (var original : originals.values()) {
+            ReflectionTestUtils.invokeMethod(new OsvBulkSource(new ObjectMapper()), "processVulnEntry",
+                    original.toString().getBytes(StandardCharsets.UTF_8), "NPM",
+                    Map.of("form-data", Set.copyOf(versions)), findings, unknown);
+        }
+
         for (int i = 0; i < queries.size(); i++) {
             String version = versions.get(i);
             var result = results.get(i);
@@ -70,6 +90,21 @@ class OsvOfficialAdvisoryVerificationTest {
                 assertThat(result.advisoryRevisions()).containsKey("GHSA-fjxv-7rqg-78g4");
                 assertThat(result.advisoryDigests()).containsKey("GHSA-fjxv-7rqg-78g4");
             } else assertThat(matched).isEmpty();
+            String key = "NPM|form-data|" + version;
+            // Coverage here is the completed live lookup above, not an entire ecosystem dump.
+            findings.putIfAbsent(key, List.of());
+            var snapshots = org.mockito.Mockito.mock(com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.class);
+            org.mockito.Mockito.when(snapshots.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection()))
+                    .thenReturn(new com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.VulnerabilitySnapshotView(
+                            findings, unknown, false, result.validUntil()));
+            var offline = new com.salkcoding.oswl.client.OsvClient(snapshots, true).queryBatch(List.of(queries.get(i))).getFirst();
+            assertThat(offline.resolved()).isEqualTo(result.resolved());
+            assertThat(offline.vulns()).containsExactlyInAnyOrderElementsOf(result.vulns());
+            assertThat(offline.commonFix()).isEqualTo(result.commonFix());
+            assertThat(offline.advisoryRevisions()).isEqualTo(result.advisoryRevisions());
+            assertThat(offline.advisoryDigests()).isEqualTo(result.advisoryDigests());
+            assertThat(offline.validUntil()).isEqualTo(result.validUntil());
+            System.out.println("Live/bulk parity: form-data " + version + " commonFix=" + result.commonFix());
             System.out.println("Actual OSV boundary check: form-data " + version + " findings=" + result.vulns().size()
                     + " targetAdvisoryPresent=" + !matched.isEmpty() + " revisions=" + result.advisoryRevisions());
         }
