@@ -132,6 +132,46 @@ class OsvBulkRangeIntegrationTest {
         assertThat(result.commonFix().version()).isEqualTo(retained ? "2.0.0" : null);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"1.0.0,false,2.0.0", "3.5.0,false,4.0.0", "3.5.0,true,"})
+    void retainedBulkEvidenceMatchesOnlineAdvisoryEvaluation(String version, boolean openEnded, String expectedFix) throws Exception {
+        String id = "GHSA-2345-6789-cfgh";
+        String original = """
+                {"id":"%s","modified":"2024-09-01T00:00:00Z","summary":"Synthetic range fixture",
+                "aliases":["CVE-2024-1000"],"database_specific":{"severity":"HIGH","cwe_ids":["CWE-79"]},
+                "affected":[{"package":{"ecosystem":"npm","name":"example"},"database_specific":{"source":
+                "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2024/09/%s/%s.json"},
+                "ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"2.0.0"},{"introduced":"3.0.0"}%s]}]}]}
+                """.formatted(id, id, id, openEnded ? "" : ",{" + "\"fixed\":\"4.0.0\"}");
+        var query = new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "example", version);
+        var builder = org.springframework.web.client.RestClient.builder().baseUrl("https://api.osv.dev");
+        var server = org.springframework.test.web.client.MockRestServiceServer.bindTo(builder).build();
+        var live = new com.salkcoding.oswl.client.OsvClient();
+        ReflectionTestUtils.setField(live, "restClient", builder.build());
+        server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo("https://api.osv.dev/v1/querybatch"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(
+                        "{\"results\":[{\"vulns\":[{\"id\":\"" + id + "\",\"modified\":\"2024-09-01T00:00:00Z\"}]}]}",
+                        org.springframework.http.MediaType.APPLICATION_JSON));
+        server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo("https://api.osv.dev/v1/vulns/" + id))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(original,
+                        org.springframework.http.MediaType.APPLICATION_JSON));
+        var online = live.queryBatch(List.of(query)).getFirst();
+        Map<String, List<SnapshotVuln>> findings = new LinkedHashMap<>();
+        Set<String> unknown = new LinkedHashSet<>();
+        process(original, Set.of(version), findings, unknown);
+        var snapshots = org.mockito.Mockito.mock(AirgappedSnapshotService.class);
+        org.mockito.Mockito.when(snapshots.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection()))
+                .thenReturn(new AirgappedSnapshotService.VulnerabilitySnapshotView(findings, unknown, false, online.validUntil()));
+        var offline = new com.salkcoding.oswl.client.OsvClient(snapshots, true).queryBatch(List.of(query)).getFirst();
+        assertThat(online.resolved()).isTrue();
+        assertThat(online.commonFix().version()).isEqualTo(expectedFix);
+        assertThat(online.vulns()).hasSize(1);
+        assertThat(online.advisoryRevisions()).containsKey(id);
+        assertThat(online.advisoryDigests()).containsKey(id);
+        assertThat(offline).isEqualTo(online);
+        server.verify();
+    }
+
     private String key(String version) {
         return AirgappedSnapshotService.componentKey("NPM", "example", version);
     }
