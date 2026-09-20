@@ -29,6 +29,40 @@ import static org.assertj.core.api.Assertions.*;
 class SnapshotImportTransactionTest {
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"false,false", "true,false", "false,true", "true,true"})
+    void exportKeepsStoredUncertaintyDespiteResolvedLibraryFlag(boolean unresolved, boolean alias) throws Exception {
+        String name = "export-coverage-" + UUID.randomUUID();
+        String queryName = alias ? "https://github.com/fixture/" + name : name;
+        String queryEcosystem = alias ? "SwiftURL" : "npm";
+        String key = AirgappedSnapshotService.componentKey(queryEcosystem, queryName, "1.0.0");
+        var library = com.salkcoding.oswl.domain.entity.vulnerability.Library.builder()
+                .name(name).version("1.0.0").ecosystem(alias ? "COCOAPODS" : "NPM").sourceRepoUrl(alias ? queryName : null).build();
+        library.recordLookupOutcomes(Map.of("OSV", "RESOLVED"));
+        library.markFetched();
+        libraries.saveAndFlush(library);
+        if (unresolved) entries.saveAndFlush(SnapshotEntry.builder().source("unresolved").entryKey(key)
+                .payload(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(
+                        Map.of("ecosystem", queryEcosystem, "name", queryName, "version", "1.0.0"))).build());
+        byte[] exported = service.exportBundle();
+        Map<String, String> files = new HashMap<>();
+        try (var zip = new ZipInputStream(new ByteArrayInputStream(exported))) {
+            ZipEntry file;
+            while ((file = zip.getNextEntry()) != null)
+                files.put(file.getName(), new String(zip.readAllBytes(), StandardCharsets.UTF_8));
+        }
+        assertThat(files.get("unresolved.jsonl").contains(name)).isEqualTo(unresolved);
+        assertThat(files.get("osv.jsonl")).contains(name);
+        service.importBundle(new ByteArrayInputStream(exported), AirgappedSnapshotService.ImportMode.REPLACE);
+        assertThat(service.findUnresolvedKeys(List.of(key)).contains(key)).isEqualTo(unresolved);
+        if (unresolved) {
+            var result = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(
+                    new com.salkcoding.oswl.client.OsvClient.OsvQuery(queryEcosystem, queryName, "1.0.0"))).getFirst();
+            assertThat(result.resolved()).isFalse();
+            assertThat(result.commonFix().version()).isNull();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"empty", "other", "keep", "remove-osv"})
     void replacingCoverageCannotResolveRetainedAttributedData(String replacement) throws Exception {
         String row = "{\"ecosystem\":\"npm\",\"name\":\"fixture\",\"version\":\"1.0.0\"}";

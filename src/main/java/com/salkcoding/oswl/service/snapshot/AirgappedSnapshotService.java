@@ -1186,13 +1186,20 @@ public class AirgappedSnapshotService {
             List<Library> libraries = libraryRepository.findByIdInWithCves(ids);
             Map<String, List<SnapshotVuln>> storedOriginals = findOsvVulns(libraries.stream()
                     .map(this::osvExportKey).filter(Objects::nonNull).toList());
+            Set<String> storedUnresolved = findUnresolvedKeys(libraries.stream().flatMap(lib -> java.util.stream.Stream.of(
+                    componentKey(lib.getEcosystem(), lib.getName(), lib.getVersion()), osvExportKey(lib)))
+                    .filter(Objects::nonNull).distinct().toList());
             exportedLibraries += libraries.size();
             for (Library lib : libraries) {
                 String key = componentKey(lib.getEcosystem(), lib.getName(), lib.getVersion());
                 if (key == null) continue;
                 List<Cve> cves = lib.getCves();
-                if (!lib.isVulnerabilitiesAnalyzed()) {
+                String osvKey = osvExportKey(lib);
+                if (!lib.isVulnerabilitiesAnalyzed() || storedUnresolved.contains(key)
+                        || (osvKey != null && storedUnresolved.contains(osvKey))) {
                     unresolvedRecords += appendVulnLines(unresolved, lib, List.of());
+                    if (osvKey != null && !osvKey.equals(key))
+                        unresolvedRecords += appendVulnLines(unresolved, lib, List.of(), true);
                 }
 
                 // Vulnerability records split by upstream source so the offline clients can each
