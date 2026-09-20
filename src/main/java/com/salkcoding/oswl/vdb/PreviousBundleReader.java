@@ -136,33 +136,12 @@ final class PreviousBundleReader {
 
     private static void verifyAttributedProfile(java.util.Set<String> files, Map<String, Map<String, String>> rows,
                                                 ObjectMapper mapper, boolean delta) throws IOException {
-        if (!java.util.Set.of("osv.jsonl", "unresolved.jsonl").containsAll(files))
-            throw new IOException("Distribution profile contains unsupported source files");
-        var unresolved = rows.getOrDefault("unresolved.jsonl", Map.of());
-        for (String line : unresolved.values()) {
-            var node = mapper.readTree(line);
-            if (node.has("_deleted") && (!node.path("_deleted").isBoolean() || node.path("_deleted").asBoolean()))
-                throw new IOException("Distribution profile cannot remove incomplete coverage");
+        var policy = new BundleDistributionPolicy("github-attributed", delta);
+        policy.validateFiles(files);
+        for (var file : rows.entrySet()) {
+            for (String line : file.getValue().values()) policy.accept(file.getKey(), mapper.readTree(line));
         }
-        for (var entry : rows.getOrDefault("osv.jsonl", Map.of()).entrySet()) {
-            var node = mapper.readTree(entry.getValue());
-            if (node.has("_deleted") && !node.path("_deleted").isBoolean())
-                throw new IOException("Distribution profile deletion marker must be boolean");
-            if (node.path("_deleted").asBoolean(false)) {
-                if (!delta) throw new IOException("Full distribution profile cannot contain deletion records");
-                continue;
-            }
-            if (!delta && !unresolved.containsKey(entry.getKey()))
-                throw new IOException("Distribution profile requires incomplete coverage for every finding component");
-            if (!node.path("vulns").isArray()) throw new IOException("Distribution profile requires a vulnerability array");
-            for (JsonNode vulnerability : node.path("vulns")) {
-                JsonNode original = vulnerability.path("osvAdvisory");
-                if (OsvOriginalAttribution.githubSource(original) == null
-                        || !vulnerability.path("osvId").isTextual()
-                        || !vulnerability.path("osvId").asText().equals(original.path("id").asText()))
-                    throw new IOException("Distribution profile requires matching attributed originals");
-            }
-        }
+        policy.finish();
     }
 
     private static void verifyManifest(JsonNode meta, Map<String, byte[]> files) throws IOException {

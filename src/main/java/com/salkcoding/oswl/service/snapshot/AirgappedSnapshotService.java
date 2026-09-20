@@ -547,6 +547,21 @@ public class AirgappedSnapshotService {
             Path metaFile = rawFiles.remove("meta.json");
             if (rawFiles.isEmpty()) throw new InvalidRequestException("Snapshot bundle contains no recognized data files.");
             byte[] metaBytes = metaFile == null ? null : Files.readAllBytes(metaFile);
+            var profileReader = objectMapper.reader()
+                    .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
+                    .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+            JsonNode profileMeta = metaBytes == null ? null : profileReader.readTree(metaBytes);
+            String profile = "unreviewed";
+            if (profileMeta != null && profileMeta.has("distributionProfile")) {
+                if (!profileMeta.path("distributionProfile").isTextual())
+                    throw new InvalidRequestException("Distribution profile must be a string");
+                profile = profileMeta.path("distributionProfile").asText();
+            }
+            var policy = new com.salkcoding.oswl.vdb.BundleDistributionPolicy(profile,
+                    profileMeta != null && "delta".equals(profileMeta.path("mode").asText()));
+            Set<String> profileFiles = new LinkedHashSet<>(staged.entryNames());
+            profileFiles.remove("meta.json");
+            policy.validateFiles(profileFiles);
             BundleMetaV2 meta = metaBytes == null ? null : parseMetaV2(metaBytes);
             Set<JsonNode> notices = incomingNotices(metaBytes);
             if (rawFiles.containsKey("cocoapods-specs.jsonl") && meta == null)
@@ -561,10 +576,20 @@ public class AirgappedSnapshotService {
             // Validate line budgets before a REPLACE is allowed to delete existing source data.
             rawFiles.forEach((filename, file) -> {
                 long[] lines = {0};
-                SnapshotBundleStager.forEachLine(file, ignored -> lines[0]++);
+                SnapshotBundleStager.forEachLine(file, line -> {
+                    lines[0]++;
+                    if (policy.requiresValidation()) {
+                        try {
+                            policy.accept(filename, profileReader.readTree(line));
+                        } catch (IOException e) {
+                            throw new InvalidRequestException("Distribution profile validation failed: " + e.getMessage());
+                        }
+                    }
+                });
                 if (meta != null && lines[0] != meta.files().get(filename).lines())
                     throw new InvalidRequestException("Snapshot line count mismatch for '" + filename + "'");
             });
+            policy.finish();
             ImportMode mode = requestedMode != null ? requestedMode : resolveModeFromMeta(meta);
             SnapshotBundleStager.checkInterrupted();
             generations.initialize();

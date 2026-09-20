@@ -28,6 +28,36 @@ import static org.assertj.core.api.Assertions.*;
         "spring.jpa.database-platform=${OSWL_SNAPSHOT_IMPORT_TEST_DIALECT:org.hibernate.dialect.H2Dialect}"})
 class SnapshotImportTransactionTest {
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"unknown-profile", "foreign-file", "missing-original", "missing-unresolved"})
+    void rejectedDistributionProfileCannotMutateStoredData(String kind) throws Exception {
+        String profile = kind.equals("unknown-profile") ? "approved" : "github-attributed";
+        Map<String, String> files = new LinkedHashMap<>();
+        files.put("meta.json", "{\"distributionProfile\":\"" + profile + "\"}");
+        if (kind.equals("foreign-file") || kind.equals("unknown-profile")) {
+            files.put("epss.jsonl", "{\"cveId\":\"CVE-2026-1000\",\"score\":0.5}");
+        } else {
+            String row = "{\"ecosystem\":\"npm\",\"name\":\"fixture\",\"version\":\"1.0.0\"";
+            files.put("osv.jsonl", row + ",\"vulns\":[{\"osvId\":\"GHSA-2345-6789-cfgh\"}]}");
+            if (kind.equals("missing-unresolved")) {
+                String id = "GHSA-2345-6789-cfgh";
+                String source = "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2024/09/" + id + "/" + id + ".json";
+                var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                var record = mapper.readTree(files.get("osv.jsonl"));
+                ((com.fasterxml.jackson.databind.node.ObjectNode) record.path("vulns").get(0)).set("osvAdvisory", mapper.readTree("""
+                        {"id":"%s","modified":"2024-09-01T00:00:00Z","affected":[{"package":{"ecosystem":"npm","name":"fixture"},
+                        "database_specific":{"source":"%s"},"ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"2.0.0"}]}]}]}
+                        """.formatted(id, source)));
+                files.put("osv.jsonl", mapper.writeValueAsString(record));
+            } else files.put("unresolved.jsonl", row + "}");
+        }
+        for (var mode : AirgappedSnapshotService.ImportMode.values()) {
+            assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(files)), mode))
+                    .isInstanceOf(InvalidRequestException.class).hasMessageContaining("profile");
+            assertOldSource();
+        }
+    }
+
     @Test void distributionProfileRetainsAttributedFindingsWithoutConfirmingCompleteCoverage(
             @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
         String id = "GHSA-2345-6789-cfgh";
