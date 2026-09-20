@@ -287,7 +287,8 @@ public class OsvClient {
         boolean present = query != null && query.ecosystem() != null && !query.ecosystem().isBlank()
                 && query.name() != null && !query.name().isBlank()
                 && query.version() != null && !query.version().isBlank();
-        if (!present) return false;
+        if (!present || AirgappedSnapshotService.componentKey(query.ecosystem(), query.name(), query.version()) == null)
+            return false;
         if ("NUGET".equalsIgnoreCase(query.ecosystem().strip())) {
             try {
                 com.salkcoding.oswl.vdb.AdvisoryPackageNames.canonical("NUGET", query.name());

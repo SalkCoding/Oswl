@@ -177,6 +177,9 @@ public class GitHubAdvisoryClient {
     }
 
     public void validateQueryIdentity(String ecosystem, String name, String version) {
+        if (AirgappedSnapshotService.componentKey(ecosystem, name, version) == null) {
+            throw new IllegalArgumentException("Missing or ambiguous advisory package identity");
+        }
         String ghEcosystem = toGitHubEcosystem(ecosystem);
         if (ghEcosystem == null) return;
         // Validate independently of finding count, in both live and snapshot lookups.

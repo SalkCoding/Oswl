@@ -6,8 +6,8 @@ public final class OsvQueryIdentity {
 
     public static boolean isConcrete(String ecosystem, String name, String version) {
         try {
-            if (ecosystem == null || ecosystem.isBlank() || name == null || name.isBlank()
-                    || version == null || version.isBlank()) return false;
+            if (com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(ecosystem, name, version) == null)
+                return false;
             ecosystem = ecosystem.strip().toUpperCase(java.util.Locale.ROOT);
             AdvisoryPackageNames.canonical(ecosystem, name);
             if (ecosystem.startsWith("ALPINE:")) ApkVersionComparator.compare(version, version);
