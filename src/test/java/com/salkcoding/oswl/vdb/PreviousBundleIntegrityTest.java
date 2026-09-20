@@ -14,6 +14,22 @@ import java.util.zip.ZipOutputStream;
 import static org.assertj.core.api.Assertions.*;
 
 class PreviousBundleIntegrityTest {
+    @Test
+    void deltaGenerationRequiresAnIdentifiedBaseline(@TempDir Path directory) throws Exception {
+        Path base = directory.resolve("base.zip");
+        try (var zip = new ZipOutputStream(Files.newOutputStream(base))) {
+            zip.putNextEntry(new ZipEntry("kev.jsonl"));
+            zip.write("{\"cveId\":\"CVE-2026-1000\"}".getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        Files.writeString(directory.resolve("kev.json"), "{\"count\":1,\"catalogVersion\":\"fixture\",\"dateReleased\":\"2026-01-01T00:00:00Z\",\"vulnerabilities\":[{\"cveID\":\"CVE-2026-1001\"}]}");
+        Path output = directory.resolve("output.zip");
+        Files.writeString(output, "preserve");
+        assertThat(new VdbBuilderCli().run(new String[]{"build", "--sources", "kev", "--since", base.toString(),
+                "--offline-sources", directory.toString(), "--out", output.toString()})).isEqualTo(1);
+        assertThat(Files.readString(output)).isEqualTo("preserve");
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"{}", "null", "{\"files\":null}", "{\"files\":[]}"})
     void verificationRequiresAnExplicitManifest(String meta, @TempDir Path directory) throws Exception {
@@ -31,7 +47,7 @@ class PreviousBundleIntegrityTest {
         Path bundle = directory.resolve("delta.zip");
         try (var zip = new ZipOutputStream(Files.newOutputStream(bundle))) {
             zip.putNextEntry(new ZipEntry("meta.json"));
-            zip.write("{\"formatVersion\":2,\"mode\":\"delta\",\"files\":{}}".getBytes(StandardCharsets.UTF_8));
+            zip.write("{\"formatVersion\":2,\"mode\":\"delta\",\"bundleId\":\"next\",\"basedOnBundleId\":\"base\",\"files\":{}}".getBytes(StandardCharsets.UTF_8));
             zip.closeEntry();
         }
         assertThat(new VdbBuilderCli().run(new String[]{"verify", bundle.toString()})).isZero();

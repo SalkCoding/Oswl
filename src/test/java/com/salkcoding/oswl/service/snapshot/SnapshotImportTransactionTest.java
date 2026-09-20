@@ -29,6 +29,30 @@ import static org.assertj.core.api.Assertions.*;
 class SnapshotImportTransactionTest {
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "{\"mode\":\"delta\"}",
+            "{\"mode\":\"delta\",\"bundleId\":\"next\"}",
+            "{\"formatVersion\":1,\"mode\":\"delta\"}",
+            "{\"formatVersion\":2,\"mode\":\"delta\",\"bundleId\":\"next\"}"})
+    void deltaCannotOmitItsVersionedBaseline(String meta) throws Exception {
+        String row = "{\"cveId\":\"CVE-2026-9000\",\"score\":0.9}";
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var root = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(meta);
+        if (root.path("formatVersion").asInt() == 2) {
+            var entry = root.putObject("files").putObject("epss.jsonl");
+            entry.put("sha256", java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(row.getBytes(StandardCharsets.UTF_8))));
+            entry.put("lines", 1);
+        }
+        byte[] archive = bundle(Map.of("meta.json", mapper.writeValueAsString(root), "epss.jsonl", row));
+        for (var mode : AirgappedSnapshotService.ImportMode.values()) {
+            assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(archive), mode))
+                    .isInstanceOf(InvalidRequestException.class).hasMessageContaining("delta");
+            assertOldSource();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"MERGE,false,false", "MERGE,true,true", "REPLACE,false,true"})
     void unbasedMergeCannotClaimAnExactBundleBaseline(AirgappedSnapshotService.ImportMode mode,
                                                      boolean initiallyEmpty, boolean exact) throws Exception {
@@ -113,19 +137,23 @@ class SnapshotImportTransactionTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
             "false,false,MERGE,false,false", "false,false,REPLACE,false,false",
-            "true,false,MERGE,true,false", "false,true,MERGE,true,false", "true,true,REPLACE,true,false",
+            "true,false,MERGE,true,false", "false,true,MERGE,true,false", "true,true,REPLACE,false,false",
             "true,false,REPLACE,false,true", "true,false,MERGE,true,true"})
     void attributedDeltaRequiresEffectiveUnresolvedCoverage(boolean stored, boolean incoming,
             AirgappedSnapshotService.ImportMode mode, boolean accepted, boolean emptyCoverageFile) throws Exception {
         String row = "{\"ecosystem\":\"npm\",\"name\":\"fixture\",\"version\":\"1.0.0\"}";
         String key = "NPM|fixture|1.0.0";
         if (stored) entries.saveAndFlush(SnapshotEntry.builder().source("unresolved").entryKey(key).payload(row).build());
+        metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder()
+                .source("osv").recordCount(0).importedAt(java.time.LocalDateTime.now()).bundleId("base").build());
+        if (stored) metadata.saveAndFlush(com.salkcoding.oswl.domain.entity.snapshot.SnapshotMeta.builder()
+                .source("unresolved").recordCount(1).importedAt(java.time.LocalDateTime.now()).bundleId("base").build());
         Map<String, String> files = new LinkedHashMap<>();
         files.put("meta.json", "{\"distributionProfile\":\"github-attributed\",\"mode\":\"delta\"}");
         files.put("osv.jsonl", row.substring(0, row.length() - 1) + ",\"vulns\":[]}");
         if (incoming) files.put("unresolved.jsonl", row);
         if (emptyCoverageFile) files.put("unresolved.jsonl", "");
-        byte[] archive = bundle(files);
+        byte[] archive = versionedBundle(files, "next", "base");
         if (accepted) {
             service.importBundle(new ByteArrayInputStream(archive), mode);
             assertThat(service.findUnresolvedKeys(List.of(key))).containsExactly(key);
@@ -135,8 +163,9 @@ class SnapshotImportTransactionTest {
             assertThat(result.commonFix().version()).isNull();
         } else {
             assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(archive), mode))
-                    .isInstanceOf(InvalidRequestException.class).hasMessageContaining("profile");
-            assertOldSource();
+                    .isInstanceOf(InvalidRequestException.class).hasMessageContaining(mode == AirgappedSnapshotService.ImportMode.REPLACE ? "base" : "profile");
+            assertThat(service.findEpssScores(List.of("CVE-2026-9000"))).containsEntry("CVE-2026-9000", .25);
+            assertThat(metadata.findById("osv").orElseThrow().getBundleId()).isEqualTo("base");
             assertThat(entries.countBySource("osv")).isZero();
             assertThat(service.findUnresolvedKeys(List.of(key))).hasSize(stored ? 1 : 0);
         }
@@ -314,9 +343,9 @@ class SnapshotImportTransactionTest {
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     void cliDeltaKeepsUnselectedSourceData(boolean withWanted, @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
         Path base = directory.resolve("base.zip");
-        byte[] baseline = bundle(Map.of("unresolved.jsonl", "{\"ecosystem\":\"npm\",\"name\":\"old\",\"version\":\"1\"}", "kev.jsonl", "{\"cveId\":\"CVE-2026-1000\"}",
+        byte[] baseline = versionedBundle(Map.of("unresolved.jsonl", "{\"ecosystem\":\"npm\",\"name\":\"old\",\"version\":\"1\"}", "kev.jsonl", "{\"cveId\":\"CVE-2026-1000\"}",
                 "epss.jsonl", "{\"cveId\":\"CVE-2026-1000\",\"score\":0.4}",
-                "meta.json", "{\"sources\":{\"epss\":{\"asOf\":\"2020-01-01\"}}}"));
+                "meta.json", "{\"sources\":{\"epss\":{\"asOf\":\"2020-01-01\"}}}"), "base", null);
         Files.write(base, baseline);
         service.importBundle(new ByteArrayInputStream(baseline));
         var priorEpssStatus = service.status().stream().filter(status -> status.source().equals("epss")).findFirst().orElseThrow();
@@ -1244,6 +1273,26 @@ class SnapshotImportTransactionTest {
         try (var paths = Files.list(Path.of(System.getProperty("java.io.tmpdir")))) {
             return paths.filter(p -> p.getFileName().toString().startsWith("oswl-snapshot-")).collect(java.util.stream.Collectors.toSet());
         }
+    }
+
+    private static byte[] versionedBundle(Map<String, String> content, String id, String base) throws Exception {
+        Map<String, String> files = new LinkedHashMap<>(content);
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var meta = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(files.getOrDefault("meta.json", "{}"));
+        files.remove("meta.json");
+        meta.put("formatVersion", 2);
+        meta.put("mode", base == null ? "full" : "delta");
+        meta.put("bundleId", id);
+        if (base != null) meta.put("basedOnBundleId", base);
+        var manifest = meta.putObject("files");
+        for (var file : files.entrySet()) {
+            var entry = manifest.putObject(file.getKey());
+            entry.put("sha256", java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(file.getValue().getBytes(StandardCharsets.UTF_8))));
+            entry.put("lines", file.getValue().lines().filter(line -> !line.isBlank()).count());
+        }
+        files.put("meta.json", mapper.writeValueAsString(meta));
+        return bundle(files);
     }
 
     private static byte[] bundle(Map<String, String> files) throws IOException {

@@ -72,6 +72,8 @@ final class VdbBundleWriter {
                List<WantedComponent> unresolvedComponents,
                PreviousBundleReader.PreviousBundle previous) throws IOException {
 
+        if (previous != null && !BundleLineage.validId(previous.bundleId()))
+            throw new IOException("Delta baseline requires a valid bundle ID; build a new full bundle");
         if (previous != null && !distributionProfile.equals(previous.distributionProfile()))
             throw new IOException("Delta distribution profile differs; build a new full bundle");
         if (distributionProfile.equals("github-attributed")) {

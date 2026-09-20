@@ -239,6 +239,8 @@ public final class VdbBuilderCli {
         if (opts.isDelta()) {
             System.err.println("[oswl-vdb] delta mode: diffing against " + opts.since());
             previous = PreviousBundleReader.read(opts.since(), mapper);
+            if (!BundleLineage.validId(previous.bundleId()))
+                throw new IOException("Delta baseline requires a valid bundle ID; build a new full bundle");
         }
 
         java.util.Set<String> collectedSources = new java.util.LinkedHashSet<>(effectiveSources);

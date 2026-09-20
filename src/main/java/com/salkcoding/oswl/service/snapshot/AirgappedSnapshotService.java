@@ -551,6 +551,7 @@ public class AirgappedSnapshotService {
                     .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
                     .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
             JsonNode profileMeta = metaBytes == null ? null : profileReader.readTree(metaBytes);
+            com.salkcoding.oswl.vdb.BundleLineage.validate(profileMeta);
             String profile = "unreviewed";
             if (profileMeta != null && profileMeta.has("distributionProfile")) {
                 if (!profileMeta.path("distributionProfile").isTextual())
@@ -563,14 +564,6 @@ public class AirgappedSnapshotService {
             profileFiles.remove("meta.json");
             policy.validateFiles(profileFiles);
             BundleMetaV2 meta = metaBytes == null ? null : parseMetaV2(metaBytes);
-            if (profileMeta != null && profileMeta.has("basedOnBundleId")) {
-                JsonNode base = profileMeta.path("basedOnBundleId");
-                JsonNode id = profileMeta.path("bundleId");
-                if (meta == null || !"delta".equals(meta.mode()) || !base.isTextual() || base.asText().isBlank()
-                        || base.asText().length() > 64 || !id.isTextual() || id.asText().isBlank()
-                        || id.asText().length() > 64 || id.asText().equals(base.asText()))
-                    throw new InvalidRequestException("Snapshot delta base requires distinct valid bundle IDs and versioned delta metadata");
-            }
             Set<JsonNode> notices = incomingNotices(metaBytes);
             if (rawFiles.containsKey("cocoapods-specs.jsonl") && meta == null)
                 throw new InvalidRequestException("CocoaPods specs require a version 2 bundle with checksums");

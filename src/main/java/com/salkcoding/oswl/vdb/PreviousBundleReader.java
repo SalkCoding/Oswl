@@ -81,6 +81,7 @@ final class PreviousBundleReader {
         if (metaBytes != null) {
             JsonNode meta = strictReader.readTree(metaBytes);
             if (meta == null || !meta.isObject()) throw new IOException("Previous-bundle metadata must be an object");
+            BundleLineage.validate(meta);
             if (meta.has("mode")) {
                 JsonNode mode = meta.path("mode");
                 if (!mode.isTextual() || !(mode.asText().equals("full") || (!baseline && mode.asText().equals("delta")))) {
