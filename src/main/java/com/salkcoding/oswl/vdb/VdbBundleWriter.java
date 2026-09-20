@@ -66,6 +66,13 @@ final class VdbBundleWriter {
                List<WantedComponent> unresolvedComponents,
                PreviousBundleReader.PreviousBundle previous) throws IOException {
 
+        // Missing records imply deletion only when both builds describe the same wanted inventory.
+        if (previous != null && (collectedSources.contains("osv") || collectedSources.contains("depsdev"))
+                && (wantedListInfo == null || previous.wantedListId() == null
+                || !previous.wantedListId().equals(wantedListInfo.wantedListId()))) {
+            throw new IOException("Delta wanted scope differs or is unknown; build a new full bundle with the intended wanted file");
+        }
+
         Map<String, String> unresolvedByKey = new LinkedHashMap<>();
         for (WantedComponent w : unresolvedComponents) {
             ObjectNode node = mapper.createObjectNode();

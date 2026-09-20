@@ -1017,6 +1017,8 @@
 
 ### 38. full·delta·철회·인벤토리 재평가 — P1 · [설계]
 
+- **2026-09-20 증분 wanted 범위 불일치 차단:** 이전 범위와 다른 wantedListId 또는 메타데이터가 없는 기준 번들로 OSV/deps.dev 증분을 만들 수 있던 2개 실패를 재현했다. PreviousBundleReader가 wantedListId를 보존하고 writer가 패키지 출처의 범위 일치를 출력 변경 전에 검사한다. 불일치/미확인은 새 전체 번들 생성을 요구하며 기존 출력 파일을 보존한다. 같은 범위와 독립 KEV 갱신의 정상 대조 및 기존 CLI→H2 반입을 포함한 `test --tests '*Vdb*Test' --tests '*PreviousBundle*Test' --tests '*Snapshot*Test' bootJar verifyProdJar` 성공: 264건 중 263건 통과·1건 skip·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/delta-wanted-scope-before.log`, `build/delta-wanted-scope-checked.log`. 커밋 제목 `fix: reject delta builds with changed wanted scope`. 원본 wanted 파일 해시를 사용하므로 서식 변경도 새 기준 번들이 필요함을 세 언어 Administration에 명시했다. 자체 합성 자료이며 신규 외부 자료·라이브러리·UI·운영 DB 변경 없음. 출처별 생태계 범위 계약·임의 부분 병합의 레코드별 최신성·범위 변경을 지원하는 증분 정책은 잔여이며 전체 항목 완료가 아니다. 전체 build·실제 PG·브라우저는 이번에 재실행하지 않았다.
+
 - 현재·대상: 기존 연속 모니터링과 저장 inventory를 활용한다. 매 갱신마다 전체 소스를 다시 clone할 필요는 없다.
 - [ ] 수정: delta base revision/digest·tombstone 사유·순서를 검증하고 주기적 full resync를 지원한다. 패키지→프로젝트 역색인으로 새 advisory/KEV/VEX/철회 영향을 재평가하며 원래 scan은 유지한다. 중복 알림·retry·backlog를 관리한다.
 - 선행: 13·16·32~37번.

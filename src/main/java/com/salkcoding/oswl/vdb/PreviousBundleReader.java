@@ -25,7 +25,7 @@ import java.util.zip.CRC32;
  */
 final class PreviousBundleReader {
 
-    record PreviousBundle(String bundleId, Map<String, Map<String, String>> linesByFileAndKey) {}
+    record PreviousBundle(String bundleId, Map<String, Map<String, String>> linesByFileAndKey, String wantedListId) {}
 
     static PreviousBundle read(Path bundlePath, ObjectMapper mapper) throws IOException {
         return read(bundlePath, mapper, true);
@@ -62,6 +62,7 @@ final class PreviousBundleReader {
                 .with(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
                 .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
         String bundleId = null;
+        String wantedListId = null;
         if (!baseline && metaBytes == null) throw new IOException("Verification requires a files manifest");
         if (metaBytes != null) {
             JsonNode meta = strictReader.readTree(metaBytes);
@@ -75,6 +76,8 @@ final class PreviousBundleReader {
             if (!baseline && !meta.path("files").isObject()) throw new IOException("Verification requires a files manifest");
             verifyManifest(meta, files);
             bundleId = meta.path("bundleId").asText(null);
+            JsonNode wantedId = meta.path("wantedListId");
+            if (wantedId.isTextual() && !wantedId.asText().isBlank()) wantedListId = wantedId.asText();
         }
         Map<String, Map<String, String>> result = new LinkedHashMap<>();
         for (Map.Entry<String, byte[]> e : files.entrySet()) {
@@ -106,7 +109,7 @@ final class PreviousBundleReader {
             }
             result.put(e.getKey(), keyed);
         }
-        return new PreviousBundle(bundleId, result);
+        return new PreviousBundle(bundleId, result, wantedListId);
     }
 
     private static void verifyManifest(JsonNode meta, Map<String, byte[]> files) throws IOException {
