@@ -42,6 +42,7 @@ class NvdLifecycleTest {
         var source = new NvdAdvisorySource(mock(NvdClient.class),mock(CpeMatchService.class));
         var result = source.lookupSnapshot("fixture","1",null,new SnapshotLookup<>(input,true));
         assertThat(result.lookupFailed()).isTrue();
+        assertThat(result.withdrawnFindings()).isEmpty();
         assertThat(result.findings()).singleElement().satisfies(finding -> {
             assertThat(finding.cveId()).isEqualTo(uncertain.cveId());
             if (order.equals("alone")) assertThat(finding.nvdApplicability()).isEqualTo(raw);
@@ -69,6 +70,8 @@ class NvdLifecycleTest {
         var rejected = new NvdClient.NvdCve("CVE-2026-123450",null,null,null,null,MatchConfidence.HIGH,raw);
         var snapshot = new SnapshotLookup<>(List.of(rejected,other),!state.equals("stale"));
         var result = source.lookupSnapshot("fixture","1",null,snapshot);
+
+        assertThat(result.withdrawnFindings()).containsExactlyElementsOf(state.equals("stale") ? List.of(rejected) : List.of());
         assertThat(result.lookupFailed()).isTrue();
         assertThat(result.findings()).contains(other);
         if (!state.equals("stale")) assertThat(result.findings()).contains(rejected);
@@ -161,6 +164,10 @@ class NvdLifecycleTest {
         }
         assertThat(result.lookupFailed()).isEqualTo(!Set.of("active","rejected","active-missing-time","missing-status-valid").contains(state));
         assertThat(result.findings()).hasSize(state.equals("rejected") ? 0 : 1);
+        assertThat(result.withdrawnFindings()).hasSize(state.equals("rejected") ? 1 : 0);
+        if (state.equals("rejected")) {
+            assertThat(json.readTree(result.withdrawnFindings().getFirst().nvdApplicability())).isEqualTo(record);
+        }
         if (!state.equals("rejected")) {
             assertThat(result.findings().getFirst().cveId()).isEqualTo("CVE-2026-123450");
             assertThat(json.readTree(result.findings().getFirst().nvdApplicability())).isEqualTo(record);
