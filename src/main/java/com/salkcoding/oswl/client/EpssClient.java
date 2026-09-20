@@ -21,6 +21,9 @@ import java.util.Map;
 public class EpssClient {
 
     private static final String BASE = "https://api.first.org/data/v1/epss";
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper()
+            .enable(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+            .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
 
     private final RestClient restClient = RestClient.create();
     private final AirgappedSnapshotService snapshotService;
@@ -80,11 +83,12 @@ public class EpssClient {
     private Map<String, Double> fetchBatch(List<String> ids) {
         String joined = String.join(",", ids);
         try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> body = restClient.get()
+            byte[] bytes = restClient.get()
                     .uri(BASE + "?cve=" + joined)
                     .retrieve()
-                    .body(Map.class);
+                    .body(byte[].class);
+            if (bytes == null) return Map.of();
+            Map<String, Object> body = JSON.readValue(bytes, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
             recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
             if (body == null) return Map.of();
             Object data = body.get("data");

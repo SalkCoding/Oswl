@@ -13,6 +13,23 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class EpssClientTest {
     @ParameterizedTest
+    @ValueSource(strings = {
+            "{\"data\":[],\"data\":[{\"cve\":\"CVE-2026-1000\",\"epss\":\"0.8\"}]}",
+            "{\"data\":[{\"cve\":\"CVE-2026-9999\",\"cve\":\"CVE-2026-1000\",\"epss\":\"0.8\"}]}",
+            "{\"data\":[{\"cve\":\"CVE-2026-1000\",\"epss\":\"0.1\",\"epss\":\"0.8\"}]}",
+            "{\"data\":[{\"cve\":\"CVE-2026-1000\",\"epss\":\"0.8\"}]} {}"})
+    void ambiguousJsonCannotEstablishAScore(String body) {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new EpssClient();
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        server.expect(requestTo("https://api.first.org/data/v1/epss?cve=CVE-2026-1000"))
+                .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+        assertThat(client.fetchScores(List.of("CVE-2026-1000"))).isEmpty();
+        server.verify();
+    }
+
+    @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void normalizesValidIdentitiesAndNeverQueriesMalformedOnes(boolean offline) {
         var ids = java.util.Arrays.asList(null, "", "CVE-2026-1", "CVE-2026-1000&limit=999", "GHSA-test",

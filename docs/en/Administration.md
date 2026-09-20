@@ -522,3 +522,5 @@ The source cache rejects future HTTP Last-Modified instants and future dates in 
 EPSS bulk collection validates each normalized CVE identifier before accepting its score. A malformed identifier fails collection without replacing the output bundle; it is not silently skipped. Lowercase identifiers are normalized, and valid longer CVE sequence numbers remain supported. This validation concerns bulk collection, not a complete review of live EPSS request handling.
 
 Live and offline EPSS requests normalize surrounding whitespace and case, validate the CVE format, and deduplicate before querying. Malformed identifiers are excluded from both HTTP and snapshot queries, not assigned a zero score. A returned score of zero remains a valid measurement.
+
+Live EPSS responses are parsed with duplicate JSON field detection and rejection of trailing JSON values. Ambiguous responses yield no confirmed score for that batch instead of selecting the final field value. Other batches continue independently; missing scores are not converted to zero.
