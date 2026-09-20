@@ -891,6 +891,8 @@
 
 ### 34. 번들 schema·전 파일·의미 검증 강화 — P0 · [코드 확인]
 
+- **2026-09-21 반입·원본 JSON 누적 회귀 검증:** 깨끗한 작업 트리의 `b2a0e752`에서 `build verifyProdJar` 성공(2분 37초). Windows/Java 25 전체 5,034건 중 5,022건 통과·선택/환경 의존 skip 12건·실패/오류 0, 운영 JAR 검사 통과. `c42fac51` EPSS 반입 식별자 검증과 `b2a0e752` OSV 원본 JSON 모호성 거절을 포함한다. 로그 `build/roadmap-ingest-json-cumulative-build.log`. 이 검증은 실제 PostgreSQL·브라우저·실제 외부 API 및 출처별 이용권 검증을 대신하지 않는다. OSV 대량 수집의 원본 근거 보존과 레코드별 출처/이용 조건 연결, 미확인 원천의 배포 제어는 필수 잔여 범위이며 전체 항목 완료로 표시하지 않는다.
+
 - **2026-09-21 EPSS 반입 식별자 검증:** 잘못된 CVE 형식 4종이 반입되는 실패를 수정 전 재현했다. 점수·삭제 레코드에 동일한 CVE 검증을 적용하고 REPLACE/MERGE 거절 시 기존 점수와 출처 기준일을 보존한다. 정상·소문자/공백·긴 일련번호의 0점 반입과 삭제 대조를 포함한다. 기존 성공/점수 오류/청크·DB 롤백 테스트의 가상 식별자를 유효한 합성 CVE로 바꿔 원래 검증 경로를 유지했다. `test --tests '*Snapshot*Test' --tests '*Epss*Test' bootJar verifyProdJar` 266건 중 265건 통과·1건 skip·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/epss-import-identity-before.log`, `build/epss-import-identity-checked.log`. 커밋 제목 `fix: validate epss snapshot record identities`. 세 언어 Administration 문서 반영. 자체 합성 입력이며 신규 외부 자료·라이브러리·UI·운영 DB 변경 없음. FIRST 재배포 조건의 미해결 범위는 유지하며 전체 build·실제 PostgreSQL·브라우저 검사는 이번에 재실행하지 않았다. 항목 전체 완료는 아니다.
 
 - 현재·대상: [AirgappedSnapshotService](src/main/java/com/salkcoding/oswl/service/snapshot/AirgappedSnapshotService.java)의 malformed meta→legacy, 누락 hash/OSV 필수 필드 처리 경로.
