@@ -14,7 +14,9 @@ class VdbWantedIntegrityTest {
     private static final String VALID = "{\"ecosystem\":\"npm\",\"name\":\"example\",\"version\":\"1.0.0\"}";
 
     @ParameterizedTest
-    @ValueSource(strings = {"{}", "null", "[]", "{\"ecosystem\":\"npm\",\"name\":\"example\"}",
+    @ValueSource(strings = {"{\"ecosystem\":\"npm|a\",\"name\":\"b\",\"version\":\"1\"}",
+            "{\"ecosystem\":\"npm\",\"name\":\"a|b\",\"version\":\"1\"}",
+            "{\"ecosystem\":\"npm\",\"name\":\"a\",\"version\":\"b|1\"}", "{}", "null", "[]", "{\"ecosystem\":\"npm\",\"name\":\"example\"}",
             "{\"ecosystem\":\"npm\",\"name\":12,\"version\":\"1\"}",
             "{\"ecosystem\":\"npm\",\"name\":\" \",\"version\":\"1\"}",
             "{\"ecosystem\":\"npm\",\"name\":\"a\",\"version\":\"1\",\"version\":\"2\"}",

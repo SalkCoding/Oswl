@@ -507,6 +507,8 @@
 
 ### 15. 공통 resolved inventory와 workspace 단위 coverage — P0 · [코드 확인/설계]
 
+- **2026-09-20 스냅샷 컴포넌트 키 충돌 차단:** ecosystem/name/version 내부의 `|` 때문에 서로 다른 좌표가 같은 ECOSYSTEM|name|version 키가 되는 3개 실패를 재현했다. 공통 componentKey는 해당 식별자를 null로 거절하고 CLI wanted 로더는 조회·출력 전에 입력 오류로 처리한다. scoped npm·Maven·Debian 및 ecosystem alias 정상 키를 대조하고 CLI 오류 시 기존 출력 보존을 추가했다. `test --tests '*Snapshot*Test' --tests '*Vdb*Test' --tests '*Osv*Test' --tests '*GitHub*Test' --tests '*Nvd*Test' bootJar verifyProdJar` 성공: 809건 중 806건 통과·3건 skip·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/component-key-before.log`, `build/component-key-checked.log`. 커밋 제목 `fix: reject ambiguous snapshot component keys`. 세 언어 Administration에 입력 제한을 반영했다. 기존 DB에 저장된 충돌 키의 원래 좌표는 복원하지 않으므로 신뢰할 수 있는 입력으로 재수집이 필요하다. 자체 합성 자료만 사용했으며 신규 외부 자료·라이브러리·UI·운영 DB 변경 없음. 전체 inventory/coverage 모델·실제 공급자·전체 build·PG·브라우저 검증 완료를 뜻하지 않는다. 별도 Docker 작업 변경은 보존했다.
+
 - 현재·대상: [DependencyManifestParserService](src/main/java/com/salkcoding/oswl/service/ingest/DependencyManifestParserService.java), [파서 지도](.agents/features/manifests.md). 한 workspace의 lockfile 성공을 다른 module까지 확대할 수 있는 경로를 검증한다.
 - [ ] 수정: ecosystem/canonical name/resolved version/registry·source/purl qualifiers/digest와 플랫폼·scope·해석 설정을 보존한다. 선언→lock→resolved graph→built/deployed artifact를 구분하고 수집/실패/제외를 module별로 기록한다.
 - 선행: 5~6·10번의 계약. 개별 생태계 구현은 20~31번.

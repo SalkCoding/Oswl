@@ -218,11 +218,12 @@ public class AirgappedSnapshotService {
      * Canonical component key shared by export, import, and offline lookups:
      * {@code ECOSYSTEM|name|version} with the ecosystem normalized to the deps.dev
      * uppercase form (OSV-style values like "Maven"/"npm"/"crates.io" map to the same form).
-     * Returns null when any part is blank — such components are never resolvable offline
-     * (the live clients skip them too).
+     * Returns null when any part is blank or contains the key separator — such components are never resolvable offline
+     * and must not alias another stored component.
      */
     public static String componentKey(String ecosystem, String name, String version) {
-        if (isBlank(ecosystem) || isBlank(name) || isBlank(version)) {
+        if (isBlank(ecosystem) || isBlank(name) || isBlank(version)
+                || ecosystem.contains("|") || name.contains("|") || version.contains("|")) {
             return null;
         }
         return normalizeEcosystem(ecosystem) + "|" + name.strip() + "|" + version.strip();

@@ -305,6 +305,10 @@ public final class VdbBuilderCli {
                     throw new IOException("Wanted row " + lineNumber + " requires a nonblank string " + field);
                 }
             }
+            if (com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(
+                    node.path("ecosystem").asText(), node.path("name").asText(), node.path("version").asText()) == null) {
+                throw new IOException("Wanted row " + lineNumber + " contains an invalid component identity");
+            }
             result.add(new WantedComponent(node.path("ecosystem").asText(), node.path("name").asText(), node.path("version").asText()));
         }
         return result;
