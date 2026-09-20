@@ -113,6 +113,13 @@ public class OsvClient {
         }
     }
 
+    /** Observed metadata, including rejected revisions; withdrawalState alone is not a reconciliation decision. */
+    public record OsvLifecycleObservation(String advisoryId,
+            com.fasterxml.jackson.databind.JsonNode queryModified,
+            com.fasterxml.jackson.databind.JsonNode advisoryModified,
+            com.fasterxml.jackson.databind.JsonNode withdrawn, boolean withdrawalFieldPresent,
+            OsvWithdrawal withdrawalState, boolean revisionMatched, String advisoryDigest) {}
+
     /**
      * Result set for a single query, aligned with the input batch index.
      * commonFix is scoped to returned OSV evidence, not all advisories or other providers.
@@ -120,13 +127,19 @@ public class OsvClient {
      * validUntil is captured with this lookup; a later source refresh must not extend it.
      */
     public record OsvResult(List<OsvVuln> vulns, boolean resolved, OsvFixVersionSelector.Selection commonFix,
-                            Map<String, String> advisoryRevisions, Map<String, String> advisoryDigests, java.time.Instant validUntil) {
+                            Map<String, String> advisoryRevisions, Map<String, String> advisoryDigests, java.time.Instant validUntil,
+                            List<OsvLifecycleObservation> lifecycleObservations) {
         public OsvResult {
+            lifecycleObservations = lifecycleObservations == null ? List.of() : List.copyOf(lifecycleObservations);
             advisoryRevisions = advisoryRevisions == null ? Map.of() : Map.copyOf(advisoryRevisions);
             advisoryDigests = advisoryDigests == null ? Map.of() : Map.copyOf(advisoryDigests);
             if (!resolved || commonFix == null) {
                 commonFix = new OsvFixVersionSelector.Selection(null, resolved ? "NO_RANGE_EVIDENCE" : "INCOMPLETE_LOOKUP");
             }
+        }
+        public OsvResult(List<OsvVuln> vulns, boolean resolved, OsvFixVersionSelector.Selection commonFix,
+                         Map<String, String> revisions, Map<String, String> digests, java.time.Instant validUntil) {
+            this(vulns, resolved, commonFix, revisions, digests, validUntil, List.of());
         }
         public OsvResult(List<OsvVuln> vulns, boolean resolved, OsvFixVersionSelector.Selection commonFix,
                          Map<String, String> revisions, Map<String, String> digests) {
@@ -208,6 +221,7 @@ public class OsvClient {
         current &= concreteIdentity;
         List<OsvVuln> findings = new ArrayList<>();
         List<SnapshotVuln> evidence = new ArrayList<>();
+        List<OsvLifecycleObservation> lifecycle = new ArrayList<>();
         Map<String, SnapshotVuln> revisions = new java.util.LinkedHashMap<>();
         Set<String> untrustedIds = new LinkedHashSet<>();
         Set<String> handledOriginalIds = new LinkedHashSet<>();
@@ -225,6 +239,8 @@ public class OsvClient {
         }
         for (SnapshotVuln vuln : vulns) {
             var advisory = vuln.osvAdvisory();
+            lifecycle.add(lifecycleObservation(vuln.osvId(), advisory == null ? null : advisory.get("modified"),
+                    advisory, advisory != null && !untrustedIds.contains(vuln.osvId())));
             if (untrustedIds.contains(vuln.osvId())) {
                 resolved = false;
                 if (handledOriginalIds.add(vuln.osvId())) {
@@ -263,7 +279,7 @@ public class OsvClient {
                 v.cweId(), v.severity(), v.cvssScore(), v.cvssVector(), v.fixVersionConflictCandidates())).toList();
         return new OsvResult(findings, resolved, resolved ? snapshotCommonFix(evidence, query) : null,
                 advisoryRevisions(evidence.stream().map(SnapshotVuln::osvAdvisory).filter(java.util.Objects::nonNull).toList()),
-                advisoryDigests(evidence.stream().map(SnapshotVuln::osvAdvisory).filter(java.util.Objects::nonNull).toList()), validUntil);
+                advisoryDigests(evidence.stream().map(SnapshotVuln::osvAdvisory).filter(java.util.Objects::nonNull).toList()), validUntil, lifecycle);
     }
 
     private static OsvFixVersionSelector.Selection snapshotCommonFix(List<SnapshotVuln> vulns, OsvQuery query) {
@@ -388,6 +404,7 @@ public class OsvClient {
         java.time.Instant validUntil = java.time.Instant.now().plus(Duration.ofDays(7));
         Map<String, OsvVuln> findings = new java.util.LinkedHashMap<>();
         Map<String, com.fasterxml.jackson.databind.JsonNode> rangeEvidence = new java.util.LinkedHashMap<>();
+        List<OsvLifecycleObservation> lifecycle = new ArrayList<>();
         Set<String> cursors = new LinkedHashSet<>();
         Set<String> untrustedIds = new LinkedHashSet<>();
         boolean concreteIdentity = com.salkcoding.oswl.vdb.OsvQueryIdentity.isConcrete(query.ecosystem(), query.name(), query.version());
@@ -403,7 +420,11 @@ public class OsvClient {
                         continue;
                     }
                     Map<String, Object> detail = loadDetail(id, details);
-                    if (detail == null || !sameRevision(vuln.get("modified"), detail.get("modified")) || untrustedIds.contains(id)) {
+                    boolean revisionMatched = detail != null && sameRevision(vuln.get("modified"), detail.get("modified"))
+                            && !untrustedIds.contains(id);
+                    lifecycle.add(lifecycleObservation(id, vuln.get("modified"),
+                            detail == null ? null : JSON.valueToTree(detail), revisionMatched));
+                    if (!revisionMatched) {
                         // Query membership and detail fields must describe the same source revision.
                         // A later conflicting page must also invalidate a previously accepted fix.
                         untrustedIds.add(id);
@@ -467,7 +488,16 @@ public class OsvClient {
         if (!concreteIdentity) displayed = displayed.stream().map(v -> new OsvVuln(v.osvId(), v.cveId(), v.summary(), null,
                 v.cweId(), v.severity(), v.cvssScore(), v.cvssVector(), v.fixVersionConflictCandidates())).toList();
         return new OsvResult(displayed, resolved, commonFix, advisoryRevisions(rangeEvidence.values()),
-                advisoryDigests(rangeEvidence.values()), validUntil);
+                advisoryDigests(rangeEvidence.values()), validUntil, lifecycle);
+    }
+
+    private static OsvLifecycleObservation lifecycleObservation(String id, Object queriedRevision,
+            com.fasterxml.jackson.databind.JsonNode advisory, boolean revisionMatched) {
+        return new OsvLifecycleObservation(id, JSON.valueToTree(queriedRevision),
+                JSON.valueToTree(advisory == null ? null : advisory.get("modified")),
+                JSON.valueToTree(advisory == null ? null : advisory.get("withdrawn")),
+                advisory != null && advisory.has("withdrawn"), OsvWithdrawal.from(advisory), revisionMatched,
+                advisory == null ? null : com.salkcoding.oswl.vdb.OsvOriginalDigest.of(advisory));
     }
 
     private static Map<String, String> advisoryDigests(java.util.Collection<com.fasterxml.jackson.databind.JsonNode> originals) {

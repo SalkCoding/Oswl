@@ -13,6 +13,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 
 class OsvRevisionTest {
     private final RestClient.Builder builder = RestClient.builder().baseUrl("https://api.osv.dev");
@@ -143,6 +144,12 @@ class OsvRevisionTest {
         assertThat(online.resolved()).isEqualTo(complete);
         assertThat(offline.resolved()).isEqualTo(online.resolved());
         assertThat(offline.commonFix()).isEqualTo(online.commonFix());
+        assertThat(offline.lifecycleObservations()).isEqualTo(online.lifecycleObservations());
+        assertThat(online.lifecycleObservations()).singleElement().satisfies(observation -> {
+            assertThat(observation.revisionMatched()).isEqualTo(complete);
+            assertThat(observation.withdrawalFieldPresent()).isEqualTo(withdrawn);
+            assertThat(observation.advisoryDigest()).isEqualTo(com.salkcoding.oswl.vdb.OsvOriginalDigest.of(raw));
+        });
         assertThat(offline.vulns()).singleElement().satisfies(v -> {
             assertThat(v.osvId()).isEqualTo("OSV-fixture");
             assertThat(v.fixVersion()).isEqualTo(complete ? "1.2.4" : null);
@@ -151,13 +158,16 @@ class OsvRevisionTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"2024-01-01T00:00:00Z,true", "9999-01-01T00:00:00Z,false", "invalid,false"})
+    @CsvSource({"2024-01-01T00:00:00Z,true", "9999-01-01T00:00:00Z,false", "invalid,false",
+            "json-null,false", "json-number,false"})
     void withdrawalMustHaveTakenEffectBeforeEitherModeHidesTheFinding(String withdrawn, boolean complete) throws Exception {
         var raw = new com.fasterxml.jackson.databind.ObjectMapper().readTree("""
                 {"id":"OSV-fixture","modified":"2026-01-01T00:00:00Z","withdrawn":"%s",
                 "affected":[{"package":{"ecosystem":"npm","name":"example"},
                 "ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"1.2.4"}]}]}]}
                 """.formatted(withdrawn));
+        if (withdrawn.equals("json-null")) ((com.fasterxml.jackson.databind.node.ObjectNode) raw).putNull("withdrawn");
+        if (withdrawn.equals("json-number")) ((com.fasterxml.jackson.databind.node.ObjectNode) raw).put("withdrawn", 42);
         batch("{\"results\":[{\"vulns\":[" + stub("2026-01-01T00:00:00Z") + "]}]}");
         server.expect(requestTo("https://api.osv.dev/v1/vulns/OSV-fixture")).andRespond(withSuccess(raw.toString(), MediaType.APPLICATION_JSON));
         var online = client.queryBatch(List.of(query())).getFirst();
@@ -171,6 +181,17 @@ class OsvRevisionTest {
         var offline = new OsvClient(snapshots, true).queryBatch(List.of(query())).getFirst();
         for (var result : List.of(online, offline)) {
             assertThat(result.resolved()).isEqualTo(complete);
+            assertThat(result.lifecycleObservations()).singleElement().satisfies(observation -> {
+                assertThat(observation.advisoryId()).isEqualTo("OSV-fixture");
+                assertThat(observation.queryModified()).isEqualTo(raw.get("modified"));
+                assertThat(observation.advisoryModified()).isEqualTo(raw.get("modified"));
+                assertThat(observation.withdrawn()).isEqualTo(raw.get("withdrawn"));
+                assertThat(observation.withdrawalFieldPresent()).isTrue();
+                assertThat(observation.withdrawalState()).isEqualTo(complete
+                        ? com.salkcoding.oswl.vdb.OsvWithdrawal.WITHDRAWN : com.salkcoding.oswl.vdb.OsvWithdrawal.UNKNOWN);
+                assertThat(observation.revisionMatched()).isTrue();
+                assertThat(observation.advisoryDigest()).isEqualTo(com.salkcoding.oswl.vdb.OsvOriginalDigest.of(raw));
+            });
             assertThat(result.commonFix().version()).isNull();
             if (complete) assertThat(result.vulns()).isEmpty();
             else assertThat(result.vulns()).singleElement().satisfies(v -> {
@@ -222,6 +243,31 @@ class OsvRevisionTest {
         var result = client.queryBatch(List.of(query())).getFirst();
         assertThat(result.resolved()).isFalse();
         assertThat(result.vulns()).hasSize(1);
+        assertThat(result.lifecycleObservations()).singleElement().satisfies(observation -> {
+            assertThat(observation.queryModified().asText()).isEqualTo("2026-01-01T00:00:00Z");
+            assertThat(observation.advisoryModified().asText()).isEqualTo("2026-01-02T00:00:00Z");
+            assertThat(observation.withdrawn().asText()).isEqualTo("2026-01-02T00:00:00Z");
+            assertThat(observation.revisionMatched()).isFalse();
+            assertThat(observation.advisoryDigest()).isNotBlank();
+        });
+        server.verify();
+    }
+
+    @Test void unavailableDetailKeepsQueriedRevisionWithoutInventingLifecycleEvidence() {
+        batch("{\"results\":[{\"vulns\":[" + stub("2026-01-01T00:00:00Z") + "]}]}");
+        server.expect(requestTo("https://api.osv.dev/v1/vulns/OSV-fixture")).andRespond(withServerError());
+        var result = client.queryBatch(List.of(query())).getFirst();
+        assertThat(result.resolved()).isFalse();
+        assertThat(result.lifecycleObservations()).singleElement().satisfies(observation -> {
+            assertThat(observation.advisoryId()).isEqualTo("OSV-fixture");
+            assertThat(observation.queryModified().asText()).isEqualTo("2026-01-01T00:00:00Z");
+            assertThat(observation.advisoryModified().isNull()).isTrue();
+            assertThat(observation.withdrawn().isNull()).isTrue();
+            assertThat(observation.withdrawalFieldPresent()).isFalse();
+            assertThat(observation.withdrawalState()).isEqualTo(com.salkcoding.oswl.vdb.OsvWithdrawal.UNKNOWN);
+            assertThat(observation.revisionMatched()).isFalse();
+            assertThat(observation.advisoryDigest()).isNull();
+        });
         server.verify();
     }
 
