@@ -527,6 +527,6 @@ EPSS 벌크 수집은 정규화한 CVE 식별자를 검사한 뒤 점수를 받�
 
 OSV 대량 수집은 중첩 필드를 포함한 중복 JSON 필드와 뒤에 붙은 JSON 값을 거절합니다. 모호한 공지는 마지막 필드로 패키지·범위·수정 시각·철회 근거를 덮어쓰지 않고 수집 오류로 처리합니다. CLI 수집 실패 시 기존 출력 번들을 보존합니다.
 
-OSV 대량 수집은 주 GHSA ID와 모든 affected 항목의 GitHub Advisory Database 원문 URL이 일치할 때 전체 `osvAdvisory` 객체를 보존합니다. 공식 저장소의 `github-reviewed`·`unreviewed` JSON 경로만 적용하며, 별칭만 있거나 출처가 누락·혼재된 경우, 다른 ID·호스트에는 원본 보존을 적용하지 않습니다. 공급된 크레딧·revision·범위 등 필드를 유지하고 `dataNotices.githubAdvisoryDatabase.retainedOriginals`에서 ID와 출처 URL을 기존 CC-BY-4.0 고지에 연결합니다. 이는 선언된 출처의 식별이며 캐시 진위 인증이나 다른 원천의 이용 허가가 아닙니다. 해당 공지의 오프라인 공통 수정 후보 근거를 보존하지만 다른 원천 지원과 배포 프로파일 통제는 아직 미완료입니다. 앱 내보내기는 반입 행 전체가 아닌 스캔된 라이브러리를 대상으로 합니다.
+OSV 대량 수집은 주 GHSA ID와 모든 affected 항목의 GitHub Advisory Database 원문 URL이 일치할 때 전체 `osvAdvisory` 객체를 보존합니다. 공식 저장소의 `github-reviewed`·`unreviewed` JSON 경로만 적용하며, 별칭만 있거나 출처가 누락·혼재된 경우, 다른 ID·호스트에는 원본 보존을 적용하지 않습니다. 공급된 크레딧·revision·범위 등 필드를 유지하고 `dataNotices.githubAdvisoryDatabase.retainedOriginals`는 기존 CC-BY-4.0 고지에서 원본 레코드와 ID·출처·크레딧 필드의 위치를 명시합니다. URL과 크레딧은 각 원본에 유지하며 고지에 전체 목록을 중복 나열하지 않습니다. 이는 선언된 출처의 식별이며 캐시 진위 인증이나 다른 원천의 이용 허가가 아닙니다. 해당 공지의 오프라인 공통 수정 후보 근거를 보존하지만 다른 원천 지원과 배포 프로파일 통제는 아직 미완료입니다. 앱 내보내기는 반입 행 전체가 아닌 스캔된 라이브러리를 대상으로 합니다.
 
 [GitHub Advisory Database 라이선스](https://raw.githubusercontent.com/github/advisory-database/main/LICENSE.md)의 공급된 귀속·고지 보존, 라이선스 링크, 변경 표시 조건에 맞춰 원본 필드와 선별/정규화 표시·라이선스·귀속·면책 고지를 전달합니다. [OSV는 서로 다른 라이선스의 출처를 집계](https://google.github.io/osv.dev/data/)하므로 이 처리를 전체 OSV 자료의 이용 허가로 해석하지 않습니다.

@@ -28,6 +28,44 @@ import static org.assertj.core.api.Assertions.*;
         "spring.jpa.database-platform=${OSWL_SNAPSHOT_IMPORT_TEST_DIALECT:org.hibernate.dialect.H2Dialect}"})
 class SnapshotImportTransactionTest {
 
+    @Test void manyAttributedOriginalsRemainImportableWithoutLosingSourceLinks(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Map<String, String> originals = new LinkedHashMap<>();
+        StringBuilder wantedRows = new StringBuilder();
+        for (int i = 0; i < 4000; i++) {
+            String digits = String.format("%04x", i);
+            StringBuilder suffix = new StringBuilder();
+            for (char digit : digits.toCharArray()) suffix.append("23456789cfghjmpq".charAt(Character.digit(digit, 16)));
+            String id = "GHSA-2345-6789-" + suffix;
+            String name = "fixture-" + i;
+            String url = "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2024/09/" + id + "/" + id + ".json";
+            originals.put(id + ".json", """
+                    {"id":"%s","modified":"2024-09-01T00:00:00Z","credits":[{"name":"Synthetic fixture author"}],
+                    "affected":[{"package":{"ecosystem":"npm","name":"%s"},"database_specific":{"source":"%s"},
+                    "ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"2.0.0"}]}]}]}
+                    """.formatted(id, name, url));
+            wantedRows.append("{\"ecosystem\":\"npm\",\"name\":\"").append(name).append("\",\"version\":\"1.0.0\"}\n");
+        }
+        Files.write(directory.resolve("osv-npm-all.zip"), bundle(originals));
+        Files.writeString(directory.resolve("osv-npm-all.zip.lastmodified"), java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString());
+        Path wanted = directory.resolve("wanted.jsonl");
+        Files.writeString(wanted, wantedRows);
+        Path output = directory.resolve("bundle.zip");
+        int exit = org.springframework.test.util.ReflectionTestUtils.invokeMethod(new com.salkcoding.oswl.vdb.VdbBuilderCli(),
+                "run", (Object) new String[] {"build", "--sources", "osv", "--wanted", wanted.toString(),
+                        "--offline-sources", directory.toString(), "--out", output.toString()});
+        assertThat(exit).isZero();
+        byte[] bytes = Files.readAllBytes(output);
+        service.importBundle(new ByteArrayInputStream(bytes));
+        assertThat(entries.countBySource("osv")).isEqualTo(4000);
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        for (int i = 0; i < 4000; i++) {
+            String key = "NPM|fixture-" + i + "|1.0.0";
+            var stored = service.findOsvVulns(List.of(key)).get(key).getFirst();
+            assertThat(stored.osvAdvisory()).isEqualTo(mapper.readTree(originals.get(stored.osvId() + ".json")));
+        }
+    }
+
     @Test void cliAttributedOriginalRetainsFixAndCreditsAndExportsNotices(
             @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
         String id = "GHSA-2345-6789-cfgh";
@@ -48,7 +86,10 @@ class SnapshotImportTransactionTest {
         assertThat(exit).isZero();
         byte[] bytes = Files.readAllBytes(output);
         var notice = exportedMeta(bytes).path("dataNotices");
-        assertThat(notice.path("githubAdvisoryDatabase").path("retainedOriginals").path(id).asText()).isEqualTo(source);
+        assertThat(notice.path("githubAdvisoryDatabase").path("retainedOriginals").path("recordLocation").asText())
+                .isEqualTo("osv.jsonl: vulns[].osvAdvisory");
+        assertThat(notice.path("githubAdvisoryDatabase").path("retainedOriginals").path("sourceField").asText())
+                .isEqualTo("affected[].database_specific.source");
         assertThat(notice.path("githubAdvisoryDatabase").path("license").asText()).isEqualTo("CC-BY-4.0");
         for (int round = 0; round < 2; round++) {
             service.importBundle(new ByteArrayInputStream(bytes), round == 0

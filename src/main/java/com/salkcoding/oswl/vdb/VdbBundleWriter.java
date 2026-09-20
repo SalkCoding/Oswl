@@ -174,12 +174,11 @@ final class VdbBundleWriter {
         githubNotice.put("disclaimer", "No endorsement is implied. Licensed material is supplied without warranties; "
                 + "see the license for its disclaimer and limitations. Linked external content is not covered by this notice.");
         ObjectNode originals = githubNotice.putObject("retainedOriginals");
-        for (var findings : osvByComponentKey.values()) {
-            for (var finding : findings) {
-                String source = OsvOriginalAttribution.githubSource(finding.osvAdvisory());
-                if (source != null) originals.put(finding.osvId(), source);
-            }
-        }
+        originals.put("recordLocation", "osv.jsonl: vulns[].osvAdvisory");
+        originals.put("idField", "id");
+        originals.put("sourceField", "affected[].database_specific.source");
+        originals.put("creditsField", "credits");
+        originals.put("scope", "Retained originals whose primary GHSA ID matches every declared affected source URL in the official GitHub Advisory Database.");
         ObjectNode sources = meta.putObject("sources");
         if (collectedSources.contains("osv")) putSourceMeta(sources, "osv", osvByKey.size(), osvAsOf, "osv.dev bulk dump");
         if (collectedSources.contains("depsdev")) putSourceMeta(sources, "depsdev-version", depsdevVersions.size(), LocalDate.now(), "deps.dev api (wanted-list)");
