@@ -6,6 +6,8 @@
 
 ## 실행 규칙과 출시 기준
 
+- **2026-09-21 EPSS·기준일 누적 검증:** `4308c458`까지의 원천 캐시 미래 시각/UTC 날짜 처리, EPSS 벌크·요청 CVE 검증, 응답 JSON 무결성 및 UTC fixture 변경을 포함해 깨끗한 작업 트리에서 Windows/Java 25의 `.\gradlew.bat build verifyProdJar` 성공(2분 40초). 전체 5,021건 중 5,009건 통과·환경 의존/선택 실행 skip 12건·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/roadmap-epss-date-cumulative-build.log`. 정적 추가 점검에서 AirgappedSnapshotService.ingestEpssLine은 비어 있지 않은 cveId만 검사해 벌크/클라이언트의 CVE 형식 검증과 다름을 확인했다. 실제 반입 실패 재현과 형식 검증 및 기존 합성 fixture 정합성 보완을 다음 작업으로 남긴다. 이번 전체 build는 별도 uiTest·실제 공급자·PG 검증 또는 원천 이용권 완료를 뜻하지 않는다. 커밋 제목 `docs: record cumulative epss validation and ingest gap`.
+
 - **2026-09-20 증분·식별자 누적 검증:** `86c5c7d0`까지의 wanted 범위 방어, 전역 출처 갱신의 패키지 상태 보존, 정상 빈 OSV 조회, 컴포넌트 키/온라인 식별자 일치 변경을 포함해 Windows/Java 25의 `.\gradlew.bat build verifyProdJar` 성공(2분 39초). 전체 5,002건 중 4,990건 통과·환경 의존/선택 실행 skip 12건·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/roadmap-identity-coverage-cumulative-build.log`. 별도 Docker 배포 작업의 미커밋 변경이 존재하는 상태에서 실행했으며 해당 파일은 이번 변경/커밋에서 제외했다. 컨테이너 배포나 별도 uiTest·실제 공급자 검증을 완료했다는 의미는 아니다. PostgreSQL 반입 검증은 38번의 별도 기록을 따른다.
 
 - **2026-09-20 수집기 근거 보존 누적 검증:** `3e865d86`까지의 GHSA 조회 상태/수정 후보 충돌 및 NVD 영향 조건/부분 응답 보존 변경을 포함해 깨끗한 작업 트리에서 Windows/Java 25의 `.\gradlew.bat build verifyProdJar` 성공(2분 33초). 전체 4,980건 중 4,968건 통과·환경 의존/선택 실행 skip 12건·실패/오류 0이며 운영 JAR 검사도 통과했다. 로그 `build/roadmap-bulk-evidence-cumulative-build.log`. 이번 누적 검증은 별도 `uiTest`, 실제 PostgreSQL, 실제 공급자 호출 또는 수집기 CLI 연결 완료를 의미하지 않는다. 다음 정확성 점검 대상은 증분 writer가 현재 결과에서 빠진 이전 키를 삭제하는 경로와 동일 출처의 수집 대상 범위 변경 정책이다. 전체 로드맵은 미완료 상태를 유지한다.
