@@ -270,6 +270,30 @@ class OsvBulkInputIntegrityTest {
         assertThat(Files.readAllBytes(output)).isEqualTo(previous);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"affected", "versions", "name", "modified", "withdrawn", "trailing"})
+    void ambiguousOriginalJsonCannotReplaceExistingBundle(String ambiguity) throws Exception {
+        String record = switch (ambiguity) {
+            case "affected" -> VALID.replace("\"affected\":", "\"affected\":[],\"affected\":");
+            case "versions" -> VALID.replace("\"versions\":", "\"versions\":[\"2.0.0\"],\"versions\":");
+            case "name" -> VALID.replace("\"name\":", "\"name\":\"different\",\"name\":");
+            case "modified" -> VALID.replace("\"modified\":", "\"modified\":\"2024-08-01T00:00:00Z\",\"modified\":");
+            case "withdrawn" -> VALID.replace("\"affected\":", "\"withdrawn\":\"2024-09-02T00:00:00Z\",\"withdrawn\":null,\"affected\":");
+            case "trailing" -> VALID + "{}";
+            default -> throw new IllegalArgumentException(ambiguity);
+        };
+        cache(zip(record), true);
+        assertThatThrownBy(this::fetch).isInstanceOf(IOException.class).hasMessageContaining("Malformed OSV advisory JSON");
+        Path wanted = directory.resolve("wanted.jsonl");
+        Files.writeString(wanted, "{\"ecosystem\":\"npm\",\"name\":\"example\",\"version\":\"1.0.0\"}\n");
+        Path output = directory.resolve("bundle.zip");
+        byte[] previous = zip(VALID);
+        Files.write(output, previous);
+        assertThat(new VdbBuilderCli().run(new String[] {"build", "--sources", "osv", "--wanted", wanted.toString(),
+                "--offline-sources", directory.toString(), "--out", output.toString()})).isEqualTo(1);
+        assertThat(Files.readAllBytes(output)).isEqualTo(previous);
+    }
+
     @Test void validSourceStillBuildsAVerifiableBundle() throws Exception {
         cache(zip(VALID), true);
         Path wanted = directory.resolve("wanted.jsonl");

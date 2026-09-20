@@ -526,3 +526,5 @@ Live and offline EPSS requests normalize surrounding whitespace and case, valida
 Live EPSS responses are parsed with duplicate JSON field detection and rejection of trailing JSON values. Ambiguous responses yield no confirmed score for that batch instead of selecting the final field value. Other batches continue independently; missing scores are not converted to zero.
 
 Offline EPSS bundle imports validate the normalized CVE identifier for both score and deletion records. Invalid identifiers reject the import and retain existing scores and source dates in both REPLACE and MERGE modes. Zero scores and valid long CVE sequence numbers remain supported.
+
+OSV bulk collection rejects duplicate JSON fields, including nested fields, and trailing JSON values. Ambiguous advisory records abort collection instead of allowing the last field to replace package, range, revision, or withdrawal evidence. A failed CLI collection retains the existing output bundle.

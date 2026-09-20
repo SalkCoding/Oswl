@@ -201,7 +201,10 @@ final class OsvBulkSource {
     private JsonNode readOriginal(byte[] content) throws IOException {
         JsonNode vuln;
         try {
-            vuln = mapper.readTree(content);
+            vuln = mapper.reader()
+                    .with(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                    .with(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                    .readTree(content);
         } catch (Exception e) {
             throw new IOException("Malformed OSV advisory JSON; source coverage cannot be established", e);
         }
