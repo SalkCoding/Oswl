@@ -32,6 +32,24 @@ public final class NvdLifecycle {
         }
     }
 
+    /** Protect an already versioned observation from an older or unorderable replacement. */
+    public static boolean canReplaceStoredEvidence(String id, String stored, String incoming) {
+        var previous = revision(id, stored);
+        if (previous.isEmpty()) return true;
+        var next = revision(id, incoming);
+        if (next.isEmpty() || next.get().isBefore(previous.get())) return false;
+        if (next.get().isAfter(previous.get())) return true;
+        try {
+            var previousRecord = (com.fasterxml.jackson.databind.node.ObjectNode) JSON.readTree(stored);
+            var nextRecord = (com.fasterxml.jackson.databind.node.ObjectNode) JSON.readTree(incoming);
+            previousRecord.remove("lastModified");
+            nextRecord.remove("lastModified");
+            return previousRecord.equals(nextRecord);
+        } catch (Exception invalid) {
+            return false;
+        }
+    }
+
     public static State assess(String id, String evidence) {
         if (evidence == null) return State.CURRENT;
         try {
