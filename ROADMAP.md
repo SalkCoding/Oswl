@@ -572,6 +572,8 @@
 
 ### 16. 불변 scanId·재시도·재평가 이력 분리 — P0 · [부분 구현]
 
+- **2026-09-21 보안 센터 CSV 판정 보존:** CSV가 공유 Library/CVE를 직접 읽어 과거 스캔 요약과 달라지는 경로를 수정했다. 공유 취약점·라이선스·조회 결과 갱신 후 과거 값 변경, 컴포넌트 삭제 후 행 누락, 손상된 assessment의 라이브 데이터 대체를 수정 전 3실패로 재현했다. assessment가 있으면 구성 목록·심각도·CPE 후보·패치 가능 여부·라이선스·조회 상태/시각을 보존된 값으로 출력하며, 없는 과거 스캔만 기존 라이브 경로를 사용한다. 보관 처리 후에도 판정 행을 출력하되 없는 범위/검토 상태를 추정하지 않고 빈칸으로 남긴다. 같은 라이브러리의 여러 컴포넌트는 각 범위와 현재 검토/예외 상태를 유지한다. 정상 조회·조회 실패·CPE 후보·수정 버전 충돌과 보관/손상 회귀를 포함해 `test --tests '*SecurityCenter*Test' --tests '*ScanAssessment*Test' --tests '*ScanSummaryReaderTest' --tests '*ComplianceReportServiceTest' bootJar verifyProdJar` 67건 통과·실패/오류/skip 0(39초), 운영 JAR 검사 통과. 로그 `build/historic-csv-before.log`, `build/historic-csv-final.log`. 세 언어 Administration 반영. 커밋 제목 `fix: export preserved scan assessments in security csv`. 자체 합성 데이터만 사용했고 신규 외부 자료·라이브러리·권리 확대 없음. UI 템플릿 변경 없이 CSV 생성 경로를 검증했으며 브라우저·실제 공급자·PostgreSQL·전체 build는 이번에 실행하지 않았다. 화면 목록/상세의 보존 판정 전환, 과거 근거 없는 스캔 정책, 출처별 관측/철회 재평가 등은 남아 있어 전체 항목은 미완료다.
+
 - 현재·대상: [ScanIngestService](src/main/java/com/salkcoding/oswl/service/ingest/ScanIngestService.java)의 기존 스캔 reset 재사용과 CI/리포트 참조 관계.
 - 구현: 같은 버전의 완료된 스캔도 새 분석마다 새 행을 생성한다. 이전 컴포넌트·판정 상태·시각·스냅샷 세대를 지우거나 재사용하지 않는다. 진행 중 소스 작업의 중복 수신 차단은 유지한다.
 - 남은 범위: 입력·설정·도구 revision, 별도 evaluation revision, 공유 Library/CVE를 참조하는 과거 결과의 불변 보존. 선택적 `idempotencyKey`가 있는 동일 프로젝트·동일 의미 입력의 재전송은 기존 scanId를 반환하고, 변경 입력은 409로 거절한다. SHA-256에는 버전·제출자 이메일·모든 컴포넌트 입력을 포함하며 비밀번호·rawJson은 제외한다. 키가 없거나 새 키이면 새 분석이다. 실패한 스캔도 같은 키로 재실행하지 않는다.
