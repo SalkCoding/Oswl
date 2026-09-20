@@ -92,6 +92,46 @@ class OsvBulkRangeIntegrationTest {
                 .extracting(SnapshotVuln::osvId).isEqualTo("OSV-confirmed");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"github-reviewed", "unreviewed", "alias-only", "other-host", "different-id", "missing-source", "mixed-source"})
+    void sourceAttributedOriginalsRetainOfflineFixEvidence(String origin) throws Exception {
+        String id = "GHSA-2345-6789-cfgh";
+        String url = "https://github.com/github/advisory-database/blob/main/advisories/"
+                + (origin.equals("unreviewed") ? "unreviewed" : "github-reviewed") + "/2024/09/" + id + "/" + id + ".json";
+        if (origin.equals("other-host")) url = url.replace("github.com/", "github.com.example.invalid/");
+        if (origin.equals("different-id")) url = url.replace(id, "GHSA-cfgh-jmpq-rvwx");
+        String advisory = """
+                {"id":"%s","modified":"2024-09-01T00:00:00Z","credits":[{"name":"Synthetic fixture author"}],
+                "affected":[{"package":{"ecosystem":"npm","name":"example"},"database_specific":{"source":"%s"},
+                "ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"2.0.0"}]}]}]}
+                """.formatted(id, url);
+        var original = new ObjectMapper().readTree(advisory);
+        if (origin.equals("alias-only")) {
+            ((com.fasterxml.jackson.databind.node.ObjectNode) original).put("id", "OTHER-fixture").putArray("aliases").add(id);
+        }
+        if (origin.equals("missing-source")) {
+            ((com.fasterxml.jackson.databind.node.ObjectNode) original.path("affected").get(0)).remove("database_specific");
+        }
+        if (origin.equals("mixed-source")) {
+            var additional = original.path("affected").get(0).deepCopy();
+            ((com.fasterxml.jackson.databind.node.ObjectNode) additional).remove("database_specific");
+            ((com.fasterxml.jackson.databind.node.ArrayNode) original.path("affected")).add(additional);
+        }
+        Map<String, List<SnapshotVuln>> findings = new LinkedHashMap<>();
+        Set<String> unknown = new LinkedHashSet<>();
+        process(original.toString(), Set.of("1.0.0"), findings, unknown);
+        boolean retained = origin.equals("github-reviewed") || origin.equals("unreviewed");
+        var stored = findings.get(key("1.0.0")).getFirst();
+        if (retained) assertThat(stored.osvAdvisory()).isEqualTo(original);
+        else assertThat(stored.osvAdvisory()).isNull();
+        var snapshots = org.mockito.Mockito.mock(AirgappedSnapshotService.class);
+        org.mockito.Mockito.when(snapshots.readOsvSnapshot(org.mockito.ArgumentMatchers.anyCollection()))
+                .thenReturn(new AirgappedSnapshotService.VulnerabilitySnapshotView(findings, unknown, false, java.time.Instant.now().plusSeconds(600)));
+        var result = new com.salkcoding.oswl.client.OsvClient(snapshots, true).queryBatch(List.of(
+                new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "example", "1.0.0"))).getFirst();
+        assertThat(result.commonFix().version()).isEqualTo(retained ? "2.0.0" : null);
+    }
+
     private String key(String version) {
         return AirgappedSnapshotService.componentKey("NPM", "example", version);
     }

@@ -309,6 +309,7 @@ final class OsvBulkSource {
                 cweId = raw.startsWith("CWE-") ? raw : raw.matches("\\d+") ? "CWE-" + raw : raw;
             }
         }
-        return new SnapshotVuln(osvId, cveId, summary, fixVersion, cweId);
+        return new SnapshotVuln(osvId, cveId, summary, fixVersion, cweId, null, null, null, null, Set.of(),
+                OsvOriginalAttribution.githubSource(vuln) != null ? vuln : null);
     }
 }

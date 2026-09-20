@@ -527,3 +527,7 @@ EPSS の一括収集では、正規化した CVE 識別子を検証してから�
 オフライン EPSS バンドルの取り込みでは、スコアと削除の両レコードについて正規化した CVE 識別子の形式を検証します。不正な識別子があれば REPLACE・MERGE のどちらでも取り込みを拒否し、既存のスコアとデータ基準日を保持します。スコア 0 と有効な長い CVE 連番は引き続き対応します。
 
 OSV 一括収集では、入れ子を含む重複 JSON フィールドと末尾に追加された JSON 値を拒否します。曖昧なアドバイザリは、最後のフィールドでパッケージ・範囲・更新時刻・撤回の根拠を上書きせず、収集エラーとして扱います。CLI の収集失敗時は既存の出力バンドルを保持します。
+
+OSV 一括収集は、主 GHSA ID とすべての affected 要素の GitHub Advisory Database 原文 URL が一致する場合に `osvAdvisory` 全体を保持します。公式リポジトリの `github-reviewed`・`unreviewed` JSON パスを対象とし、別名のみ、出典の欠落・混在、異なる ID・ホストには適用しません。提供されたクレジット・revision・範囲などを保持し、`dataNotices.githubAdvisoryDatabase.retainedOriginals` で ID と出典 URL を既存の CC-BY-4.0 表示に結び付けます。これは宣言された出典の識別であり、キャッシュの真正性確認や他の情報源の利用許可ではありません。対象レコードのオフライン共通修正候補の根拠を保持しますが、他の情報源と配布プロファイルの制御は未完了です。アプリのエクスポートは取り込み行全体ではなくスキャン済みライブラリが対象です。
+
+[GitHub Advisory Database ライセンス](https://raw.githubusercontent.com/github/advisory-database/main/LICENSE.md)の帰属・通知の保持、ライセンスリンク、変更表示の条件に対応し、原文フィールドと選別・正規化、ライセンス、帰属、免責の表示を伝達します。[OSV は異なるライセンスの情報源を集約](https://google.github.io/osv.dev/data/)するため、すべての OSV データへの利用許可とは解釈しません。

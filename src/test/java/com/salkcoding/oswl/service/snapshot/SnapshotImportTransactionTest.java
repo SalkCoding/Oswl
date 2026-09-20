@@ -28,6 +28,42 @@ import static org.assertj.core.api.Assertions.*;
         "spring.jpa.database-platform=${OSWL_SNAPSHOT_IMPORT_TEST_DIALECT:org.hibernate.dialect.H2Dialect}"})
 class SnapshotImportTransactionTest {
 
+    @Test void cliAttributedOriginalRetainsFixAndCreditsAndExportsNotices(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        String id = "GHSA-2345-6789-cfgh";
+        String source = "https://github.com/github/advisory-database/blob/main/advisories/github-reviewed/2024/09/" + id + "/" + id + ".json";
+        String original = """
+                {"id":"%s","modified":"2024-09-01T00:00:00Z","credits":[{"name":"Synthetic fixture author"}],
+                "affected":[{"package":{"ecosystem":"npm","name":"example"},"database_specific":{"source":"%s"},
+                "ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"2.0.0"}]}]}]}
+                """.formatted(id, source);
+        Files.write(directory.resolve("osv-npm-all.zip"), bundle(Map.of("fixture.json", original)));
+        Files.writeString(directory.resolve("osv-npm-all.zip.lastmodified"), java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString());
+        Path wanted = directory.resolve("wanted.jsonl");
+        Files.writeString(wanted, "{\"ecosystem\":\"npm\",\"name\":\"example\",\"version\":\"1.0.0\"}\n");
+        Path output = directory.resolve("bundle.zip");
+        int exit = org.springframework.test.util.ReflectionTestUtils.invokeMethod(new com.salkcoding.oswl.vdb.VdbBuilderCli(),
+                "run", (Object) new String[] {"build", "--sources", "osv", "--wanted", wanted.toString(),
+                        "--offline-sources", directory.toString(), "--out", output.toString()});
+        assertThat(exit).isZero();
+        byte[] bytes = Files.readAllBytes(output);
+        var notice = exportedMeta(bytes).path("dataNotices");
+        assertThat(notice.path("githubAdvisoryDatabase").path("retainedOriginals").path(id).asText()).isEqualTo(source);
+        assertThat(notice.path("githubAdvisoryDatabase").path("license").asText()).isEqualTo("CC-BY-4.0");
+        for (int round = 0; round < 2; round++) {
+            service.importBundle(new ByteArrayInputStream(bytes), round == 0
+                    ? AirgappedSnapshotService.ImportMode.REPLACE : AirgappedSnapshotService.ImportMode.MERGE);
+            var stored = service.findOsvVulns(List.of("NPM|example|1.0.0")).get("NPM|example|1.0.0").getFirst();
+            assertThat(stored.osvAdvisory()).isEqualTo(new com.fasterxml.jackson.databind.ObjectMapper().readTree(original));
+            var result = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(
+                    new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "example", "1.0.0"))).getFirst();
+            assertThat(result.resolved()).isTrue();
+            assertThat(result.commonFix().version()).isEqualTo("2.0.0");
+            assertThat(exportedMeta(service.exportBundle()).path("upstreamDataNotices"))
+                    .anySatisfy(retained -> assertThat(retained).isEqualTo(notice));
+        }
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"false,false", "true,false", "false,true", "true,true"})
     void cliEmptyOsvLookupRetainsCoverage(boolean filtered, boolean delta, @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {

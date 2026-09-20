@@ -163,7 +163,7 @@ final class VdbBundleWriter {
         dataNotices.put("scope", "These notices are not a redistribution clearance for the bundle or its other data sources. "
                 + "The OsWL software license does not relicense third-party data. Retain supplied record-level credits and notices.");
         dataNotices.put("changes", "Bundle records are selected and normalized from upstream data for requested components. "
-                + "Fields may be omitted or combined across sources; records are not original advisory documents. "
+                + "Summary fields may be omitted or combined across sources; retained osvAdvisory objects preserve supplied fields. "
                 + "Delta bundles contain only changes relative to their base bundle.");
         ObjectNode githubNotice = dataNotices.putObject("githubAdvisoryDatabase");
         githubNotice.put("appliesTo", "GitHub Advisory Database material, where present; not every record with a GHSA alias.");
@@ -173,6 +173,13 @@ final class VdbBundleWriter {
         githubNotice.put("licenseUrl", "https://creativecommons.org/licenses/by/4.0/");
         githubNotice.put("disclaimer", "No endorsement is implied. Licensed material is supplied without warranties; "
                 + "see the license for its disclaimer and limitations. Linked external content is not covered by this notice.");
+        ObjectNode originals = githubNotice.putObject("retainedOriginals");
+        for (var findings : osvByComponentKey.values()) {
+            for (var finding : findings) {
+                String source = OsvOriginalAttribution.githubSource(finding.osvAdvisory());
+                if (source != null) originals.put(finding.osvId(), source);
+            }
+        }
         ObjectNode sources = meta.putObject("sources");
         if (collectedSources.contains("osv")) putSourceMeta(sources, "osv", osvByKey.size(), osvAsOf, "osv.dev bulk dump");
         if (collectedSources.contains("depsdev")) putSourceMeta(sources, "depsdev-version", depsdevVersions.size(), LocalDate.now(), "deps.dev api (wanted-list)");
