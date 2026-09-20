@@ -58,6 +58,30 @@ class HttpCacheConsistencyTest {
         });
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(longs = {3600, 172800})
+    void futureHttpDateCannotBecomeFreshEvidence(long seconds) throws Exception {
+        String date = java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME.format(
+                Instant.now().plusSeconds(seconds).atZone(java.time.ZoneOffset.UTC));
+        withResponse(200, date, url -> {
+            assertThat(new HttpCache(directory).getOrFetchWithLastModified("source", url).lastModified()).isNull();
+            assertThat(new HttpCache(directory, true).getOrFetchWithLastModified("source", url).lastModified()).isNull();
+        });
+    }
+
+    @Test void futureLegacyDateCannotBecomeFreshEvidence() throws Exception {
+        Files.writeString(directory.resolve("source"), "old");
+        Files.writeString(directory.resolve("source.lastmodified"), LocalDate.now(java.time.ZoneOffset.UTC).plusDays(2).toString());
+        assertThat(new HttpCache(directory, true).getOrFetchWithLastModified("source", "unused").lastModified()).isNull();
+    }
+
+    @Test void httpDateUsesUtcCalendarDay() throws Exception {
+        withResponse(200, "Sat, 02 Jan 2010 00:30:00 +1400", url -> {
+            assertThat(new HttpCache(directory).getOrFetchWithLastModified("source", url).lastModified()).isEqualTo(LocalDate.of(2010, 1, 1));
+            assertThat(new HttpCache(directory, true).getOrFetchWithLastModified("source", url).lastModified()).isEqualTo(LocalDate.of(2010, 1, 1));
+        });
+    }
+
     private void seed() throws Exception {
         Files.writeString(directory.resolve("source"), "old");
         Files.writeString(directory.resolve("source.lastmodified"), "2020-01-01");

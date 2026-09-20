@@ -146,7 +146,8 @@ final class HttpCache {
             if (lines.isEmpty() || lines.size() > 2) return null;
             // Legacy offline-sources date files remain readable. New writes bind the date to bytes.
             if (lines.size() == 2 && !lines.get(1).equals(digest(body))) return null;
-            return LocalDate.parse(lines.getFirst().strip());
+            LocalDate date = LocalDate.parse(lines.getFirst().strip());
+            return date.isAfter(LocalDate.now(ZoneOffset.UTC)) ? null : date;
         } catch (IOException | DateTimeParseException e) {
             return null;
         }
@@ -157,7 +158,9 @@ final class HttpCache {
             return null;
         }
         try {
-            return LocalDate.parse(httpDate, DateTimeFormatter.RFC_1123_DATE_TIME.withZone(ZoneOffset.UTC));
+            Instant modified = java.time.ZonedDateTime.parse(httpDate, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant();
+            if (modified.isAfter(Instant.now())) return null;
+            return modified.atZone(ZoneOffset.UTC).toLocalDate();
         } catch (DateTimeParseException e) {
             return null;
         }

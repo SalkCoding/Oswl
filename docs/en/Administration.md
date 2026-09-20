@@ -516,3 +516,5 @@ CLI bundles now store an explicit empty OSV result for a concrete wanted package
 Snapshot component identities cannot contain the internal `|` key separator in ecosystem, package name or version. Such identities are unresolved for offline lookup and rejected by CLI wanted-file loading and snapshot ingestion, preventing distinct coordinates from aliasing one stored key. Supported scoped npm names, Maven coordinates and distribution version punctuation retain their existing keys.
 
 The OSV and GitHub Advisory identity validators also apply the shared snapshot-key rule before accepting a query identity. Ambiguous coordinates containing `|` must not become a successful zero-finding result from an empty online response or a complete snapshot. Normal coordinates retain their existing lookup behavior.
+
+The source cache rejects future HTTP Last-Modified instants and future dates in local sidecar metadata as unknown freshness. Valid HTTP timestamps are converted to the UTC calendar date before caching. Unknown dates are not replaced with the download date; OSV collection continues to require a known source date.
