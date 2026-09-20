@@ -26,7 +26,10 @@ import static org.assertj.core.api.Assertions.*;
         "spring.datasource.username=${OSWL_SNAPSHOT_IMPORT_TEST_USER:sa}",
         "spring.datasource.password=${OSWL_SNAPSHOT_IMPORT_TEST_PASSWORD:}",
         "spring.jpa.database-platform=${OSWL_SNAPSHOT_IMPORT_TEST_DIALECT:org.hibernate.dialect.H2Dialect}"})
+@lombok.RequiredArgsConstructor
+@org.springframework.test.context.TestConstructor(autowireMode = org.springframework.test.context.TestConstructor.AutowireMode.ALL)
 class SnapshotImportTransactionTest {
+    private final org.springframework.transaction.PlatformTransactionManager transactions;
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
             "npm,NPM,form-data,4.0.3,4.0.4,GHSA-fjxv-7rqg-78g4",
@@ -106,7 +109,7 @@ class SnapshotImportTransactionTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.CsvSource({"online,0", "offline,0", "offline,8", "offline,999"})
+    @org.junit.jupiter.params.provider.CsvSource({"online,0", "offline,0", "offline,8", "offline,999", "switch,8", "switch,999"})
     void importedSeverityCorrectionMatchesOnlineWithoutTrustingStaleCoverage(String mode, int age) throws Exception {
         var json = new com.fasterxml.jackson.databind.ObjectMapper();
         String name = "severity-parity-" + UUID.randomUUID();
@@ -115,7 +118,8 @@ class SnapshotImportTransactionTest {
         var stored = com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder().library(library).ghsaId("OSV-severity")
                 .sources(new HashSet<>(Set.of(com.salkcoding.oswl.domain.enums.CveSource.OSV))).build();
         try {
-            for (int revision = 1; revision <= 2; revision++) {
+            for (int step = 1; step <= 3; step++) {
+                int revision = Math.min(step, 2);
                 String vector = revision == 1 ? "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
                         : "CVSS:3.1/AV:L/AC:H/PR:H/UI:R/S:U/C:L/I:N/A:N";
                 var original = json.valueToTree(Map.of("id", "OSV-severity", "modified", "2026-0" + revision + "-01T00:00:00Z",
@@ -126,7 +130,7 @@ class SnapshotImportTransactionTest {
                 String line = json.writeValueAsString(Map.of("ecosystem", "npm", "name", name, "version", "1.0.0",
                         "vulns", List.of(Map.of("osvId", "OSV-severity", "osvAdvisory", original))));
                 String hash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(line.getBytes(StandardCharsets.UTF_8)));
-                int sourceAge = revision == 1 ? 0 : age;
+                int sourceAge = step == 2 ? age : 0;
                 Map<String, String> date = sourceAge == 999 ? Map.of() : Map.of("asOf", java.time.LocalDate.now().minusDays(sourceAge).toString());
                 String meta = json.writeValueAsString(Map.of("formatVersion", 2, "sources", Map.of("osv", date),
                         "files", Map.of("osv.jsonl", Map.of("sha256", hash, "lines", 1))));
@@ -158,7 +162,7 @@ class SnapshotImportTransactionTest {
                 assertThat(offline.resolved()).isEqualTo(sourceAge == 0);
                 assertThat(online.commonFix().version()).isEqualTo("3.0.0");
                 assertThat(offline.commonFix().version()).isEqualTo(sourceAge == 0 ? "3.0.0" : null);
-                var selected = mode.equals("online") ? online : offline;
+                var selected = mode.equals("online") || mode.equals("switch") && step == 3 ? online : offline;
                 var finding = selected.vulns().getFirst();
                 stored.mergeSeverity(com.salkcoding.oswl.domain.enums.CveSource.OSV, finding.severity());
                 com.salkcoding.oswl.service.vulnerability.OsvStoredEvidence.record(stored, selected, finding, selected.resolved());
@@ -168,6 +172,15 @@ class SnapshotImportTransactionTest {
                 assertThat(stored.getSeverity()).isEqualTo(corrected ? com.salkcoding.oswl.domain.enums.RiskLevel.LOW
                         : com.salkcoding.oswl.domain.enums.RiskLevel.CRITICAL);
                 assertThat(stored.getCvss3Vector()).isEqualTo(corrected ? vector : "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H");
+                assertThat(stored.getOsvRevisionEvidence()).contains("\"recoverableHistory\":true");
+                if (step == 3) {
+                    assertThat(stored.getOsvRevisionEvidence()).doesNotContain("\"completeSeverityHistory\":false");
+                    Long storedId = stored.getId();
+                    var covered = new org.springframework.transaction.support.TransactionTemplate(transactions).execute(status ->
+                            com.salkcoding.oswl.service.vulnerability.OsvStoredEvidence.coversRecordedAdvisories(
+                                    cves.findById(storedId).orElseThrow(), selected));
+                    assertThat(covered).isTrue();
+                }
             }
         } finally {
             libraries.deleteById(library.getId());
