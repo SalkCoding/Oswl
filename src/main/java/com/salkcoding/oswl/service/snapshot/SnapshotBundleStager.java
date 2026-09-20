@@ -26,7 +26,14 @@ public final class SnapshotBundleStager implements AutoCloseable {
 
     /** Validate producer output with the same decompression and line limits as import. */
     public static void validateImportLimits(Path bundle, Set<String> knownFiles) throws IOException {
-        try (var stage = new SnapshotBundleStager(); var input = Files.newInputStream(bundle)) {
+        try (var input = Files.newInputStream(bundle)) {
+            validateImportLimits(input, knownFiles);
+        }
+    }
+
+    /** Consumes and closes the stream while checking the same limits as file-based producers. */
+    static void validateImportLimits(InputStream input, Set<String> knownFiles) throws IOException {
+        try (var stage = new SnapshotBundleStager()) {
             stage.read(input, knownFiles);
             for (var file : stage.files.entrySet()) {
                 if (!file.getKey().equals("meta.json")) forEachLine(file.getValue(), line -> {});

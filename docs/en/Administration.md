@@ -254,6 +254,8 @@ A ready-to-import Grafana dashboard covering these metrics ships at [`deploy/obs
 
 ## Offline snapshot bundles (v1.0.4)
 
+Application exports validate the completed ZIP against import limits before returning a download: decompressed entry and bundle sizes, metadata size, compression ratio, and JSONL line length. Highly repetitive entries are stored without compression to preserve the full evidence within the ratio limit; this can increase download size. Other limit violations fail the export without truncating advisory evidence. Validation uses temporary disk space and removes its staging files afterward; this check does not establish source completeness or redistribution rights.
+
 **Settings → Admin → Offline Snapshot**
 
 For air-gapped deployments (`OSWL_AIRGAPPED_ENABLED=true`), vulnerability and threat-intel data (OSV, deps.dev, FIRST.org EPSS, CISA KEV) is served from an imported snapshot rather than live APIs — no outbound HTTP is attempted, and components absent from the snapshot resolve as "no data".

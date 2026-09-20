@@ -28,6 +28,20 @@ import static org.assertj.core.api.Assertions.*;
         "spring.jpa.database-platform=${OSWL_SNAPSHOT_IMPORT_TEST_DIALECT:org.hibernate.dialect.H2Dialect}"})
 class SnapshotImportTransactionTest {
 
+    @Test
+    void exportPreservesHighlyCompressibleEvidenceAcrossImport() throws Exception {
+        var library = libraries.saveAndFlush(com.salkcoding.oswl.domain.entity.vulnerability.Library.builder()
+                .name("compressible-export").version("1.0.0").ecosystem("NPM").build());
+        cves.saveAndFlush(com.salkcoding.oswl.domain.entity.vulnerability.Cve.builder().library(library)
+                .ghsaId("GHSA-2345-6789-cfgh").summary("repeated advisory text ".repeat(10000))
+                .sources(Set.of(com.salkcoding.oswl.domain.enums.CveSource.OSV)).build());
+        byte[] bundle = service.exportBundle();
+        service.importBundle(new ByteArrayInputStream(bundle));
+        assertThat(service.findOsvVulns(List.of("NPM|compressible-export|1.0.0"))
+                .get("NPM|compressible-export|1.0.0").getFirst().summary())
+                .isEqualTo("repeated advisory text ".repeat(10000));
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     void attributedExportFiltersOtherSourcesAndKeepsPartialCoverage(boolean changedEvidence) throws Exception {

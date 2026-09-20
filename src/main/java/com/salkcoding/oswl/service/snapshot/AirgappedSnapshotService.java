@@ -25,6 +25,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -1432,10 +1433,12 @@ public class AirgappedSnapshotService {
                     writeZipEntry(zos, "kev.jsonl", kevContent);
                 }
             }
+            byte[] bundle = baos.toByteArray();
+            SnapshotBundleStager.validateImportLimits(new ByteArrayInputStream(bundle), KNOWN_DATA_FILES);
             log.info("[Snapshot] Exported offline snapshot bundleId={}: {} libraries, {} osv, {} github-advisory, {} nvd, {} version records, {} advisories, {} epss, {} kev",
                     bundleId, exportedLibraries, osvRecords, githubAdvisoryRecords, nvdRecords,
                     versionRecords, advisories.size(), epss.size(), kev.size());
-            return baos.toByteArray();
+            return bundle;
         } catch (IOException e) {
             throw new IllegalStateException("Failed to build snapshot bundle: " + e.getMessage(), e);
         }
@@ -1539,8 +1542,34 @@ public class AirgappedSnapshotService {
     }
 
     private static void writeZipEntry(ZipOutputStream zos, String name, String content) throws IOException {
-        zos.putNextEntry(new ZipEntry(name));
-        zos.write(content.getBytes(StandardCharsets.UTF_8));
+        byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+        ZipEntry entry = new ZipEntry(name);
+        // Highly repetitive legitimate evidence can exceed the reader's ZIP-bomb ratio limit.
+        // Store those entries verbatim instead of discarding evidence or weakening import checks.
+        var deflater = new java.util.zip.Deflater(java.util.zip.Deflater.DEFAULT_COMPRESSION, true);
+        long compressedSize;
+        try {
+            deflater.setInput(bytes);
+            deflater.finish();
+            byte[] buffer = new byte[64 * 1024];
+            while (!deflater.finished()) {
+                SnapshotBundleStager.checkInterrupted();
+                deflater.deflate(buffer);
+            }
+            compressedSize = deflater.getBytesWritten();
+        } finally {
+            deflater.end();
+        }
+        if (compressedSize > 0 && bytes.length > compressedSize * 100.0) {
+            var crc = new java.util.zip.CRC32();
+            crc.update(bytes);
+            entry.setMethod(ZipEntry.STORED);
+            entry.setSize(bytes.length);
+            entry.setCompressedSize(bytes.length);
+            entry.setCrc(crc.getValue());
+        }
+        zos.putNextEntry(entry);
+        zos.write(bytes);
         zos.closeEntry();
     }
 
