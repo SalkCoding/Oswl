@@ -131,7 +131,16 @@ public final class VdbBuilderCli {
             } else {
                 try {
                     OsvBulkSource.Result r = new OsvBulkSource(mapper).fetch(wanted, opts.ecosystems(), cache);
-                    osvVulns = r.vulnsByComponentKey();
+                    osvVulns = new java.util.LinkedHashMap<>(r.vulnsByComponentKey());
+                    // A successful empty lookup needs an explicit row: absent rows mean unqueried offline.
+                    for (WantedComponent component : wanted) {
+                        String eco = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.normalizeEcosystem(component.ecosystem());
+                        String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(eco, component.name(), component.version());
+                        if (r.asOfByBucket().containsKey(eco) && !r.unresolvedKeys().contains(key)
+                                && OsvQueryIdentity.isConcrete(eco, component.name(), component.version())) {
+                            osvVulns.putIfAbsent(key, List.of());
+                        }
+                    }
                     osvUnresolvedKeys = r.unresolvedKeys();
                     osvProcessedEcosystems = r.asOfByBucket().keySet();
                     if (!r.asOfByBucket().isEmpty()) {

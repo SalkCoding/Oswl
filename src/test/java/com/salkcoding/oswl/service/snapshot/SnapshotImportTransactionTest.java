@@ -30,6 +30,31 @@ class SnapshotImportTransactionTest {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void cliEmptyOsvLookupRetainsCoverage(boolean filtered, @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Path wanted = directory.resolve("wanted.jsonl");
+        Files.writeString(wanted, "{\"ecosystem\":\"npm\",\"name\":\"example\",\"version\":\"1.0.0\"}");
+        Files.writeString(directory.resolve("osv-npm-all.zip.lastmodified"), java.time.LocalDate.now().toString());
+        Files.write(directory.resolve("osv-npm-all.zip"), bundle(Map.of("other.json", """
+                {"id":"OSV-other","modified":"2026-01-01T00:00:00Z","affected":[{"package":{"ecosystem":"npm","name":"other"},
+                "ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"2.0.0"}]}]}]}
+                """)));
+        Path output = directory.resolve("full.zip");
+        var args = new ArrayList<>(List.of("build", "--sources", "osv", "--wanted", wanted.toString(),
+                "--offline-sources", directory.toString(), "--out", output.toString()));
+        if (filtered) args.addAll(List.of("--ecosystems", "PYPI"));
+        Integer exit = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                new com.salkcoding.oswl.vdb.VdbBuilderCli(), "run", (Object) args.toArray(String[]::new));
+        assertThat(exit).isZero();
+        service.importBundle(new ByteArrayInputStream(Files.readAllBytes(output)));
+        var result = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(
+                new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "example", "1.0.0"))).getFirst();
+        assertThat(result.resolved()).isEqualTo(!filtered);
+        assertThat(result.vulns()).isEmpty();
+        assertThat(service.findUnresolvedKeys(List.of("NPM|example|1.0.0")).isEmpty()).isEqualTo(!filtered);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
     void cliDeltaKeepsUnselectedSourceData(boolean withWanted, @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
         Path base = directory.resolve("base.zip");
         byte[] baseline = bundle(Map.of("unresolved.jsonl", "{\"ecosystem\":\"npm\",\"name\":\"old\",\"version\":\"1\"}", "kev.jsonl", "{\"cveId\":\"CVE-2026-1000\"}",
