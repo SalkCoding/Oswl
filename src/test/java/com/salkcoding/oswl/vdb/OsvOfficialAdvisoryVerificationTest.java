@@ -53,6 +53,28 @@ class OsvOfficialAdvisoryVerificationTest {
         }
     }
 
+    @Test void actualQueryBatchRespectsTheOfficialFixedBoundaries() {
+        var pairs = Map.of("2.5.3", "2.5.4", "3.0.3", "3.0.4", "4.0.3", "4.0.4");
+        var versions = pairs.entrySet().stream().flatMap(pair -> java.util.stream.Stream.of(pair.getKey(), pair.getValue())).toList();
+        var queries = versions.stream().map(version -> new com.salkcoding.oswl.client.OsvClient.OsvQuery(
+                "npm", "form-data", version)).toList();
+        var results = new com.salkcoding.oswl.client.OsvClient().queryBatch(queries);
+        assertThat(results).hasSize(queries.size());
+        for (int i = 0; i < queries.size(); i++) {
+            String version = versions.get(i);
+            var result = results.get(i);
+            assertThat(result.resolved()).as("actual OSV lookup for form-data %s", version).isTrue();
+            var matched = result.vulns().stream().filter(v -> v.osvId().equals("GHSA-fjxv-7rqg-78g4")).toList();
+            if (pairs.containsKey(version)) {
+                assertThat(matched).singleElement().satisfies(v -> assertThat(v.fixVersion()).isEqualTo(pairs.get(version)));
+                assertThat(result.advisoryRevisions()).containsKey("GHSA-fjxv-7rqg-78g4");
+                assertThat(result.advisoryDigests()).containsKey("GHSA-fjxv-7rqg-78g4");
+            } else assertThat(matched).isEmpty();
+            System.out.println("Actual OSV boundary check: form-data " + version + " findings=" + result.vulns().size()
+                    + " targetAdvisoryPresent=" + !matched.isEmpty() + " revisions=" + result.advisoryRevisions());
+        }
+    }
+
     private JsonNode fetch(HttpClient http, String url) throws Exception {
         var response = http.send(HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(20)).GET().build(),
                 HttpResponse.BodyHandlers.ofByteArray());
