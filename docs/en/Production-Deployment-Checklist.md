@@ -31,12 +31,13 @@ Terminate TLS at your reverse proxy. With the supplied host-loopback port mappin
 
 ## 4. Docker Compose (production)
 
-Run from the repository root. Keep existing `.env.prod` values; copy the template only for a new installation. Both Compose files default to project name `oswl`. If the previous installation used another project name, keep it with `-p YOUR_EXISTING_PROJECT` or `COMPOSE_PROJECT_NAME` so it reconnects the existing volumes. See the [deployment file guide](../../deploy/README.md).
+Run from the repository root. Production Compose requires `OSWL_IMAGE`; set it in `.env.prod` to `salk1104/oswl:<release version>`, or preferably to the digest recorded in the GitHub Release `DOCKER_IMAGE_DIGEST` asset. Keep existing `.env.prod` values; copy the template only for a new installation. Both Compose files default to project name `oswl`. If the previous installation used another project name, keep it with `-p YOUR_EXISTING_PROJECT` or `COMPOSE_PROJECT_NAME` so it reconnects the existing volumes. See the [deployment file guide](../../deploy/README.md).
 
 ```bash
 cp deploy/docker/.env.prod.example .env.prod
 # Edit DB_*, OSWL_ENCRYPTION_KEY, SMTP_*
-docker compose --env-file .env.prod -f deploy/docker/compose.prod.yml up -d --build
+docker compose --env-file .env.prod -f deploy/docker/compose.prod.yml pull
+docker compose --env-file .env.prod -f deploy/docker/compose.prod.yml up -d
 ```
 
 Compose reads `.env.prod` through `--env-file`. A direct `java -jar` or `bootRun` launch does not automatically load this file: export the variables or configure them in the service manager. Prepare the database schema before first production startup (see §9).

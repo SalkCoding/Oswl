@@ -31,12 +31,13 @@ OsWL을 인터넷에 공개하기 전에 확인할 한 페이지 목록입니다
 
 ## 4. Docker Compose (운영)
 
-저장소 루트에서 실행합니다. 기존 `.env.prod` 값은 유지하고 새 설치에서만 템플릿을 복사합니다. 두 Compose 파일의 기본 프로젝트명은 `oswl`입니다. 기존 설치가 다른 프로젝트명을 사용했다면 `-p YOUR_EXISTING_PROJECT` 또는 `COMPOSE_PROJECT_NAME`으로 그 이름을 유지해야 기존 볼륨에 연결됩니다. [배포 파일 안내](../../deploy/README.md)를 참고하세요.
+저장소 루트에서 실행합니다. 운영 Compose에는 `OSWL_IMAGE`가 필수입니다. `.env.prod`에 `salk1104/oswl:<릴리스 버전>`을 설정하거나, 더 안전하게 GitHub Release의 `DOCKER_IMAGE_DIGEST` 자산에 기록된 digest를 사용하세요. 기존 `.env.prod` 값은 유지하고 새 설치에서만 템플릿을 복사합니다. 두 Compose 파일의 기본 프로젝트명은 `oswl`입니다. 기존 설치가 다른 프로젝트명을 사용했다면 `-p YOUR_EXISTING_PROJECT` 또는 `COMPOSE_PROJECT_NAME`으로 그 이름을 유지해야 기존 볼륨에 연결됩니다. [배포 파일 안내](../../deploy/README.md)를 참고하세요.
 
 ```bash
 cp deploy/docker/.env.prod.example .env.prod
 # DB_*, OSWL_ENCRYPTION_KEY, SMTP_* 편집
-docker compose --env-file .env.prod -f deploy/docker/compose.prod.yml up -d --build
+docker compose --env-file .env.prod -f deploy/docker/compose.prod.yml pull
+docker compose --env-file .env.prod -f deploy/docker/compose.prod.yml up -d
 ```
 
 Compose는 `--env-file`로 `.env.prod`를 읽습니다. `java -jar`나 `bootRun`으로 직접 실행할 때는 이 파일을 자동으로 읽지 않으므로, 환경 변수를 내보내거나 서비스 관리 도구에 등록하세요. 운영 환경의 첫 시작 전에 DB 스키마를 준비해야 합니다(§9 참고).

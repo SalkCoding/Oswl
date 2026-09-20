@@ -8,6 +8,7 @@
 
 | コンポーネント | 要件 |
 |---|---|
+| **Docker** | Docker Engine（推奨） |
 | **JDK** | 25 |
 | **ビルドツール** | Gradle Wrapper（同梱 — `./gradlew`） |
 | **データベース** | H2 ファイルモード（ローカル／開発用）または PostgreSQL 15 以降（本番用） |
@@ -20,14 +21,26 @@
 
 ## インストール
 
-### 1. リポジトリをクローン
+### 1. Docker で開始（推奨）
+
+リポジトリをクローンしたり Java をインストールしたりせずに、評価用インスタンスを実行できます。
+
+```bash
+docker run -d --name oswl -p 8080:8080 -v oswl-data:/home/app salk1104/oswl:latest
+```
+
+`http://localhost:8080/setup` を開き、最初のシステム管理者アカウントを作成してください。再現可能なリリースが必要な場合は、`latest` ではなく `salk1104/oswl:1.0.5.1` のようなバージョンタグを固定します。
+
+このコマンドは `local` プロファイルを使用し、H2 データベースを `oswl-data` Docker ボリュームに保持するため、評価用途に適しています。PostgreSQL を使用する本番デプロイでは、[Docker Compose ガイド](../../deploy/README.md)と[本番デプロイチェックリスト](Production-Deployment-Checklist.md)に従ってください。
+
+### 2. リポジトリをクローン
 
 ```bash
 git clone https://github.com/SalkCoding/Oswl.git
 cd Oswl
 ```
 
-### 2. プロファイルを選択
+### 3. プロファイルを選択
 
 OsWL には 2 つの Spring プロファイルが用意されています。
 
@@ -36,7 +49,7 @@ OsWL には 2 つの Spring プロファイルが用意されています。
 | `local`（既定） | H2 ファイル（`./oswl-db.mv.db`） | 開発・評価用 |
 | `prod` | PostgreSQL | 本番デプロイ用 |
 
-### 3. アプリケーションを起動
+### 4. アプリケーションを起動
 
 ローカル開発では `./gradlew bootRun` を実行します（PowerShell: `.\gradlew.bat bootRun`）。既定の `local` プロファイルは H2 と固定の開発用暗号化キーを使用します。開発環境以外では別の永続キーを使用し、開発用キーを本番に流用しないでください。
 

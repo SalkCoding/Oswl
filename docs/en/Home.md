@@ -4,6 +4,8 @@
 
 Welcome to the **OsWL** (Open-source Software Watchlist) documentation hub.
 
+> **Fastest start:** run the published [Docker Hub image](https://hub.docker.com/repository/docker/salk1104/oswl/general) with `docker run -d --name oswl -p 8080:8080 -v oswl-data:/home/app salk1104/oswl:latest`. See [Getting Started](Getting-Started.md) for persistent evaluation storage and PostgreSQL production deployment.
+
 OsWL is an in-house **SCA (Software Composition Analysis)** platform that gives your team a single place to track CVE vulnerabilities and license compliance across all OSS dependencies — from a single microservice to an entire portfolio of products.
 
 ---

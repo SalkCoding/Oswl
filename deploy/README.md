@@ -3,11 +3,22 @@
 Run the commands below from the repository root.
 
 - [`docker/Dockerfile`](docker/Dockerfile) builds the application from source and packages its JAR in a JRE image. Its build context is the repository root.
-- [`docker/compose.yml`](docker/compose.yml) runs the source-built application and PostgreSQL 18. The application profile defaults to `prod` in Compose; the supplied `.env.example` selects `local` explicitly.
-- [`docker/compose.prod.yml`](docker/compose.prod.yml) is a separate, complete production configuration with PostgreSQL 15, loopback host-port publishing and log volumes. Use it by itself, not as an override layered over the other file.
+- [`docker/compose.yml`](docker/compose.yml) runs the published `salk1104/oswl` image and PostgreSQL 18. The application profile defaults to `prod` in Compose; the supplied `.env.example` selects `local` explicitly.
+- [`docker/compose.prod.yml`](docker/compose.prod.yml) is a separate, complete production configuration with PostgreSQL 15, loopback host-port publishing, and log volumes. It requires `OSWL_IMAGE` to be a reviewed release tag or digest. Use it by itself, not as an override layered over the other file.
 - [`observability/grafana/oswl-dashboard.json`](observability/grafana/oswl-dashboard.json) is an importable dashboard, not a documentation page.
 
-## Build an image
+## Docker Hub images
+
+Every GitHub release tag publishes `salk1104/oswl:<release version>`. After the GitHub Release is public, CI promotes that exact digest to `salk1104/oswl:latest`. The release also includes a `DOCKER_IMAGE_DIGEST` asset for immutable production pinning. For example:
+
+```sh
+docker pull salk1104/oswl:1.0.5.1
+docker run -d --name oswl -p 8080:8080 -v oswl-data:/home/app salk1104/oswl:1.0.5.1
+```
+
+The direct command uses the `local` profile and persistent H2 storage for evaluation. Open `http://localhost:8080/setup` to create the first account. Use Compose with PostgreSQL for production. The runtime container runs as UID/GID `10001`; ensure bind-mounted directories are writable by that identity. The supplied named volumes are initialized with compatible ownership.
+
+## Build an image from source
 
 Before deploying separate matching-candidate summaries, apply [`V45__archived_match_review_count.sql`](../src/main/resources/db/migration/V45__archived_match_review_count.sql) after V44. It adds nullable `scan_results.archived_match_review_count`. Existing rows stay null because historic candidate separation cannot be reconstructed reliably. New archives store a separate count; keep the column on rollback. Older applications ignore it and may show mixed candidate totals, so mixed-version summary semantics are unsupported. No backfill is performed.
 
@@ -29,7 +40,7 @@ Before deploying notice-preserving snapshot imports, apply [`V39__snapshot_data_
 docker build -f deploy/docker/Dockerfile -t oswl:local .
 ```
 
-The root `.dockerignore` controls the build context. Application profiles and database migrations stay under `src/main/resources/` because they are packaged in the JAR.
+The root `.dockerignore` controls the build context. Application profiles and database migrations stay under `src/main/resources/` because they are packaged in the JAR. To use this local image with either Compose file, set `OSWL_IMAGE=oswl:local` in the command environment or its `.env` file.
 
 ## Run with Compose
 
@@ -38,13 +49,15 @@ Keep actual `.env` and `.env.prod` files at the repository root. Only the templa
 ```sh
 # First-time setup only: copy the template, then edit its values.
 cp deploy/docker/.env.example .env
-docker compose --env-file .env -f deploy/docker/compose.yml up -d --build
+docker compose --env-file .env -f deploy/docker/compose.yml pull
+docker compose --env-file .env -f deploy/docker/compose.yml up -d
 ```
 
 ```sh
 # First-time production setup only: copy the template, then fill every required value.
 cp deploy/docker/.env.prod.example .env.prod
-docker compose --env-file .env.prod -f deploy/docker/compose.prod.yml up -d --build
+docker compose --env-file .env.prod -f deploy/docker/compose.prod.yml pull
+docker compose --env-file .env.prod -f deploy/docker/compose.prod.yml up -d
 ```
 
 For production, the sample sets `SERVER_ADDRESS=0.0.0.0` inside the container while the host port remains bound to `127.0.0.1`. Prepare the database schema before startup: a new empty database can use `OSWL_FLYWAY_ENABLED=true` to run the supplied baseline and later migrations. Review existing schema/history before enabling Flyway on an existing installation.
@@ -67,7 +80,7 @@ The two configurations retain different PostgreSQL major versions. Changing betw
 
 ## Release and site publishing
 
-The [CI workflow](../.github/workflows/ci-cd.yml) publishes the production JAR to GitHub Releases. It does not publish a Docker image or deploy an application server. [Pages](../.github/workflows/pages.yml) publishes the landing site, and [Wiki sync](../.github/workflows/wiki-sync.yml) publishes English documentation.
+The [CI workflow](../.github/workflows/ci-cd.yml) publishes the production JAR, checksum, and Docker digest to GitHub Releases and the matching version tag to [Docker Hub](https://hub.docker.com/repository/docker/salk1104/oswl/general). Only after the GitHub Release is public does it promote the recorded digest to `latest`; reruns reuse the release digest to repair a partially completed promotion without rebuilding the image. Configure the repository secret `DOCKERHUB_TOKEN` with a Docker Hub access token that can write this repository. It does not deploy an application server. [Pages](../.github/workflows/pages.yml) publishes the landing site, and [Wiki sync](../.github/workflows/wiki-sync.yml) publishes English documentation.
 
 [English deployment guide](../docs/en/Production-Deployment-Checklist.md) | [한국어 배포 가이드](../docs/ko/Production-Deployment-Checklist.md) | [日本語デプロイガイド](../docs/ja/Production-Deployment-Checklist.md)
 
@@ -77,6 +90,6 @@ The release version is declared in `build.gradle`. OsWL uses exact numeric versi
 
 Before tagging a reviewed commit, run `python .github/scripts/validate-release.py --tag v1.0.5.1`, the CI checks, and `./gradlew bootJar verifyProdJar`. The production artifact is `build/libs/oswl-1.0.5.1.jar`. The validator checks the changelog, SARIF version, translated release notes and landing/application translation keys.
 
-To publish the reviewed commit, create an annotated `v1.0.5.1` tag and push that tag to GitHub. The CI/CD workflow runs backend and browser checks for the tag, requires its version to match `build.gradle`, then creates a draft release, attaches the JAR and `SHA256SUMS`, and publishes it. A failed build or validation does not publish a release. Reruns can resume a draft; published assets are never overwritten automatically. Branch pushes and manual CI dispatches do not publish releases.
+To publish the reviewed commit, create an annotated `v1.0.5.1` tag and push that tag to GitHub. The CI/CD workflow runs backend and browser checks for the tag, requires its version to match `build.gradle`, then creates a draft release, pushes the versioned Docker image, attaches the JAR, `SHA256SUMS`, and `DOCKER_IMAGE_DIGEST`, and publishes the release. It promotes `latest` only after publication. A failed build or validation does not publish a release. Reruns resume a draft from its recorded image digest; published assets are never overwritten automatically. Branch pushes and manual CI dispatches do not publish releases.
 
 Pages and Wiki remain separate workflows on `main`; publishing a binary release does not deploy a server or update those sites. See [release notes](../docs/en/Whats-New-v1.0.5.1.md) for upgrade requirements and data limitations.

@@ -4,6 +4,8 @@
 
 **OsWL** (Open-source Software Watchlist) 문서 허브에 오신 것을 환영합니다.
 
+> **가장 빠른 시작:** 공개 [Docker Hub 이미지](https://hub.docker.com/repository/docker/salk1104/oswl/general)를 `docker run -d --name oswl -p 8080:8080 -v oswl-data:/home/app salk1104/oswl:latest`로 실행하세요. 지속되는 평가용 데이터와 PostgreSQL 운영 배포는 [시작하기](Getting-Started.md)를 참고하세요.
+
 OsWL은 단일 마이크로서비스부터 전체 제품 포트폴리오까지 모든 OSS 의존성의 CVE 취약점과 라이선스 컴플라이언스를 팀이 한 곳에서 추적할 수 있도록 하는 사내 **SCA(Software Composition Analysis)** 플랫폼입니다.
 
 ---

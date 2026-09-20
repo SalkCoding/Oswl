@@ -44,23 +44,35 @@
 
 ## 빠른 시작
 
+### 1. Docker로 실행 (권장)
+
+저장소를 클론하거나 Java를 설치하지 않고 평가용 인스턴스를 시작할 수 있습니다.
+
+```bash
+docker run -d --name oswl -p 8080:8080 -v oswl-data:/home/app salk1104/oswl:latest
+```
+
+`http://localhost:8080/setup`을 열어 첫 시스템 관리자 계정을 만드세요. `latest` 대신 재현 가능한 버전이 필요하면 `salk1104/oswl:1.0.5.1`처럼 릴리스 태그를 지정하세요.
+
+이 명령은 `oswl-data` Docker 볼륨에 H2 DB를 저장하는 `local` 프로필로 실행되며, 평가 용도에 적합합니다. PostgreSQL 기반 운영 배포는 [Docker Compose 안내](deploy/README.md)를 사용하세요.
+
 ### 사전 요구사항
 
 | 도구 | 버전 |
 |---|---|
-| JDK | 25 이상 |
+| Docker | Docker Engine (권장) |
+| JDK | 25 이상 (소스 빌드 시에만 필요) |
 | Gradle Wrapper | 포함 (`./gradlew`) |
 | PostgreSQL | 15 이상 (운영 환경) |
-| (선택) Docker | PostgreSQL 로컬 실행용 |
 
-### 1. 클론
+### 2. 소스에서 실행
 
 ```bash
 git clone https://github.com/SalkCoding/Oswl.git
 cd Oswl
 ```
 
-### 2. 로컬 실행 (H2 파일 모드)
+### 3. 로컬 실행 (H2 파일 모드)
 
 ```bash
 ./gradlew bootRun
@@ -72,7 +84,7 @@ cd Oswl
 최초 실행 시 **설정 마법사**가 `http://localhost:8080/setup`에서 자동으로 열립니다.  
 첫 번째 시스템 관리자 계정을 생성하여 완료하세요.
 
-### 3. PostgreSQL로 실행 (운영 프로파일)
+### 4. PostgreSQL로 실행 (운영 프로파일)
 
 ```bash
 export SPRING_PROFILES_ACTIVE=prod

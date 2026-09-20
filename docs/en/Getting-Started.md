@@ -8,6 +8,7 @@ This guide walks you through installing OsWL, running the setup wizard, and comp
 
 | Component | Requirement |
 |---|---|
+| **Docker** | Docker Engine (recommended) |
 | **JDK** | 25 |
 | **Build tool** | Gradle Wrapper (bundled — `./gradlew`) |
 | **Database** | H2 file-mode (local / dev) or PostgreSQL 15+ (production) |
@@ -20,14 +21,26 @@ This guide walks you through installing OsWL, running the setup wizard, and comp
 
 ## Installation
 
-### 1. Clone the Repository
+### 1. Start with Docker (recommended)
+
+Run an evaluation instance without cloning the repository or installing Java:
+
+```bash
+docker run -d --name oswl -p 8080:8080 -v oswl-data:/home/app salk1104/oswl:latest
+```
+
+Open `http://localhost:8080/setup` and create the first System Admin account. Pin a repeatable release with a version tag, for example `salk1104/oswl:1.0.5.1`, rather than using `latest`.
+
+This command uses the `local` profile and persists its H2 database in the `oswl-data` Docker volume, so it is intended for evaluation. For a PostgreSQL-backed production deployment, follow the [Docker Compose guide](../../deploy/README.md) and [production checklist](Production-Deployment-Checklist.md).
+
+### 2. Clone the Repository
 
 ```bash
 git clone https://github.com/SalkCoding/Oswl.git
 cd Oswl
 ```
 
-### 2. Choose a Profile
+### 3. Choose a Profile
 
 OsWL ships with two Spring profiles:
 
@@ -36,7 +49,7 @@ OsWL ships with two Spring profiles:
 | `local` *(default)* | H2 file (`./oswl-db.mv.db`) | Development and evaluation |
 | `prod` | PostgreSQL | Production deployment |
 
-### 3. Start the Application
+### 4. Start the Application
 
 For local development, run `./gradlew bootRun` (PowerShell: `.\gradlew.bat bootRun`). The default `local` profile uses H2 and a fixed development encryption key. Use a separate, persistent key outside development; do not reuse the development key in production.
 

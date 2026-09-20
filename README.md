@@ -44,23 +44,35 @@ It provides a single dashboard for your entire software portfolio — connect yo
 
 ## Quick Start
 
+### 1. Run with Docker (recommended)
+
+Start an evaluation instance without cloning the repository or installing Java:
+
+```bash
+docker run -d --name oswl -p 8080:8080 -v oswl-data:/home/app salk1104/oswl:latest
+```
+
+Open `http://localhost:8080/setup` to create the first System Admin account. Use a release tag such as `salk1104/oswl:1.0.5.1` when you need a repeatable version instead of `latest`.
+
+This starts the `local` profile with an H2 database stored in the `oswl-data` Docker volume, which is suitable for evaluation. For a PostgreSQL-backed production deployment, use the [Docker Compose guide](deploy/README.md).
+
 ### Prerequisites
 
 | Tool | Version |
 |---|---|
-| JDK | 25+ |
+| Docker | Docker Engine (recommended) |
+| JDK | 25+ (source builds only) |
 | Gradle Wrapper | included (`./gradlew`) |
 | PostgreSQL | 15+ (production) |
-| (Optional) Docker | for running PostgreSQL locally |
 
-### 1. Clone
+### 2. Run from source
 
 ```bash
 git clone https://github.com/SalkCoding/Oswl.git
 cd Oswl
 ```
 
-### 2. Run locally (H2 file-mode)
+### 3. Run locally (H2 file-mode)
 
 ```bash
 ./gradlew bootRun
@@ -72,7 +84,7 @@ The `local` profile is active by default. It uses an embedded H2 database (`./os
 On first run the **Setup Wizard** opens automatically at `http://localhost:8080/setup`.  
 Complete it to create the first System Admin account.
 
-### 3. Run with PostgreSQL (production profile)
+### 4. Run with PostgreSQL (production profile)
 
 ```bash
 export SPRING_PROFILES_ACTIVE=prod

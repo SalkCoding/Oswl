@@ -20,9 +20,7 @@ services:
         max-file: "10"
 
   app:
-    build:
-      context: ../..
-      dockerfile: deploy/docker/Dockerfile
+    image: "${OSWL_IMAGE:?Set OSWL_IMAGE to a reviewed release tag or image digest}"
     env_file:
       - ../../.env.prod
     environment:
@@ -50,6 +48,10 @@ services:
     depends_on:
       - db
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     # Cap container stdout/stderr log growth (separate from the OSWL_LOG_DIR file
     # log above — this is docker's own capture of the process's console output).
     logging:

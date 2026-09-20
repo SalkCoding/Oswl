@@ -31,12 +31,13 @@ OsWL をインターネットに公開する前に、この 1 ページのチェ
 
 ## 4. Docker Compose（本番）
 
-リポジトリのルートで実行します。既存の `.env.prod` の値は保持し、新規インストール時だけテンプレートをコピーします。両 Compose ファイルの既定プロジェクト名は `oswl` です。既存環境が別の名前を使用していた場合は `-p YOUR_EXISTING_PROJECT` または `COMPOSE_PROJECT_NAME` で同じ名前を維持し、既存ボリュームに接続してください。[デプロイファイルの案内](../../deploy/README.md)を参照してください。
+リポジトリのルートで実行します。本番用 Compose ファイルでは `OSWL_IMAGE` が必須です。`.env.prod` で `salk1104/oswl:<リリースバージョン>`、または GitHub Release の `DOCKER_IMAGE_DIGEST` に記載された digest を指定してください。既存の `.env.prod` の値は保持し、新規インストール時だけテンプレートをコピーします。両 Compose ファイルの既定プロジェクト名は `oswl` です。既存環境が別の名前を使用していた場合は `-p YOUR_EXISTING_PROJECT` または `COMPOSE_PROJECT_NAME` で同じ名前を維持し、既存ボリュームに接続してください。[デプロイファイルの案内](../../deploy/README.md)を参照してください。
 
 ```bash
 cp deploy/docker/.env.prod.example .env.prod
 # DB_*, OSWL_ENCRYPTION_KEY, SMTP_* を編集
-docker compose --env-file .env.prod -f deploy/docker/compose.prod.yml up -d --build
+docker compose --env-file .env.prod -f deploy/docker/compose.prod.yml pull
+docker compose --env-file .env.prod -f deploy/docker/compose.prod.yml up -d
 ```
 
 Compose は `--env-file` で `.env.prod` を読み込みます。`java -jar` や `bootRun` で直接実行する場合、このファイルは自動で読み込まれません。環境変数を設定するかサービス管理ツールに登録してください。本番環境の初回起動前に DB スキーマを準備します（§9 参照）。
