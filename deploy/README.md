@@ -2,6 +2,8 @@
 
 Run the commands below from the repository root.
 
+Apply `src/main/resources/db/migration/V48__osv_revision_evidence.sql` after V47 before deploying OSV revision rollback protection. The nullable column preserves accepted revision/digest pairs per advisory on each CVE; legacy rows are not backfilled. Retain it on rollback and in backups. Older writers do not maintain this evidence, so do not mix application versions. Scan/offline exports do not yet transport it; this guard does not serialize concurrent writers or implement automatic withdrawal.
+
 Before deploying NVD/OSV/GitHub/deps.dev observation journaling, apply `src/main/resources/db/migration/V47__vulnerability_observations.sql` after V46. It creates an additive table; existing scans are not backfilled. Observations retain the package identity independently of shared library/CVE deletion, but are deleted with their owning scan through a foreign-key cascade. Include this table in database backups. Keep it on application rollback; older writers will not create observations. Scan archive and offline bundle exports do not yet carry this journal, so they cannot replace a database backup for preserving it. This is source evidence, not automatic withdrawal reconciliation or additional redistribution authorization.
 
 - [`docker/Dockerfile`](docker/Dockerfile) builds the application from source and packages its JAR in a JRE image. Its build context is the repository root.
