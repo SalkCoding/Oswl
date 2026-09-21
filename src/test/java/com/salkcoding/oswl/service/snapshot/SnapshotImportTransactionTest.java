@@ -32,6 +32,50 @@ class SnapshotImportTransactionTest {
     private final org.springframework.transaction.PlatformTransactionManager transactions;
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"finding", "empty", "failed", "withdrawn", "partial"})
+    void githubCliBundlePreservesAssessmentAfterImport(String state, @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Path wanted = directory.resolve("wanted.jsonl");
+        Files.writeString(wanted, "{\"ecosystem\":\"npm\",\"name\":\"fixture\",\"version\":\"1.0.0\"}\n");
+        Path output = directory.resolve("github.zip");
+        var options = new com.salkcoding.oswl.vdb.VdbBuildOptions(output, wanted, Set.of("github-advisory"), null,
+                directory.resolve("cache"), null, null, "synthetic-test-token", null, null, "unreviewed");
+        var advisory = new com.salkcoding.oswl.client.GitHubAdvisoryClient.GitHubAdvisory("GHSA-fixture", null, "fixture", null,
+                null, null, "2.0.0", Set.of(), "2026-02-01T00:00:00Z", state.equals("withdrawn") ? "2026-02-01T00:00:00Z" : null);
+        boolean incomplete = state.equals("failed") || state.equals("partial");
+        try (var clients = org.mockito.Mockito.mockConstruction(com.salkcoding.oswl.client.GitHubAdvisoryClient.class, (client, context) -> {
+            org.mockito.Mockito.when(client.canLookup("npm")).thenReturn(true);
+            var lookup = org.mockito.Mockito.when(client.lookupByPackage("npm", "fixture", "1.0.0"));
+            if (state.equals("failed")) lookup.thenThrow(new IllegalStateException("synthetic failure"));
+            else if (state.equals("partial")) {
+                var constructor = com.salkcoding.oswl.client.GitHubAdvisoryClient.IncompleteLookupException.class.getDeclaredConstructor(List.class);
+                constructor.setAccessible(true);
+                lookup.thenThrow(constructor.newInstance(List.of(advisory)));
+            } else lookup.thenReturn(new com.salkcoding.oswl.client.GitHubAdvisoryClient.AdvisoryLookup(
+                    state.equals("finding") ? List.of(advisory) : List.of(), state.equals("withdrawn") ? List.of(advisory) : List.of()));
+        })) {
+            Integer code = org.springframework.test.util.ReflectionTestUtils.invokeMethod(new com.salkcoding.oswl.vdb.VdbBuilderCli(), "build", options);
+            assertThat(code).isEqualTo(incomplete ? 2 : 0);
+        }
+        try (var input = Files.newInputStream(output)) { service.importBundle(input); }
+        var offlineClient = new com.salkcoding.oswl.client.GitHubAdvisoryClient(service, true, null, null,
+                java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1));
+        var snapshot = offlineClient.findSnapshotByComponentKeys(Set.of("NPM|fixture|1.0.0")).get("NPM|fixture|1.0.0");
+        var result = new com.salkcoding.oswl.service.vulnerability.sources.GitHubAdvisorySource(offlineClient)
+                .lookupSnapshot("npm", "fixture", "1.0.0", snapshot);
+        assertThat(result.lookupFailed()).isEqualTo(incomplete);
+        assertThat(result.findings()).hasSize(state.equals("finding") || state.equals("partial") ? 1 : 0);
+        assertThat(result.withdrawnFindings()).hasSize(state.equals("withdrawn") ? 1 : 0);
+        result.findings().forEach(row -> {
+            assertThat(row.fixVersion()).isEqualTo(incomplete ? null : "2.0.0");
+            assertThat(row.updatedAt()).isEqualTo(advisory.updatedAt());
+        });
+        result.withdrawnFindings().forEach(row -> {
+            assertThat(row.fixVersion()).isNull();
+            assertThat(row.withdrawnAt()).isEqualTo(advisory.withdrawnAt());
+        });
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"active,1.0.0", "withdrawn,1.0.0", "future,1.0.0", "future,2.0.0"})
     void githubHttpLifecycleMatchesAfterDatabaseImport(String state, String version) throws Exception {
         var json = new com.fasterxml.jackson.databind.ObjectMapper();
