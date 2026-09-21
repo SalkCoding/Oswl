@@ -90,6 +90,9 @@ public final class VdbBuilderCli {
                                  [--distribution-profile unreviewed|github-attributed]
                                  [--mode delta --since <previous-bundle.zip>]
                                  [--offline-sources <dir>]  (no network at all; osv/epss/kev only)
+                  GitHub: explicit --sources github-advisory, nonempty --wanted,
+                          OSWL_GITHUB_ADVISORY_TOKEN; online full builds only.
+                          Exit 2 means an incomplete GitHub bundle was written.
                   oswl-vdb verify <bundle.zip>
                   oswl-vdb inspect <bundle.zip>
                 """);
@@ -99,6 +102,17 @@ public final class VdbBuilderCli {
 
     private int build(VdbBuildOptions opts) throws Exception {
         List<WantedComponent> wanted = opts.wantedList() != null ? loadWantedList(opts.wantedList()) : List.of();
+        boolean collectGithub = opts.sources().contains("github-advisory");
+        if (collectGithub) {
+            if (wanted.isEmpty()) throw new IllegalArgumentException("GitHub collection requires a nonempty wanted list");
+            if (opts.githubAdvisoryToken() == null || opts.githubAdvisoryToken().isBlank())
+                throw new IllegalArgumentException("GitHub collection requires OSWL_GITHUB_ADVISORY_TOKEN");
+            if (opts.isDelta() || opts.offlineSources() != null)
+                throw new IllegalArgumentException("GitHub collection currently requires an online full build");
+            if (opts.githubApiBase() != null && !opts.githubApiBase().isBlank()
+                    && !opts.githubApiBase().equals("https://api.github.com"))
+                throw new IllegalArgumentException("GitHub CLI collection currently supports only https://api.github.com");
+        }
         if (opts.wantedList() != null) {
             System.err.println("[oswl-vdb] Loaded " + wanted.size() + " wanted components from " + opts.wantedList());
         }
@@ -154,6 +168,8 @@ public final class VdbBuilderCli {
             }
         }
         int unresolvedCount = osvUnresolvedKeys.size();
+        GitHubAdvisorySource.Result githubResult = collectGithub
+                ? new GitHubAdvisorySource(mapper).fetch(wanted, opts.githubAdvisoryToken(), opts.githubApiBase()) : null;
 
         List<DepsDevSource.VersionRecord> depsdevVersions = List.of();
         List<DepsDevSource.AdvisoryRecord> depsdevAdvisories = List.of();
@@ -228,10 +244,21 @@ public final class VdbBuilderCli {
 
         VdbBundleWriter.WantedListInfo wantedListInfo = null;
         List<WantedComponent> unresolvedComponents = List.of();
-        if (opts.wantedList() != null && (effectiveSources.contains("osv") || effectiveSources.contains("depsdev"))) {
+        if (opts.wantedList() != null && (effectiveSources.contains("osv") || effectiveSources.contains("depsdev") || collectGithub)) {
             String wantedListId = sha256Hex(Files.readAllBytes(opts.wantedList()));
             Resolution resolution = partitionResolution(wanted, osvVulns.keySet(), osvUnresolvedKeys, osvProcessedEcosystems, depsdevVersions);
+            if (collectGithub) {
+                var incomplete = new java.util.LinkedHashSet<>(resolution.unresolved());
+                for (var component : wanted) {
+                    String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(component.ecosystem(), component.name(), component.version());
+                    boolean githubResolved = githubResult.vulnsByComponentKey().containsKey(key) && !githubResult.unresolvedKeys().contains(key);
+                    if (!githubResolved) incomplete.add(component);
+                    else if (!effectiveSources.contains("osv") && !effectiveSources.contains("depsdev")) incomplete.remove(component);
+                }
+                resolution = new Resolution(wanted.size() - incomplete.size(), List.copyOf(incomplete));
+            }
             unresolvedComponents = resolution.unresolved();
+            unresolvedCount = unresolvedComponents.size();
             wantedListInfo = new VdbBundleWriter.WantedListInfo(wantedListId, wanted.size(), resolution.resolvedCount());
         }
 
@@ -248,7 +275,8 @@ public final class VdbBuilderCli {
             collectedSources.remove("osv");
             collectedSources.remove("depsdev");
         }
-        new VdbBundleWriter(mapper, collectedSources, opts.distributionProfile()).write(opts.out(), osvVulns, osvAsOf, depsdevVersions, depsdevAdvisories,
+        var githubData = collectGithub ? new VdbBundleWriter.GitHubData(githubResult.vulnsByComponentKey(), LocalDate.now()) : null;
+        new VdbBundleWriter(mapper, collectedSources, opts.distributionProfile(), githubData).write(opts.out(), osvVulns, osvAsOf, depsdevVersions, depsdevAdvisories,
                 depsdevSkippedSystems,
                 epssScores, epssAsOf, kevIds, kevAsOf, unresolvedCount, wantedListInfo, unresolvedComponents, previous);
 
@@ -260,7 +288,7 @@ public final class VdbBuilderCli {
                 + (wantedListInfo != null ? " (wanted=" + wantedListInfo.wantedCount()
                         + " resolved=" + wantedListInfo.resolvedCount()
                         + " unresolved.jsonl=" + unresolvedComponents.size() + ")" : ""));
-        return 0;
+        return collectGithub && !githubResult.unresolvedKeys().isEmpty() ? 2 : 0;
     }
 
     private record Resolution(int resolvedCount, List<WantedComponent> unresolved) {}

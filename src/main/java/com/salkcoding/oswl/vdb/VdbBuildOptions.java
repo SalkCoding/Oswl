@@ -68,8 +68,8 @@ public record VdbBuildOptions(
                 }
                 case "--since" -> { since = Path.of(require(v, "--since")); i++; }
                 case "--offline-sources" -> { offlineSources = Path.of(require(v, "--offline-sources")); i++; }
-                case "--github-advisory-token" -> throw new IllegalArgumentException("--github-advisory-token is unavailable: its collector is not connected to the bundle builder");
-                case "--github-api-base" -> throw new IllegalArgumentException("--github-api-base is unavailable: its collector is not connected to the bundle builder");
+                case "--github-advisory-token" -> throw new IllegalArgumentException("--github-advisory-token exposes secrets in process arguments; use OSWL_GITHUB_ADVISORY_TOKEN");
+                case "--github-api-base" -> throw new IllegalArgumentException("--github-api-base is unavailable: GitHub CLI collection uses https://api.github.com");
                 case "--nvd-api-key" -> throw new IllegalArgumentException("--nvd-api-key is unavailable: its collector is not connected to the bundle builder");
                 default -> throw new IllegalArgumentException("Unknown option: " + a);
             }
@@ -86,10 +86,10 @@ public record VdbBuildOptions(
             out = Path.of("oswl-vdb-" + java.time.LocalDate.now() + ".zip");
         }
         for (String s : sources) {
-            if (s.equals("github-advisory") || s.equals("nvd")) {
+            if (s.equals("nvd")) {
                 throw new IllegalArgumentException("Source '" + s + "' is unavailable: its collector is not connected to the bundle builder");
             }
-            if (!ALL_SOURCES.contains(s)) {
+            if (!ALL_SOURCES.contains(s) && !s.equals("github-advisory")) {
                 throw new IllegalArgumentException("Unknown source '" + s + "' — expected one of " + ALL_SOURCES);
             }
         }
@@ -100,6 +100,11 @@ public record VdbBuildOptions(
             mode = "delta"; // --since implies delta even if --mode wasn't spelled out
         }
         Path finalSince = mode.equals("delta") ? since : null;
+        if (sources.contains("github-advisory")) {
+            if (wanted == null) throw new IllegalArgumentException("GitHub collection requires --wanted");
+            if (offlineSources != null) throw new IllegalArgumentException("GitHub collection cannot use --offline-sources");
+            if (finalSince != null) throw new IllegalArgumentException("GitHub delta collection is not yet supported");
+        }
         return new VdbBuildOptions(out, wanted, sources, ecosystems, cacheDir, finalSince, offlineSources,
                 githubAdvisoryToken, githubApiBase, nvdApiKey, distributionProfile);
     }
