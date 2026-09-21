@@ -224,6 +224,7 @@ public class OsvClient {
         List<OsvLifecycleObservation> lifecycle = new ArrayList<>();
         Map<String, SnapshotVuln> revisions = new java.util.LinkedHashMap<>();
         Map<String, List<SnapshotVuln>> revisionGroups = new java.util.LinkedHashMap<>();
+        Map<String, Set<String>> legacyFixConflicts = new java.util.LinkedHashMap<>();
         Set<String> untrustedIds = new LinkedHashSet<>();
         Set<String> handledOriginalIds = new LinkedHashSet<>();
         // Validate revisions before filtering withdrawn or currently unaffected entries.
@@ -235,7 +236,19 @@ public class OsvClient {
             revisionGroups.computeIfAbsent(vuln.osvId(), ignored -> new ArrayList<>()).add(vuln);
         }
         for (var entry : revisionGroups.entrySet()) {
-            if (entry.getValue().size() < 2 || entry.getValue().stream().allMatch(v -> v.osvAdvisory() == null)) continue;
+            if (entry.getValue().size() < 2) continue;
+            if (entry.getValue().stream().allMatch(v -> v.osvAdvisory() == null)) {
+                Set<String> candidates = new LinkedHashSet<>();
+                for (var row : entry.getValue()) {
+                    if (row.fixVersion() != null && !row.fixVersion().isBlank()) candidates.add(row.fixVersion());
+                    candidates.addAll(row.fixVersionConflictCandidates());
+                }
+                if (candidates.size() > 1) {
+                    legacyFixConflicts.put(entry.getKey(), Set.copyOf(candidates));
+                    resolved = false;
+                }
+                continue;
+            }
             SnapshotVuln latest = latestSnapshotRevision(entry.getValue());
             if (latest == null) {
                 untrustedIds.add(entry.getKey());
@@ -280,7 +293,8 @@ public class OsvClient {
                 evidence.add(vuln);
             }
             findings.add(new OsvVuln(vuln.osvId(), vuln.cveId(), vuln.summary(), fix, vuln.cweId(),
-                    risk(vuln.severity(), vuln.cvssScore()), vuln.cvssScore(), vuln.cvss3Vector(), vuln.fixVersionConflictCandidates()));
+                    risk(vuln.severity(), vuln.cvssScore()), vuln.cvssScore(), vuln.cvss3Vector(),
+                    legacyFixConflicts.getOrDefault(vuln.osvId(), vuln.fixVersionConflictCandidates())));
         }
         if (!current) findings = findings.stream().map(v -> new OsvVuln(v.osvId(), v.cveId(), v.summary(), null,
                 v.cweId(), v.severity(), v.cvssScore(), v.cvssVector(), v.fixVersionConflictCandidates())).toList();

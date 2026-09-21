@@ -16,6 +16,23 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class OsvLookupOutcomeTest {
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"forward", "reverse", "agreement"})
+    void duplicateLegacySnapshotsCannotExposeConflictingFixes(String order) {
+        var snapshot = mock(AirgappedSnapshotService.class);
+        when(snapshot.readOsvSnapshot(anyCollection())).thenCallRealMethod();
+        var first = new AirgappedSnapshotService.SnapshotVuln("OSV-fixture", null, "first", "2.0.0", null);
+        var second = new AirgappedSnapshotService.SnapshotVuln("OSV-fixture", null, "second", order.equals("agreement") ? "2.0.0" : "3.0.0", null);
+        when(snapshot.findOsvVulns(anyCollection())).thenReturn(Map.of("NPM|fixture|1.0.0",
+                order.equals("reverse") ? List.of(second, first) : List.of(first, second)));
+        var result = new OsvClient(snapshot, true).queryBatch(List.of(new OsvClient.OsvQuery("npm", "fixture", "1.0.0"))).getFirst();
+        assertThat(result.resolved()).isEqualTo(order.equals("agreement"));
+        assertThat(result.vulns()).hasSize(2).allSatisfy(row -> {
+            assertThat(row.fixVersion()).isEqualTo(order.equals("agreement") ? "2.0.0" : null);
+            if (!order.equals("agreement")) assertThat(row.fixVersionConflictCandidates()).containsExactlyInAnyOrder("2.0.0", "3.0.0");
+        });
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"batch,false", "batch,true", "detail,false", "detail,true", "continuation,false", "continuation,true"})
     void ambiguousJsonCannotConfirmCoverageOrCommonFix(String stage, boolean trailing) {
         var builder = RestClient.builder().baseUrl("https://api.osv.dev");
