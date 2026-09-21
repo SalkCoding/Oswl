@@ -18,6 +18,32 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class GitHubAdvisoryRangeTest {
     @ParameterizedTest
+    @CsvSource({"1.0.0,true", "2.0.0,false"})
+    void futureWithdrawalRetainsOnlyIndependentlyAffectedFindings(String version, boolean affected) throws Exception {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com", Duration.ofSeconds(1), Duration.ofSeconds(1));
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var response = mapper.readTree(page("GHSA-fixture", false, "end"));
+        var node = (com.fasterxml.jackson.databind.node.ObjectNode) response.path("data").path("securityVulnerabilities").path("nodes").get(0);
+        node.put("vulnerableVersionRange", "< 2.0.0");
+        node.putObject("firstPatchedVersion").put("identifier", "2.0.0");
+        ((com.fasterxml.jackson.databind.node.ObjectNode) node.path("advisory"))
+                .put("updatedAt", "2026-02-01T00:00:00Z").put("withdrawnAt", "9999-01-01T00:00:00Z");
+        server.expect(requestTo("https://api.github.com/graphql")).andRespond(withSuccess(mapper.writeValueAsString(response), MediaType.APPLICATION_JSON));
+        var result = new GitHubAdvisorySource(client).lookup("npm", "fixture", version, List.of());
+        assertThat(result.lookupFailed()).isTrue();
+        assertThat(result.withdrawnFindings()).isEmpty();
+        assertThat(result.findings()).hasSize(affected ? 1 : 0).allSatisfy(finding -> {
+            assertThat(finding.ghsaId()).isEqualTo("GHSA-fixture");
+            assertThat(finding.withdrawnAt()).isEqualTo("9999-01-01T00:00:00Z");
+            assertThat(finding.fixVersion()).isNull();
+        });
+        server.verify();
+    }
+
+    @ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"valid", "future", "malformed", "wrong-type", "absent", "null"})
     void invalidUpdateTimeCannotConfirmOnlineFix(String state) throws Exception {
         var builder = RestClient.builder();

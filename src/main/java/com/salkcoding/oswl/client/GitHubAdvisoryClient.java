@@ -413,14 +413,16 @@ public class GitHubAdvisoryClient {
                 Object updated = rawAdvisory.get("updatedAt");
                 if (updated != null && !isCurrentTimestamp(updated)) incomplete = true;
                 Object withdrawn = rawAdvisory.get("withdrawnAt");
+                boolean effectiveWithdrawal = false;
                 if (withdrawn != null) {
                     if (!(withdrawn instanceof String date)) throw new IllegalArgumentException("Malformed withdrawal date");
                     java.time.Instant withdrawnAt = java.time.Instant.parse(date);
-                    if (withdrawnAt.isAfter(java.time.Instant.now())) throw new IllegalArgumentException("Future withdrawal date");
+                    effectiveWithdrawal = !withdrawnAt.isAfter(java.time.Instant.now());
+                    if (!effectiveWithdrawal) incomplete = true;
                 }
                 Boolean prior = withdrawalStates.putIfAbsent(advisory.ghsaId(), withdrawn != null);
                 if (prior != null && prior != (withdrawn != null)) incomplete = true;
-                if (withdrawn != null) {
+                if (effectiveWithdrawal) {
                     withdrawnFindings.add(withFix(advisory, null));
                     continue;
                 }
