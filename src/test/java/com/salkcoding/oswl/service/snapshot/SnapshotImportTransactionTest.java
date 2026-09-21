@@ -32,6 +32,56 @@ class SnapshotImportTransactionTest {
     private final org.springframework.transaction.PlatformTransactionManager transactions;
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"active,1.0.0", "withdrawn,1.0.0", "future,1.0.0", "future,2.0.0"})
+    void githubHttpLifecycleMatchesAfterDatabaseImport(String state, String version) throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var advisory = new LinkedHashMap<String, Object>();
+        advisory.put("identifiers", List.of(Map.of("type", "GHSA", "value", "GHSA-fixture")));
+        advisory.put("updatedAt", "2026-02-01T00:00:00Z");
+        if (!state.equals("active")) advisory.put("withdrawnAt", state.equals("future")
+                ? "9999-01-01T00:00:00Z" : "2026-01-01T00:00:00Z");
+        var node = Map.of("package", Map.of("ecosystem", "NPM", "name", "fixture"),
+                "vulnerableVersionRange", "< 2.0.0", "firstPatchedVersion", Map.of("identifier", "2.0.0"), "advisory", advisory);
+        String response = json.writeValueAsString(Map.of("data", Map.of("securityVulnerabilities", Map.of(
+                "nodes", List.of(node), "pageInfo", Map.of("hasNextPage", false)))));
+        var builder = org.springframework.web.client.RestClient.builder();
+        var server = org.springframework.test.web.client.MockRestServiceServer.bindTo(builder).build();
+        var liveClient = new com.salkcoding.oswl.client.GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com",
+                java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1));
+        org.springframework.test.util.ReflectionTestUtils.setField(liveClient, "restClient", builder.build());
+        server.expect(org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo("https://api.github.com/graphql"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess(response, org.springframework.http.MediaType.APPLICATION_JSON));
+        var online = new com.salkcoding.oswl.service.vulnerability.sources.GitHubAdvisorySource(liveClient)
+                .lookup("npm", "fixture", version, List.of());
+        assertThat(online.lookupFailed()).isEqualTo(state.equals("future"));
+        assertThat(online.findings()).hasSize(state.equals("withdrawn") || version.equals("2.0.0") ? 0 : 1);
+        assertThat(online.withdrawnFindings()).hasSize(state.equals("withdrawn") ? 1 : 0);
+        var rows = java.util.stream.Stream.concat(online.findings().stream(), online.withdrawnFindings().stream())
+                .map(row -> new AirgappedSnapshotService.SnapshotVuln(row.ghsaId(), row.cveId(), row.summary(), row.fixVersion(),
+                        null, row.severity() == null ? null : row.severity().name(), row.cvssScore(), row.cvss3Vector(), null,
+                        row.fixVersionConflictCandidates(), null, null, row.updatedAt(), row.withdrawnAt())).toList();
+        var files = new LinkedHashMap<String, String>();
+        files.put("github-advisory.jsonl", json.writeValueAsString(Map.of("ecosystem", "NPM", "name", "fixture", "version", version, "vulns", rows)));
+        if (online.lookupFailed()) files.put("unresolved.jsonl", json.writeValueAsString(Map.of("ecosystem", "NPM", "name", "fixture", "version", version)));
+        var manifest = new LinkedHashMap<String, Object>();
+        for (var file : files.entrySet()) manifest.put(file.getKey(), Map.of("lines", 1, "sha256", HexFormat.of().formatHex(
+                java.security.MessageDigest.getInstance("SHA-256").digest(file.getValue().getBytes(StandardCharsets.UTF_8)))));
+        files.put("meta.json", json.writeValueAsString(Map.of("formatVersion", 2, "files", manifest,
+                "sources", Map.of("github-advisory", Map.of("asOf", java.time.LocalDate.now().toString())))));
+        service.importBundle(new ByteArrayInputStream(bundle(files)));
+        var offlineClient = new com.salkcoding.oswl.client.GitHubAdvisoryClient(service, true, null, null,
+                java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1));
+        String key = "NPM|fixture|" + version;
+        var offline = new com.salkcoding.oswl.service.vulnerability.sources.GitHubAdvisorySource(offlineClient)
+                .lookupSnapshot("npm", "fixture", version, offlineClient.findSnapshotByComponentKeys(Set.of(key)).get(key));
+        assertThat(offline.lookupFailed()).isEqualTo(online.lookupFailed());
+        assertThat(offline.queried()).isEqualTo(online.queried());
+        assertThat(offline.findings()).containsExactlyElementsOf(online.findings());
+        assertThat(offline.withdrawnFindings()).containsExactlyElementsOf(online.withdrawnFindings());
+        server.verify();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"complete", "stale", "undated", "conflict", "future", "legacy", "future-update"})
     void importedGithubLifecycleRemainsSeparateFromActiveFindings(String state) throws Exception {
         var json = new com.fasterxml.jackson.databind.ObjectMapper();
