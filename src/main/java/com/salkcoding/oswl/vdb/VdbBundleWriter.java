@@ -190,6 +190,27 @@ final class VdbBundleWriter {
         }
 
         boolean delta = previous != null;
+        if (delta && collectedSources.contains("osv")) {
+            var priorRows = previous.linesByFileAndKey().getOrDefault("osv.jsonl", Map.of());
+            for (String key : unresolvedByKey.keySet()) {
+                String prior = priorRows.get(key);
+                if (prior == null) continue;
+                String current = osvByKey.get(key);
+                if (current == null) {
+                    osvByKey.put(key, prior);
+                    continue;
+                }
+                JsonNode oldRow = mapper.readTree(prior);
+                JsonNode newRow = mapper.readTree(current);
+                if (!oldRow.path("vulns").isArray() || !newRow.path("vulns").isArray())
+                    throw new IOException("Cannot preserve unresolved OSV evidence from malformed rows");
+                var findings = new java.util.LinkedHashSet<JsonNode>();
+                newRow.path("vulns").forEach(findings::add);
+                oldRow.path("vulns").forEach(findings::add);
+                ((ObjectNode) newRow).set("vulns", mapper.valueToTree(findings));
+                osvByKey.put(key, writeJson(newRow));
+            }
+        }
         String osvContent = renderContent("osv.jsonl", osvByKey, previous);
         String githubContent = renderContent("github-advisory.jsonl", githubByKey, null);
         String depsdevContent = renderContent("depsdev.jsonl", depsdevByKey, previous);

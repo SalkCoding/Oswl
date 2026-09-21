@@ -850,7 +850,11 @@ class SnapshotImportTransactionTest {
         var result = new com.salkcoding.oswl.client.OsvClient(service, true).queryBatch(List.of(
                 new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "example", "1.0.0"))).getFirst();
         assertThat(result.resolved()).isEqualTo(!filtered);
-        assertThat(result.vulns()).isEmpty();
+        if (filtered && delta) {
+            // Excluding the ecosystem from this refresh supplies no evidence that the prior finding disappeared.
+            assertThat(result.vulns()).extracting(com.salkcoding.oswl.client.OsvClient.OsvVuln::osvId)
+                    .containsExactly("OSV-known");
+        } else assertThat(result.vulns()).isEmpty();
         assertThat(service.findUnresolvedKeys(List.of("NPM|example|1.0.0")).isEmpty()).isEqualTo(!filtered);
     }
 
