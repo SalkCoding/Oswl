@@ -970,14 +970,17 @@ public class AirgappedSnapshotService {
             if (key == null || row.has("_deleted")) throw new InvalidRequestException("Invalid scoped coverage identity or deletion");
             Set<String> unresolved = readCoverageSources(row, "unresolvedSources");
             Set<String> resolved = readCoverageSources(row, "resolvedSources");
-            if (unresolved.isEmpty() && resolved.isEmpty() || !java.util.Collections.disjoint(unresolved, resolved))
+            if (row.has("legacyUnresolved") && !row.path("legacyUnresolved").isBoolean())
+                throw new InvalidRequestException("Legacy coverage flag must be boolean");
+            boolean importedLegacy = row.path("legacyUnresolved").asBoolean(false);
+            if (unresolved.isEmpty() && resolved.isEmpty() && !importedLegacy || !java.util.Collections.disjoint(unresolved, resolved))
                 throw new InvalidRequestException("Conflicting or empty coverage update");
             var stored = snapshotEntryRepository.findBySourceAndEntryKeyIn(SOURCE_UNRESOLVED, List.of(key));
             Set<String> remaining = new LinkedHashSet<>();
-            boolean legacy = false;
+            boolean legacy = importedLegacy;
             if (!stored.isEmpty()) {
                 JsonNode old = objectMapper.readTree(stored.getFirst().getPayload());
-                legacy = !old.isObject() || old.path("legacyUnresolved").asBoolean(false);
+                legacy |= !old.isObject() || !old.has("unresolvedSources") || old.path("legacyUnresolved").asBoolean(false);
                 if (old.isObject()) remaining.addAll(readCoverageSources(old, "unresolvedSources"));
             }
             remaining.removeAll(resolved);
@@ -1269,6 +1272,7 @@ public class AirgappedSnapshotService {
         int nvdRecords = 0;
         int versionRecords = 0;
         boolean hasOriginals = false;
+        boolean hasScopedCoverage = false;
 
         while (afterId < upperId) {
             List<Long> ids = libraryRepository.findSnapshotIds(afterId, upperId,
@@ -1277,9 +1281,10 @@ public class AirgappedSnapshotService {
             List<Library> libraries = libraryRepository.findByIdInWithCves(ids);
             Map<String, List<SnapshotVuln>> storedOriginals = findOsvVulns(libraries.stream()
                     .map(this::osvExportKey).filter(Objects::nonNull).toList());
-            Set<String> storedUnresolved = findUnresolvedKeys(libraries.stream().flatMap(lib -> java.util.stream.Stream.of(
+            Map<String, String> coveragePayloads = findPayloads(SOURCE_UNRESOLVED, libraries.stream().flatMap(lib -> java.util.stream.Stream.of(
                     componentKey(lib.getEcosystem(), lib.getName(), lib.getVersion()), osvExportKey(lib)))
                     .filter(Objects::nonNull).distinct().toList());
+            Set<String> storedUnresolved = coveragePayloads.keySet();
             exportedLibraries += libraries.size();
             for (Library lib : libraries) {
                 String key = componentKey(lib.getEcosystem(), lib.getName(), lib.getVersion());
@@ -1312,9 +1317,12 @@ public class AirgappedSnapshotService {
                 String osvKey = osvExportKey(lib);
                 if (!lib.isVulnerabilitiesAnalyzed() || storedUnresolved.contains(key)
                         || (osvKey != null && storedUnresolved.contains(osvKey))) {
-                    unresolvedRecords += appendVulnLines(unresolved, lib, List.of());
-                    if (osvKey != null && !osvKey.equals(key))
-                        unresolvedRecords += appendVulnLines(unresolved, lib, List.of(), true);
+                    hasScopedCoverage |= appendCoverageLine(unresolved, key, coveragePayloads.get(key), !lib.isVulnerabilitiesAnalyzed());
+                    unresolvedRecords++;
+                    if (osvKey != null && !osvKey.equals(key)) {
+                        hasScopedCoverage |= appendCoverageLine(unresolved, osvKey, coveragePayloads.get(osvKey), !lib.isVulnerabilitiesAnalyzed());
+                        unresolvedRecords++;
+                    }
                 }
 
                 // Vulnerability records split by upstream source so the offline clients can each
@@ -1442,7 +1450,22 @@ public class AirgappedSnapshotService {
 
         ObjectNode meta = objectMapper.createObjectNode();
         meta.put("format", BUNDLE_FORMAT);
-        meta.put("formatVersion", hasOriginals ? 3 : 2);
+        if (hasScopedCoverage) {
+            StringBuilder normalized = new StringBuilder();
+            for (String line : unresolved.toString().lines().toList()) {
+                try {
+                    ObjectNode row = (ObjectNode) objectMapper.readTree(line);
+                    if (!row.has("unresolvedSources")) {
+                        row.remove("vulns");
+                        row.putArray("unresolvedSources");
+                        row.put("legacyUnresolved", true);
+                    }
+                    normalized.append(writeJson(row)).append('\n');
+                } catch (Exception invalid) { throw new IllegalStateException("Cannot preserve exported coverage", invalid); }
+            }
+            unresolved = normalized;
+        }
+        meta.put("formatVersion", hasScopedCoverage ? 4 : hasOriginals ? 3 : 2);
         meta.put("bundleId", bundleId);
         meta.put("mode", "full");
         meta.put("builtAt", builtAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
@@ -1525,6 +1548,23 @@ public class AirgappedSnapshotService {
         } catch (IOException e) {
             throw new IllegalStateException("Failed to build snapshot bundle: " + e.getMessage(), e);
         }
+    }
+
+    private boolean appendCoverageLine(StringBuilder target, String key, String stored, boolean unanalyzed) {
+        String[] parts = key.split("\\|", 3);
+        ObjectNode row = objectMapper.createObjectNode();
+        row.put("ecosystem", parts[0]); row.put("name", parts[1]); row.put("version", parts[2]);
+        boolean scoped = false;
+        try {
+            JsonNode previous = stored == null ? null : objectMapper.readTree(stored);
+            if (previous != null && previous.isObject() && previous.has("unresolvedSources")) {
+                row.set("unresolvedSources", objectMapper.valueToTree(readCoverageSources(previous, "unresolvedSources")));
+                row.put("legacyUnresolved", unanalyzed || previous.path("legacyUnresolved").asBoolean(false));
+                scoped = true;
+            } else row.putArray("vulns");
+        } catch (Exception invalid) { throw new IllegalStateException("Cannot preserve stored coverage", invalid); }
+        target.append(writeJson(row)).append('\n');
+        return scoped;
     }
 
     private int appendVulnLines(StringBuilder target, Library lib, List<Cve> cves) {

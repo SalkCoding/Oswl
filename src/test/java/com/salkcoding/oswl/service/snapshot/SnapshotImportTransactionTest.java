@@ -32,6 +32,35 @@ class SnapshotImportTransactionTest {
     private final org.springframework.transaction.PlatformTransactionManager transactions;
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void exportPreservesScopedCoverageWithoutHidingUnanalyzedState(boolean analyzed) throws Exception {
+        String name = "scoped-export-" + UUID.randomUUID();
+        var library = com.salkcoding.oswl.domain.entity.vulnerability.Library.builder().name(name).version("1").ecosystem("NPM").build();
+        if (analyzed) library.recordLookupOutcomes(Map.of("OSV", "RESOLVED"));
+        library.markFetched();
+        libraries.saveAndFlush(library);
+        String identity = "\"ecosystem\":\"NPM\",\"name\":\"" + name + "\",\"version\":\"1\"";
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("unresolved.jsonl",
+                "{" + identity + ",\"unresolvedSources\":[\"github-advisory\"]}"))));
+        byte[] exported = service.exportBundle();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var files = new HashMap<String, String>();
+        try (var zip = new ZipInputStream(new ByteArrayInputStream(exported))) {
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) files.put(entry.getName(), new String(zip.readAllBytes(), StandardCharsets.UTF_8));
+        }
+        assertThat(json.readTree(files.get("meta.json")).path("formatVersion").asInt()).isEqualTo(4);
+        var row = json.readTree(files.get("unresolved.jsonl").lines().filter(line -> line.contains(name)).findFirst().orElseThrow());
+        assertThat(row.path("unresolvedSources").get(0).asText()).isEqualTo("github-advisory");
+        assertThat(row.path("legacyUnresolved").asBoolean()).isEqualTo(!analyzed);
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("unresolved.jsonl", ""))));
+        service.importBundle(new ByteArrayInputStream(exported));
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("unresolved.jsonl",
+                "{" + identity + ",\"resolvedSources\":[\"github-advisory\"]}"))));
+        assertThat(service.findUnresolvedKeys(List.of("NPM|" + name + "|1")).isEmpty()).isEqualTo(analyzed);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {
             "\"resolvedSources\":[\"unknown\"]", "\"resolvedSources\":\"osv\"",
             "\"resolvedSources\":[]", "\"resolvedSources\":[\"osv\"],\"unresolvedSources\":[\"osv\"]",
