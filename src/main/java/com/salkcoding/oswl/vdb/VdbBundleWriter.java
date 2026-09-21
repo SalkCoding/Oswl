@@ -42,6 +42,14 @@ final class VdbBundleWriter {
     private final ObjectMapper mapper;
     private final java.util.Set<String> collectedSources;
     private final String distributionProfile;
+    private final GitHubData github;
+
+    record GitHubData(Map<String, List<SnapshotVuln>> findings, LocalDate asOf) {
+        GitHubData {
+            findings = Map.copyOf(findings);
+            java.util.Objects.requireNonNull(asOf, "GitHub source date");
+        }
+    }
 
     VdbBundleWriter(ObjectMapper mapper) {
         this(mapper, java.util.Set.copyOf(VdbBuildOptions.ALL_SOURCES));
@@ -52,10 +60,18 @@ final class VdbBundleWriter {
     }
 
     VdbBundleWriter(ObjectMapper mapper, java.util.Set<String> collectedSources, String distributionProfile) {
+        this(mapper, collectedSources, distributionProfile, null);
+    }
+
+    VdbBundleWriter(ObjectMapper mapper, java.util.Set<String> collectedSources, String distributionProfile, GitHubData github) {
         for (String source : collectedSources) {
-            if (!java.util.Set.of("osv", "depsdev", "epss", "kev").contains(source))
+            if (!java.util.Set.of("osv", "depsdev", "epss", "kev").contains(source)
+                    && !(source.equals("github-advisory") && github != null))
                 throw new IllegalArgumentException("Unsupported writer source: " + source);
         }
+        if (github != null && !collectedSources.contains("github-advisory"))
+            throw new IllegalArgumentException("GitHub payload requires its selected source");
+        this.github = github;
         this.distributionProfile = distributionProfile;
         this.mapper = mapper;
         this.collectedSources = java.util.Set.copyOf(collectedSources);
@@ -88,13 +104,17 @@ final class VdbBundleWriter {
         }
 
         // Missing records imply deletion only when both builds describe the same wanted inventory.
+        if (github != null && previous != null)
+            throw new IOException("GitHub delta writing requires contribution-preserving merge support; build a full bundle");
         if (previous != null && (collectedSources.contains("osv") || collectedSources.contains("depsdev"))
                 && (wantedListInfo == null || previous.wantedListId() == null
                 || !previous.wantedListId().equals(wantedListInfo.wantedListId()))) {
             throw new IOException("Delta wanted scope differs or is unknown; build a new full bundle with the intended wanted file");
         }
 
-        boolean componentCollection = collectedSources.contains("osv") || collectedSources.contains("depsdev");
+        if (github != null && wantedListInfo == null)
+            throw new IOException("GitHub writing requires an explicit wanted scope");
+        boolean componentCollection = collectedSources.contains("osv") || collectedSources.contains("depsdev") || github != null;
         Map<String, String> unresolvedByKey = new LinkedHashMap<>();
         for (WantedComponent w : unresolvedComponents) {
             ObjectNode node = mapper.createObjectNode();
@@ -118,6 +138,20 @@ final class VdbBundleWriter {
         }
 
         Map<String, String> depsdevByKey = new LinkedHashMap<>();
+        Map<String, String> githubByKey = new LinkedHashMap<>();
+        if (github != null) {
+            for (var entry : github.findings().entrySet()) {
+                String[] parts = entry.getKey().split("\\|", 3);
+                if (parts.length != 3 || !entry.getKey().equals(com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(parts[0], parts[1], parts[2])))
+                    throw new IOException("Invalid GitHub component identity");
+                ObjectNode node = mapper.createObjectNode();
+                node.put("ecosystem", parts[0]);
+                node.put("name", parts[1]);
+                node.put("version", parts[2]);
+                node.set("vulns", mapper.valueToTree(entry.getValue()));
+                githubByKey.put(entry.getKey(), writeJson(node));
+            }
+        }
         for (DepsDevSource.VersionRecord v : depsdevVersions) {
             ObjectNode node = mapper.createObjectNode();
             node.put("type", "version");
@@ -157,6 +191,7 @@ final class VdbBundleWriter {
 
         boolean delta = previous != null;
         String osvContent = renderContent("osv.jsonl", osvByKey, previous);
+        String githubContent = renderContent("github-advisory.jsonl", githubByKey, null);
         String depsdevContent = renderContent("depsdev.jsonl", depsdevByKey, previous);
         String epssContent = renderContent("epss.jsonl", epssByKey, previous);
         String kevContent = renderContent("kev.jsonl", kevByKey, previous);
@@ -205,6 +240,7 @@ final class VdbBundleWriter {
         originals.put("creditsField", "credits");
         originals.put("scope", "Retained originals whose primary GHSA ID matches every declared affected source URL in the official GitHub Advisory Database.");
         ObjectNode sources = meta.putObject("sources");
+        if (github != null) putSourceMeta(sources, "github-advisory", githubByKey.size(), github.asOf(), "GitHub Security Advisory GraphQL (wanted-list)");
         if (collectedSources.contains("osv")) putSourceMeta(sources, "osv", osvByKey.size(), osvAsOf, "osv.dev bulk dump");
         if (collectedSources.contains("depsdev")) putSourceMeta(sources, "depsdev-version", depsdevVersions.size(), LocalDate.now(), "deps.dev api (wanted-list)");
         if (collectedSources.contains("depsdev") && !depsdevSkippedUnsupportedSystems.isEmpty()) {
@@ -234,6 +270,7 @@ final class VdbBundleWriter {
                     + "They must not be treated as vulnerability-free.");
         }
         ObjectNode files = meta.putObject("files");
+        if (github != null) putFileMeta(files, "github-advisory.jsonl", githubContent, countLines(githubContent));
         if (collectedSources.contains("osv")) putFileMeta(files, "osv.jsonl", osvContent, countLines(osvContent));
         if (collectedSources.contains("depsdev")) putFileMeta(files, "depsdev.jsonl", depsdevContent, countLines(depsdevContent));
         if (collectedSources.contains("epss")) putFileMeta(files, "epss.jsonl", epssContent, countLines(epssContent));
@@ -248,6 +285,7 @@ final class VdbBundleWriter {
         try {
             try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(staged), StandardCharsets.UTF_8)) {
                 writeZipEntry(zos, "meta.json", writeJson(meta));
+                if (github != null) writeZipEntry(zos, "github-advisory.jsonl", githubContent);
                 if (collectedSources.contains("osv")) writeZipEntry(zos, "osv.jsonl", osvContent);
                 if (collectedSources.contains("depsdev")) writeZipEntry(zos, "depsdev.jsonl", depsdevContent);
                 if (collectedSources.contains("epss")) writeZipEntry(zos, "epss.jsonl", epssContent);
@@ -255,7 +293,7 @@ final class VdbBundleWriter {
                 if (!unresolvedContent.isEmpty()) writeZipEntry(zos, "unresolved.jsonl", unresolvedContent);
             }
             com.salkcoding.oswl.service.snapshot.SnapshotBundleStager.validateImportLimits(staged,
-                    java.util.Set.of("osv.jsonl", "depsdev.jsonl", "epss.jsonl", "kev.jsonl", "unresolved.jsonl"));
+                    java.util.Set.of("osv.jsonl", "depsdev.jsonl", "epss.jsonl", "kev.jsonl", "unresolved.jsonl", "github-advisory.jsonl"));
             Files.move(staged, destination, java.nio.file.StandardCopyOption.ATOMIC_MOVE,
                     java.nio.file.StandardCopyOption.REPLACE_EXISTING);
         } finally {

@@ -975,6 +975,8 @@
 
 ### 32. 원천별 수집 파이프라인·경로·완전성 관리 — P0 · [코드 확인/설계]
 
+- **2026-09-21 GitHub full writer 기반:** 내부 전용 GitHubData(발견·출처 기준일)를 명시적으로 받는 writer 경로를 추가했다. github-advisory.jsonl을 OSV와 분리하여 manifest·기준일·수명 필드·정상 빈 조회·unresolved 키와 기존 출처 고지를 작성한다. 명시적 wanted 범위가 필요하며 payload 없는 기존 호출은 계속 거절한다. github-attributed 프로필은 확대하지 않았다. 새 왕복 테스트에서 이전 번들 reader가 GitHub 파일을 결과에서 누락하는 실패를 확인하고 해당 파일의 행·키 읽기를 연결했다. 관련 VDB/이전 번들 및 writer 테스트 100/100 통과·실패/오류/skip 0, bootJar/verifyProdJar 성공(10초). 로그 build/github-full-writer.log 및 build/github-full-writer-checked.log. 커밋 제목 `feat: write github lifecycle records in full bundles`. 세 언어 Administration에 내부 경로 한계를 기록했다. 자체 합성 데이터이며 새 외부 자료·라이브러리·권한 확대 없음. CLI source 선택/수집은 아직 연결하지 않았고 GitHub delta는 불완전 갱신의 이전 근거 보존이 구현될 때까지 명시적으로 거절한다. 실제 앱 반입 연결·PostgreSQL·전체 build·실제 API·UI 검증은 이번 경로에 대해 남아 있다.
+
 - **2026-09-21 writer 직접 호출의 출처 누락 방지:** CLI parse 검사를 우회해 writer에 미지원 출처를 전달하면 해당 출처를 누락한 ZIP으로 기존 출력을 교체하면서 성공하는 4실패(github-advisory/nvd/unknown/빈 이름)를 재현했다. writer 생성 시 실제 작성 구현이 있는 osv/depsdev/epss/kev만 허용하여 임시 파일 작성·출력 교체 전에 거절한다. 허용 목록은 CLI 선택 목록과 별도로 writer 구현 경계를 나타낸다. VDB·이전 번들 관련 테스트 99/99 통과·실패/오류/skip 0, bootJar/verifyProdJar 성공(10초). 로그 build/vdb-writer-source-red.log 및 build/vdb-writer-source-checked.log. 세 언어 Administration 반영. 커밋 제목 `fix: reject unsupported bundle writer sources`. 신규 외부 자료·라이브러리·이용 권한·DB 변경 없음. GitHub CLI collector/writer 연결 자체와 전체 build·실제 공급자 API·DB/UI 검증은 이번 변경에 포함하지 않는다.
 
 - **2026-09-21 경로 재확인:** GitHub 일괄 수집 보조 클래스의 수명 메타데이터 보존은 구현되었지만 CLI builder/writer 연결은 미구현이다. `--sources github-advisory`와 관련 자격 증명 옵션은 현재 거절된다. 다음 구현은 source 선택·안전한 자격 증명 전달·수집 결과와 미확인 coverage·full/delta writer·출처 고지·실제 CLI→반입 검증을 함께 연결해야 한다. 기존 기본 source 또는 재배포 승인 범위를 암묵적으로 확대하지 않는다. 지원 문구 정정 및 기존 거절 경로 회귀 근거는 13번에 기록했다.

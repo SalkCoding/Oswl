@@ -103,7 +103,7 @@ final class PreviousBundleReader {
         }
         Map<String, Map<String, String>> result = new LinkedHashMap<>();
         for (Map.Entry<String, byte[]> e : files.entrySet()) {
-            if (!java.util.Set.of("osv.jsonl", "unresolved.jsonl", "depsdev.jsonl", "epss.jsonl", "kev.jsonl")
+            if (!java.util.Set.of("osv.jsonl", "github-advisory.jsonl", "unresolved.jsonl", "depsdev.jsonl", "epss.jsonl", "kev.jsonl")
                     .contains(e.getKey())) continue;
             Map<String, String> keyed = new LinkedHashMap<>();
             try (BufferedReader reader = new BufferedReader(
@@ -180,7 +180,7 @@ final class PreviousBundleReader {
 
     static String extractKey(String filename, JsonNode node) {
         return switch (filename) {
-            case "osv.jsonl", "unresolved.jsonl" -> AirgappedSnapshotService.componentKey(
+            case "osv.jsonl", "github-advisory.jsonl", "unresolved.jsonl" -> AirgappedSnapshotService.componentKey(
                     text(node, "ecosystem"), text(node, "name"), text(node, "version"));
             case "depsdev.jsonl" -> "advisory".equals(text(node, "type"))
                     ? text(node, "ghsaId")
