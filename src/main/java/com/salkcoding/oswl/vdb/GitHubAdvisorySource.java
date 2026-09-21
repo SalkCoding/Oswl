@@ -7,6 +7,8 @@ import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService;
 import com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.SnapshotVuln;
 
 import java.time.Duration;
+import java.time.DateTimeException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -78,8 +80,19 @@ final class GitHubAdvisorySource {
                 adv.cvssScore(),
                 adv.cvss3Vector(),
                 null, // GitHub matches are exact package matches, not CPE inference
-                adv.fixVersionConflictCandidates(), null, null, adv.updatedAt(), adv.withdrawnAt()
+                adv.fixVersionConflictCandidates(), null, null, parseableTimestampOrNull(adv.updatedAt()), adv.withdrawnAt()
         );
+    }
+
+    private static String parseableTimestampOrNull(String timestamp) {
+        if (timestamp == null) return null;
+        try {
+            Instant.parse(timestamp);
+            return timestamp;
+        } catch (DateTimeException invalid) {
+            // The client marks this package unresolved; a malformed optional timestamp must not abort the batch.
+            return null;
+        }
     }
 
     private static String severityName(RiskLevel severity) {

@@ -9,6 +9,34 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class GitHubBulkCoverageTest {
+    @ParameterizedTest @ValueSource(strings = {"not-a-date", "", "9999-01-01T00:00:00Z"})
+    void invalidRevisionInPartialLookupDoesNotAbortOtherFindingsOrPackages(String revision) throws Exception {
+        var invalid = new GitHubAdvisoryClient.GitHubAdvisory("GHSA-invalid", null, "retained", null, null, null,
+                "2.0.0", java.util.Set.of(), revision, null);
+        var valid = new GitHubAdvisoryClient.GitHubAdvisory("GHSA-valid", null, "valid", null, null, null,
+                "3.0.0", java.util.Set.of(), "2026-02-01T00:00:00Z", null);
+        var constructor = GitHubAdvisoryClient.IncompleteLookupException.class.getDeclaredConstructor(List.class);
+        constructor.setAccessible(true);
+        var incomplete = constructor.newInstance(List.of(invalid, valid));
+        try (var clients = mockConstruction(GitHubAdvisoryClient.class, (client, context) -> {
+            when(client.canLookup("npm")).thenReturn(true);
+            when(client.lookupByPackage("npm", "example", "1.0.0")).thenThrow(incomplete);
+            when(client.lookupByPackage("npm", "other", "1.0.0"))
+                    .thenReturn(new GitHubAdvisoryClient.AdvisoryLookup(List.of(valid), List.of()));
+        })) {
+            var result = new GitHubAdvisorySource(new ObjectMapper()).fetch(List.of(
+                    new WantedComponent("npm", "example", "1.0.0"), new WantedComponent("npm", "other", "1.0.0")), "fixture", null);
+            assertThat(result.unresolvedKeys()).containsExactly("NPM|example|1.0.0");
+            assertThat(result.vulnsByComponentKey().get("NPM|example|1.0.0")).hasSize(2).allSatisfy(row -> assertThat(row.fixVersion()).isNull());
+            var first = result.vulnsByComponentKey().get("NPM|example|1.0.0").getFirst();
+            assertThat(first.osvId()).isEqualTo("GHSA-invalid");
+            assertThat(first.githubUpdatedAt()).isEqualTo(revision.startsWith("9999") ? revision : null);
+            assertThat(result.vulnsByComponentKey().get("NPM|other|1.0.0")).singleElement().satisfies(row -> {
+                assertThat(row.githubUpdatedAt()).isEqualTo(valid.updatedAt());
+                assertThat(row.fixVersion()).isEqualTo("3.0.0");
+            });
+        }
+    }
     @ParameterizedTest @ValueSource(booleans = {false, true})
     void withdrawnObservationsSurviveCompleteAndPartialBulkCollection(boolean partial) throws Exception {
         var withdrawn = new GitHubAdvisoryClient.GitHubAdvisory("GHSA-fixture", null, "fixture", null, null, null,
