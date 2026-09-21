@@ -51,6 +51,7 @@ public class GitHubAdvisoryClient {
                     identifiers { type value }
                     summary
                     withdrawnAt
+                    updatedAt
                     cvssSeverities { cvssV3 { score vectorString } }
                   }
                   package { name ecosystem }
@@ -118,11 +119,16 @@ public class GitHubAdvisoryClient {
 
     /** One GitHub advisory relevant to a specific package/version. */
     public record GitHubAdvisory(String ghsaId, String cveId, String summary, RiskLevel severity,
-                                  Double cvssScore, String cvss3Vector, String fixVersion, java.util.Set<String> fixVersionConflictCandidates) {
+                                  Double cvssScore, String cvss3Vector, String fixVersion, java.util.Set<String> fixVersionConflictCandidates,
+                                  String updatedAt, String withdrawnAt) {
         public GitHubAdvisory {
             cvssScore = com.salkcoding.oswl.service.cvss.CvssScore.validOrNull(cvssScore);
             fixVersionConflictCandidates = fixVersionConflictCandidates == null ? java.util.Set.of() : java.util.Set.copyOf(fixVersionConflictCandidates);
             if (!fixVersionConflictCandidates.isEmpty()) fixVersion = null;
+        }
+        public GitHubAdvisory(String ghsaId, String cveId, String summary, RiskLevel severity,
+                Double cvssScore, String cvss3Vector, String fixVersion, java.util.Set<String> conflicts) {
+            this(ghsaId, cveId, summary, severity, cvssScore, cvss3Vector, fixVersion, conflicts, null, null);
         }
         public GitHubAdvisory(String ghsaId, String cveId, String summary, RiskLevel severity,
                 Double cvssScore, String cvss3Vector, String fixVersion) {
@@ -130,16 +136,30 @@ public class GitHubAdvisoryClient {
         }
     }
 
+    public record AdvisoryLookup(List<GitHubAdvisory> findings, List<GitHubAdvisory> withdrawnFindings) {
+        public AdvisoryLookup {
+            findings = List.copyOf(findings);
+            withdrawnFindings = List.copyOf(withdrawnFindings);
+        }
+    }
+
     /** A failed complete lookup can still contain independently verified advisory nodes. */
     public static final class IncompleteLookupException extends IllegalStateException {
         private final List<GitHubAdvisory> findings;
+        private final List<GitHubAdvisory> withdrawnFindings;
 
         private IncompleteLookupException(List<GitHubAdvisory> findings) {
+            this(findings, List.of());
+        }
+
+        private IncompleteLookupException(List<GitHubAdvisory> findings, List<GitHubAdvisory> withdrawnFindings) {
             super("GitHub Advisory lookup is incomplete");
             this.findings = findings.stream().map(finding -> withFix(finding, null)).toList();
+            this.withdrawnFindings = List.copyOf(withdrawnFindings);
         }
 
         public List<GitHubAdvisory> findings() { return findings; }
+        public List<GitHubAdvisory> withdrawnFindings() { return withdrawnFindings; }
     }
 
     public boolean canLookup(String ecosystem) {
@@ -153,19 +173,23 @@ public class GitHubAdvisoryClient {
      * is not supported by GitHub Advisory. Offline callers must supply captured snapshot coverage.
      */
     public List<GitHubAdvisory> findByPackage(String ecosystem, String name, String version) {
+        return lookupByPackage(ecosystem, name, version).findings();
+    }
+
+    public AdvisoryLookup lookupByPackage(String ecosystem, String name, String version) {
         validateQueryIdentity(ecosystem, name, version);
         if (airgapped) throw new IncompleteLookupException(List.of());
         String ghEcosystem = toGitHubEcosystem(ecosystem);
         if (ghEcosystem == null) {
             log.debug("[GitHubAdvisory] Skipping {} — ecosystem '{}' is not supported by GitHub Advisory", name, ecosystem);
-            return List.of();
+            return new AdvisoryLookup(List.of(), List.of());
         }
         if (token == null || token.isBlank()) {
             log.debug("[GitHubAdvisory] No GitHub token configured — skipping advisory lookup");
-            return List.of();
+            return new AdvisoryLookup(List.of(), List.of());
         }
         try {
-            List<GitHubAdvisory> result = query(ghEcosystem, name, version);
+            AdvisoryLookup result = query(ghEcosystem, name, version);
             recordApiCall(OswlMetrics.OUTCOME_SUCCESS);
             return result;
         } catch (Exception e) {
@@ -236,8 +260,9 @@ public class GitHubAdvisoryClient {
         return result;
     }
 
-    private List<GitHubAdvisory> query(String ghEcosystem, String name, String version) throws Exception {
+    private AdvisoryLookup query(String ghEcosystem, String name, String version) throws Exception {
         List<GitHubAdvisory> findings = new ArrayList<>();
+        List<GitHubAdvisory> withdrawn = new ArrayList<>();
         List<GitHubAdvisory> candidates = new ArrayList<>();
         Map<String, List<String>> ranges = new LinkedHashMap<>();
         Map<String, Boolean> withdrawalStates = new LinkedHashMap<>();
@@ -251,12 +276,13 @@ public class GitHubAdvisoryClient {
             try {
                 fetched = queryPage(ghEcosystem, name, version, cursor);
             } catch (Exception failure) {
-                if (findings.isEmpty()) throw failure;
-                var partial = new IncompleteLookupException(findings);
+                if (findings.isEmpty() && withdrawn.isEmpty()) throw failure;
+                var partial = new IncompleteLookupException(findings, withdrawn);
                 partial.initCause(failure);
                 throw partial;
             }
             findings.addAll(fetched.findings());
+            withdrawn.addAll(fetched.withdrawnFindings());
             candidates.addAll(fetched.candidates());
             fetched.ranges().forEach((id, values) -> ranges.computeIfAbsent(id, unused -> new ArrayList<>()).addAll(values));
             incomplete |= fetched.incomplete();
@@ -265,18 +291,18 @@ public class GitHubAdvisoryClient {
                 if (prior != null && !prior.equals(state.getValue())) incomplete = true;
             }
             if (fetched.nextCursor() == null) {
-                if (incomplete) throw new IncompleteLookupException(findings);
-                return confirmedFixes(ghEcosystem, version, findings, candidates, ranges);
+                if (incomplete) throw new IncompleteLookupException(findings, withdrawn);
+                return new AdvisoryLookup(confirmedFixes(ghEcosystem, version, findings, candidates, ranges), withdrawn);
             }
-            if (!cursors.add(fetched.nextCursor())) throw new IncompleteLookupException(findings);
+            if (!cursors.add(fetched.nextCursor())) throw new IncompleteLookupException(findings, withdrawn);
             cursor = fetched.nextCursor();
         }
-        throw new IncompleteLookupException(findings);
+        throw new IncompleteLookupException(findings, withdrawn);
     }
 
     private static GitHubAdvisory withFix(GitHubAdvisory finding, String fixed) {
         return new GitHubAdvisory(finding.ghsaId(), finding.cveId(), finding.summary(), finding.severity(),
-                finding.cvssScore(), finding.cvss3Vector(), fixed, finding.fixVersionConflictCandidates());
+                finding.cvssScore(), finding.cvss3Vector(), fixed, finding.fixVersionConflictCandidates(), finding.updatedAt(), finding.withdrawnAt());
     }
 
     private static List<GitHubAdvisory> confirmedFixes(String ecosystem, String installed,
@@ -310,7 +336,8 @@ public class GitHubAdvisoryClient {
     }
 
     private record AdvisoryPage(List<GitHubAdvisory> findings, List<GitHubAdvisory> candidates, boolean incomplete, String nextCursor,
-                                Map<String, List<String>> ranges, Map<String, Boolean> withdrawalStates) { }
+                                Map<String, List<String>> ranges, Map<String, Boolean> withdrawalStates,
+                                List<GitHubAdvisory> withdrawnFindings) { }
 
     @SuppressWarnings("unchecked")
     private AdvisoryPage queryPage(String ghEcosystem, String name, String version, String cursor) throws java.io.IOException {
@@ -351,6 +378,7 @@ public class GitHubAdvisoryClient {
         if (!(nodes instanceof List<?> nodeList)) throw new IllegalStateException("Missing advisory nodes");
 
         List<GitHubAdvisory> result = new ArrayList<>();
+        List<GitHubAdvisory> withdrawnFindings = new ArrayList<>();
         List<GitHubAdvisory> candidates = new ArrayList<>();
         Map<String, List<String>> ranges = new LinkedHashMap<>();
         Map<String, Boolean> withdrawalStates = new LinkedHashMap<>();
@@ -374,7 +402,10 @@ public class GitHubAdvisoryClient {
                 }
                 Boolean prior = withdrawalStates.putIfAbsent(advisory.ghsaId(), withdrawn != null);
                 if (prior != null && prior != (withdrawn != null)) incomplete = true;
-                if (withdrawn != null) continue;
+                if (withdrawn != null) {
+                    withdrawnFindings.add(withFix(advisory, null));
+                    continue;
+                }
                 String range = (String) node.get("vulnerableVersionRange");
                 boolean affected = isVersionAffected(ghEcosystem, version, range);
                 ranges.computeIfAbsent(advisory.ghsaId(), unused -> new ArrayList<>()).add(range);
@@ -386,7 +417,7 @@ public class GitHubAdvisoryClient {
                 incomplete = true;
             }
         }
-        return new AdvisoryPage(result, candidates, incomplete, nextCursor, ranges, withdrawalStates);
+        return new AdvisoryPage(result, candidates, incomplete, nextCursor, ranges, withdrawalStates, withdrawnFindings);
     }
 
     @SuppressWarnings("unchecked")
@@ -425,7 +456,9 @@ public class GitHubAdvisoryClient {
         if (fpv instanceof Map<?, ?> fpvMap) {
             fixVersion = (String) fpvMap.get("identifier");
         }
-        return new GitHubAdvisory(ghsaId, cveId, summary, severity, cvssScore, cvssVector, fixVersion);
+        return new GitHubAdvisory(ghsaId, cveId, summary, severity, cvssScore, cvssVector, fixVersion, java.util.Set.of(),
+                advisory.get("updatedAt") instanceof String updated ? updated : null,
+                advisory.get("withdrawnAt") instanceof String withdrawn ? withdrawn : null);
     }
 
     private static boolean isVersionAffected(String ecosystem, String version, String range) {

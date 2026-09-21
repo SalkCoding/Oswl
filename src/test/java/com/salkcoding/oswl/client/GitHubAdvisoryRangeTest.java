@@ -226,6 +226,7 @@ class GitHubAdvisoryRangeTest {
                 .put("ecosystem", condition.equals("wrong-ecosystem") ? "PIP" : "NPM");
         if (condition.equals("missing-package")) node.remove("package");
         var advisory = (com.fasterxml.jackson.databind.node.ObjectNode) node.path("advisory");
+        advisory.put("updatedAt", "2026-02-01T00:00:00Z");
         if (condition.equals("withdrawn")) advisory.put("withdrawnAt", "2026-01-01T00:00:00Z");
         else if (condition.equals("invalid-date")) advisory.put("withdrawnAt", "not-a-date");
         else advisory.putNull("withdrawnAt");
@@ -233,6 +234,12 @@ class GitHubAdvisoryRangeTest {
         var result = new GitHubAdvisorySource(client).lookup("npm", "fixture", "1.0.0", List.of());
         assertThat(result.lookupFailed()).isEqualTo(!condition.equals("active") && !condition.equals("withdrawn"));
         assertThat(result.findings()).hasSize(condition.equals("active") ? 1 : 0);
+        assertThat(result.withdrawnFindings()).hasSize(condition.equals("withdrawn") ? 1 : 0);
+        result.withdrawnFindings().forEach(finding -> {
+            assertThat(finding.updatedAt()).isEqualTo("2026-02-01T00:00:00Z");
+            assertThat(finding.withdrawnAt()).isEqualTo("2026-01-01T00:00:00Z");
+            assertThat(finding.fixVersion()).isNull();
+        });
         server.verify();
     }
 
@@ -341,11 +348,46 @@ class GitHubAdvisoryRangeTest {
                 .andRespond(withSuccess(mapper.writeValueAsString(response), MediaType.APPLICATION_JSON));
         var result = new GitHubAdvisorySource(client).lookup("npm", "fixture", "1.0.0", List.of());
         assertThat(result.lookupFailed()).isEqualTo(!bothWithdrawn);
+        assertThat(result.withdrawnFindings()).hasSize(bothWithdrawn ? 2 : 1);
         if (bothWithdrawn) assertThat(result.findings()).isEmpty();
         else assertThat(result.findings()).singleElement().satisfies(finding -> {
             assertThat(finding.ghsaId()).isEqualTo("GHSA-fixture");
             assertThat(finding.fixVersion()).isNull();
         });
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void withdrawalReachesObservationJournalEvenWhenTheNextPageFails(boolean failed) throws Exception {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com", Duration.ofSeconds(1), Duration.ofSeconds(1));
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var response = mapper.readTree(page("GHSA-fixture", failed, "next"));
+        var advisory = (com.fasterxml.jackson.databind.node.ObjectNode) response.path("data").path("securityVulnerabilities")
+                .path("nodes").get(0).path("advisory");
+        advisory.put("updatedAt", "2026-02-01T00:00:00Z").put("withdrawnAt", "2026-01-01T00:00:00Z");
+        server.expect(requestTo("https://api.github.com/graphql")).andRespond(withSuccess(mapper.writeValueAsString(response), MediaType.APPLICATION_JSON));
+        if (failed) server.expect(requestTo("https://api.github.com/graphql"))
+                .andRespond(org.springframework.test.web.client.response.MockRestResponseCreators.withServerError());
+        var cached = new GitHubAdvisoryClient.GitHubAdvisory("GHSA-fixture", null, "cached", null, null, null, "2.0.0");
+        var result = new GitHubAdvisorySource(client).lookup("npm", "fixture", "1.0.0", List.of(cached));
+        assertThat(result.lookupFailed()).isEqualTo(failed);
+        assertThat(result.findings()).containsExactly(cached);
+        assertThat(result.withdrawnFindings()).hasSize(1);
+        var rows = org.mockito.Mockito.mock(com.salkcoding.oswl.repository.vulnerability.VulnerabilityObservationRepository.class);
+        var scans = org.mockito.Mockito.mock(com.salkcoding.oswl.repository.scan.ScanResultRepository.class);
+        var journal = new com.salkcoding.oswl.service.vulnerability.VulnerabilityObservationService(rows, scans);
+        journal.recordGitHub(1L, com.salkcoding.oswl.domain.entity.vulnerability.Library.builder()
+                .id(2L).name("fixture").version("1.0.0").ecosystem("NPM").build(), result);
+        var captured = org.mockito.ArgumentCaptor.forClass(com.salkcoding.oswl.domain.entity.vulnerability.VulnerabilityObservation.class);
+        org.mockito.Mockito.verify(rows).save(captured.capture());
+        assertThat(captured.getValue().isLookupComplete()).isEqualTo(!failed);
+        var payload = mapper.readTree(captured.getValue().getObservationsJson());
+        assertThat(payload.path("withdrawnFindings").get(0).path("withdrawnAt").asText()).isEqualTo("2026-01-01T00:00:00Z");
+        assertThat(payload.path("withdrawnFindings").get(0).path("updatedAt").asText()).isEqualTo("2026-02-01T00:00:00Z");
         server.verify();
     }
 
