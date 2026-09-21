@@ -116,11 +116,13 @@ final class VdbBundleWriter {
             throw new IOException("GitHub writing requires an explicit wanted scope");
         boolean componentCollection = collectedSources.contains("osv") || collectedSources.contains("depsdev") || github != null;
         Map<String, String> unresolvedByKey = new LinkedHashMap<>();
+        var coverageSources = collectedSources.stream().filter(s -> java.util.Set.of("osv", "depsdev", "github-advisory").contains(s)).sorted().toList();
         for (WantedComponent w : unresolvedComponents) {
             ObjectNode node = mapper.createObjectNode();
             node.put("ecosystem", w.ecosystem());
             node.put("name", w.name());
             node.put("version", w.version());
+            node.set("unresolvedSources", mapper.valueToTree(coverageSources));
             String key = com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(w.ecosystem(), w.name(), w.version());
             if (key != null) unresolvedByKey.put(key, writeJson(node));
         }
@@ -216,14 +218,26 @@ final class VdbBundleWriter {
         String depsdevContent = renderContent("depsdev.jsonl", depsdevByKey, previous);
         String epssContent = renderContent("epss.jsonl", epssByKey, previous);
         String kevContent = renderContent("kev.jsonl", kevByKey, previous);
-        String unresolvedContent = !componentCollection || wantedListInfo == null ? "" : renderContent("unresolved.jsonl", unresolvedByKey, previous);
+        var coverageByKey = new LinkedHashMap<>(unresolvedByKey);
+        var answeredKeys = new java.util.LinkedHashSet<>(osvByKey.keySet());
+        answeredKeys.addAll(githubByKey.keySet());
+        for (var version : depsdevVersions) answeredKeys.add(com.salkcoding.oswl.service.snapshot.AirgappedSnapshotService.componentKey(version.ecosystem(), version.name(), version.version()));
+        for (String key : answeredKeys) {
+            if (key == null || unresolvedByKey.containsKey(key)) continue;
+            String[] parts = key.split("\\|", 3);
+            ObjectNode row = mapper.createObjectNode();
+            row.put("ecosystem", parts[0]); row.put("name", parts[1]); row.put("version", parts[2]);
+            row.set("resolvedSources", mapper.valueToTree(coverageSources));
+            coverageByKey.put(key, writeJson(row));
+        }
+        String unresolvedContent = !componentCollection || wantedListInfo == null ? "" : renderContent("unresolved.jsonl", coverageByKey, null);
 
         String bundleId = UUID.randomUUID().toString();
         LocalDateTime builtAt = LocalDateTime.now();
 
         ObjectNode meta = mapper.createObjectNode();
         meta.put("format", BUNDLE_FORMAT);
-        meta.put("formatVersion", FORMAT_VERSION);
+        meta.put("formatVersion", componentCollection && wantedListInfo != null ? 4 : FORMAT_VERSION);
         meta.put("bundleId", bundleId);
         meta.put("mode", delta ? "delta" : "full");
         if (delta && previous.bundleId() != null) {

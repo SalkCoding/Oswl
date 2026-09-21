@@ -148,7 +148,7 @@ final class PreviousBundleReader {
     private static void verifyManifest(JsonNode meta, Map<String, byte[]> files) throws IOException {
         JsonNode version = meta.path("formatVersion");
         if (!version.isMissingNode() && (!version.isIntegralNumber() || !version.canConvertToInt()
-                || version.intValue() < 1 || version.intValue() > 3)) {
+                || version.intValue() < 1 || version.intValue() > 4)) {
             throw new IOException("Unsupported previous-bundle formatVersion");
         }
         JsonNode manifest = meta.path("files");

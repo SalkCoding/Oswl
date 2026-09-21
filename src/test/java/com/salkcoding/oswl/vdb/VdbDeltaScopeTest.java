@@ -42,7 +42,8 @@ class VdbDeltaScopeTest {
                 if (state.equals("partial")) assertThat(ids).containsExactlyInAnyOrder("GHSA-old", "GHSA-new");
                 else assertThat(ids).isEmpty();
             }
-            assertThat(zip.getEntry("unresolved.jsonl") != null).isEqualTo(unresolved);
+            var coverage = mapper.readTree(zip.getInputStream(zip.getEntry("unresolved.jsonl")));
+            assertThat(coverage.path(unresolved ? "unresolvedSources" : "resolvedSources").get(0).asText()).isEqualTo("osv");
         }
     }
 

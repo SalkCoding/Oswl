@@ -112,7 +112,7 @@ public class AirgappedSnapshotService {
             SOURCE_NVD, SOURCE_EPSS, SOURCE_KEV, SOURCE_UNRESOLVED, SOURCE_COCOAPODS_SPECS);
 
     private static final String BUNDLE_FORMAT = "oswl-vdb";
-    private static final int CURRENT_FORMAT_VERSION = 3;
+    private static final int CURRENT_FORMAT_VERSION = 4;
     private static final String EXPORT_ORIGIN = "derived-from-scan";
 
     private static final int SAVE_CHUNK_SIZE = 500;
@@ -705,6 +705,23 @@ public class AirgappedSnapshotService {
                     counts.merge(SOURCE_KEV, buf.finish(), Integer::sum);
                 }
                 case "unresolved.jsonl" -> {
+                    boolean[] scoped = {false};
+                    boolean[] legacy = {false};
+                    SnapshotBundleStager.forEachLine(rf.getValue(), line -> {
+                        if (line.isBlank()) return;
+                        try {
+                            JsonNode row = objectMapper.readTree(line);
+                            if (row.has("unresolvedSources") || row.has("resolvedSources")) scoped[0] = true;
+                            else legacy[0] = true;
+                        } catch (Exception invalid) { throw new InvalidRequestException("Malformed coverage record"); }
+                    });
+                    if (scoped[0] && legacy[0]) throw new InvalidRequestException("Cannot mix scoped and legacy coverage records");
+                    if (scoped[0]) {
+                        int[] changed = {0};
+                        SnapshotBundleStager.forEachLine(rf.getValue(), line -> { if (!line.isBlank()) { ingestScopedCoverage(line); changed[0]++; } });
+                        counts.merge(SOURCE_UNRESOLVED, changed[0], Integer::sum);
+                        break;
+                    }
                     SourceIngestBuffer buf = new SourceIngestBuffer(SOURCE_UNRESOLVED, mode);
                     SnapshotBundleStager.forEachLine(rf.getValue(), line -> ingestOsvLine(line, buf)); // same {ecosystem,name,version} shape, no "vulns" needed
                     counts.merge(SOURCE_UNRESOLVED, buf.finish(), Integer::sum);
@@ -944,6 +961,50 @@ public class AirgappedSnapshotService {
         List<SnapshotEntry> saved = snapshotEntryRepository.saveAll(toSave);
         snapshotEntryRepository.flush();
         saved.forEach(entityManager::detach);
+    }
+
+    private void ingestScopedCoverage(String line) {
+        try {
+            JsonNode row = objectMapper.readTree(line);
+            String key = componentKey(text(row, "ecosystem"), text(row, "name"), text(row, "version"));
+            if (key == null || row.has("_deleted")) throw new InvalidRequestException("Invalid scoped coverage identity or deletion");
+            Set<String> unresolved = readCoverageSources(row, "unresolvedSources");
+            Set<String> resolved = readCoverageSources(row, "resolvedSources");
+            if (unresolved.isEmpty() && resolved.isEmpty() || !java.util.Collections.disjoint(unresolved, resolved))
+                throw new InvalidRequestException("Conflicting or empty coverage update");
+            var stored = snapshotEntryRepository.findBySourceAndEntryKeyIn(SOURCE_UNRESOLVED, List.of(key));
+            Set<String> remaining = new LinkedHashSet<>();
+            boolean legacy = false;
+            if (!stored.isEmpty()) {
+                JsonNode old = objectMapper.readTree(stored.getFirst().getPayload());
+                legacy = !old.isObject() || old.path("legacyUnresolved").asBoolean(false);
+                if (old.isObject()) remaining.addAll(readCoverageSources(old, "unresolvedSources"));
+            }
+            remaining.removeAll(resolved);
+            remaining.addAll(unresolved);
+            if (remaining.isEmpty() && !legacy) {
+                snapshotEntryRepository.deleteBySourceAndEntryKey(SOURCE_UNRESOLVED, key);
+            } else {
+                ObjectNode payload = objectMapper.createObjectNode();
+                payload.set("unresolvedSources", objectMapper.valueToTree(remaining));
+                payload.put("legacyUnresolved", legacy);
+                upsertChunk(SOURCE_UNRESOLVED, List.of(SnapshotEntry.builder().source(SOURCE_UNRESOLVED).entryKey(key).payload(writeJson(payload)).build()));
+            }
+        } catch (InvalidRequestException invalid) { throw invalid; }
+        catch (Exception invalid) { throw new InvalidRequestException("Malformed scoped coverage record"); }
+    }
+
+    private Set<String> readCoverageSources(JsonNode row, String field) {
+        Set<String> result = new LinkedHashSet<>();
+        if (!row.has(field)) return result;
+        JsonNode values = row.get(field);
+        if (!values.isArray()) throw new InvalidRequestException("Coverage sources must be an array");
+        for (JsonNode source : values) {
+            if (!source.isTextual() || !Set.of("osv", "depsdev", "github-advisory", "nvd").contains(source.asText()))
+                throw new InvalidRequestException("Unsupported coverage source");
+            result.add(source.asText());
+        }
+        return result;
     }
 
     private void ingestOsvLine(String line, SourceIngestBuffer buffer) {
@@ -1381,7 +1442,7 @@ public class AirgappedSnapshotService {
 
         ObjectNode meta = objectMapper.createObjectNode();
         meta.put("format", BUNDLE_FORMAT);
-        meta.put("formatVersion", hasOriginals ? CURRENT_FORMAT_VERSION : 2);
+        meta.put("formatVersion", hasOriginals ? 3 : 2);
         meta.put("bundleId", bundleId);
         meta.put("mode", "full");
         meta.put("builtAt", builtAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));

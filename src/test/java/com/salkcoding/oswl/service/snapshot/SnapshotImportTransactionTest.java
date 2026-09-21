@@ -32,6 +32,89 @@ class SnapshotImportTransactionTest {
     private final org.springframework.transaction.PlatformTransactionManager transactions;
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "\"resolvedSources\":[\"unknown\"]", "\"resolvedSources\":\"osv\"",
+            "\"resolvedSources\":[]", "\"resolvedSources\":[\"osv\"],\"unresolvedSources\":[\"osv\"]",
+            "\"resolvedSources\":[\"osv\"],\"_deleted\":true"})
+    void invalidScopedCoverageCannotRemoveStoredUncertainty(String fields) throws Exception {
+        String identity = "\"ecosystem\":\"npm\",\"name\":\"fixture\",\"version\":\"1.0.0\"";
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("unresolved.jsonl",
+                "{" + identity + ",\"unresolvedSources\":[\"osv\"]}"))));
+        assertThatThrownBy(() -> service.importBundle(new ByteArrayInputStream(bundle(Map.of("unresolved.jsonl",
+                "{" + identity + "," + fields + "}"))))).isInstanceOf(InvalidRequestException.class);
+        assertThat(service.findUnresolvedKeys(List.of("NPM|fixture|1.0.0"))).contains("NPM|fixture|1.0.0");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void scopedCoverageDoesNotClearOtherSourcesOrLegacyUncertainty(boolean legacy) throws Exception {
+        String identity = "\"ecosystem\":\"npm\",\"name\":\"fixture\",\"version\":\"1.0.0\"";
+        String key = "NPM|fixture|1.0.0";
+        if (legacy) service.importBundle(new ByteArrayInputStream(bundle(Map.of("unresolved.jsonl", "{" + identity + "}"))));
+        for (String fields : List.of("\"unresolvedSources\":[\"osv\",\"github-advisory\"]",
+                "\"resolvedSources\":[\"osv\"]")) {
+            service.importBundle(new ByteArrayInputStream(bundle(Map.of("unresolved.jsonl", "{" + identity + "," + fields + "}"))));
+            assertThat(service.findUnresolvedKeys(List.of(key))).contains(key);
+        }
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("unresolved.jsonl",
+                "{" + identity + ",\"resolvedSources\":[\"github-advisory\"]}"))));
+        assertThat(service.findUnresolvedKeys(List.of(key)).contains(key)).isEqualTo(legacy);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void cliPartialDeltaPreservesConflictingFixesUntilCompleteRefresh(boolean reverse,
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        Path wanted = directory.resolve("wanted.jsonl");
+        Files.writeString(wanted, "{\"ecosystem\":\"npm\",\"name\":\"fixture\",\"version\":\"1.0.0\"}");
+        Files.writeString(directory.resolve("osv-npm-all.zip.lastmodified"), java.time.LocalDate.now(java.time.ZoneOffset.UTC).toString());
+        String template = """
+                {"id":"OSV-fixture","modified":"2026-02-01T00:00:00Z","affected":[{"package":{"ecosystem":"npm","name":"fixture"},
+                "ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"%s"}]}]}]}
+                """;
+        String oldFix = reverse ? "3.0.0" : "2.0.0";
+        String newFix = reverse ? "2.0.0" : "3.0.0";
+        var query = List.of(new com.salkcoding.oswl.client.OsvClient.OsvQuery("npm", "fixture", "1.0.0"));
+        var offline = new com.salkcoding.oswl.client.OsvClient(service, true);
+        Path baseline = directory.resolve("base.zip");
+        for (int step = 0; step < 3; step++) {
+            var originals = new LinkedHashMap<String, String>();
+            originals.put("known.json", template.formatted(step == 0 ? oldFix : newFix));
+            if (step == 1) originals.put("unknown.json", """
+                    {"id":"OSV-unknown","modified":"2026-02-01T00:00:00Z","affected":[{"package":{"ecosystem":"npm","name":"fixture"},
+                    "ranges":[{"type":"GIT","repo":"https://example.invalid/fixture","events":[{"introduced":"0"}]}]}]}
+                    """);
+            Files.write(directory.resolve("osv-npm-all.zip"), bundle(originals));
+            Path output = step == 0 ? baseline : directory.resolve("step-" + step + ".zip");
+            var args = new ArrayList<>(List.of("build", "--sources", "osv", "--wanted", wanted.toString(),
+                    "--offline-sources", directory.toString(), "--out", output.toString()));
+            if (step == 1) args.addAll(List.of("--since", baseline.toString()));
+            Integer code = org.springframework.test.util.ReflectionTestUtils.invokeMethod(new com.salkcoding.oswl.vdb.VdbBuilderCli(),
+                    "run", (Object) args.toArray(String[]::new));
+            assertThat(code).isZero();
+            try (var input = Files.newInputStream(output)) {
+                service.importBundle(input, step == 1 ? AirgappedSnapshotService.ImportMode.MERGE : AirgappedSnapshotService.ImportMode.REPLACE);
+            }
+            var result = offline.queryBatch(query).getFirst();
+            assertThat(result.resolved()).as("step %s", step).isEqualTo(step != 1);
+            if (step == 1) {
+                assertThat(result.vulns()).filteredOn(row -> row.osvId().equals("OSV-fixture")).hasSize(2).allSatisfy(row -> {
+                    assertThat(row.fixVersion()).isNull();
+                    assertThat(row.fixVersionConflictCandidates()).containsExactlyInAnyOrder(oldFix, newFix);
+                });
+                assertThat(service.findUnresolvedKeys(List.of("NPM|fixture|1.0.0"))).contains("NPM|fixture|1.0.0");
+            } else {
+                String expectedFix = step == 0 ? oldFix : newFix;
+                assertThat(result.vulns()).singleElement().satisfies(row -> {
+                    assertThat(row.fixVersion()).isEqualTo(expectedFix);
+                    assertThat(row.fixVersionConflictCandidates()).isEmpty();
+                });
+                assertThat(service.findUnresolvedKeys(List.of("NPM|fixture|1.0.0"))).isEmpty();
+            }
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"finding", "empty", "failed", "withdrawn", "partial"})
     void githubCliBundlePreservesAssessmentAfterImport(String state, @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
         Path wanted = directory.resolve("wanted.jsonl");
