@@ -258,8 +258,8 @@ public class GitHubAdvisoryClient {
                 boolean withdrawn = vuln.githubWithdrawnAt() != null;
                 Boolean prior = states.putIfAbsent(vuln.osvId(), withdrawn);
                 if (prior != null && prior != withdrawn) complete = false;
-                if (vuln.githubUpdatedAt() != null && java.time.Instant.parse(vuln.githubUpdatedAt()).isAfter(java.time.Instant.now())
-                        || withdrawn && java.time.Instant.parse(vuln.githubWithdrawnAt()).isAfter(java.time.Instant.now())) complete = false;
+                if (vuln.githubUpdatedAt() != null && !isCurrentTimestamp(vuln.githubUpdatedAt())
+                        || withdrawn && !isCurrentTimestamp(vuln.githubWithdrawnAt())) complete = false;
             }
             List<GitHubAdvisory> active = new ArrayList<>();
             List<GitHubAdvisory> withdrawn = new ArrayList<>();
@@ -267,7 +267,7 @@ public class GitHubAdvisoryClient {
                 var finding = new GitHubAdvisory(v.osvId(), v.cveId(), v.summary(), parseSeverity(v.severity()),
                         v.cvssScore(), v.cvss3Vector(), complete ? v.fixVersion() : null, v.fixVersionConflictCandidates(),
                         v.githubUpdatedAt(), v.githubWithdrawnAt());
-                if (v.githubWithdrawnAt() != null && !java.time.Instant.parse(v.githubWithdrawnAt()).isAfter(java.time.Instant.now()))
+                if (v.githubWithdrawnAt() != null && isCurrentTimestamp(v.githubWithdrawnAt()))
                     withdrawn.add(finding);
                 else active.add(finding);
             }
@@ -410,6 +410,8 @@ public class GitHubAdvisoryClient {
                 if (advisory.ghsaId() == null || advisory.ghsaId().isBlank())
                     throw new IllegalArgumentException("Missing advisory identity");
                 Map<?, ?> rawAdvisory = (Map<?, ?>) node.get("advisory");
+                Object updated = rawAdvisory.get("updatedAt");
+                if (updated != null && !isCurrentTimestamp(updated)) incomplete = true;
                 Object withdrawn = rawAdvisory.get("withdrawnAt");
                 if (withdrawn != null) {
                     if (!(withdrawn instanceof String date)) throw new IllegalArgumentException("Malformed withdrawal date");
@@ -434,6 +436,15 @@ public class GitHubAdvisoryClient {
             }
         }
         return new AdvisoryPage(result, candidates, incomplete, nextCursor, ranges, withdrawalStates, withdrawnFindings);
+    }
+
+    private static boolean isCurrentTimestamp(Object value) {
+        if (!(value instanceof String timestamp)) return false;
+        try {
+            return !java.time.Instant.parse(timestamp).isAfter(java.time.Instant.now());
+        } catch (java.time.DateTimeException invalid) {
+            return false;
+        }
     }
 
     @SuppressWarnings("unchecked")

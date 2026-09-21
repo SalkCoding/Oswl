@@ -17,6 +17,36 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class GitHubAdvisoryRangeTest {
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"valid", "future", "malformed", "wrong-type", "absent", "null"})
+    void invalidUpdateTimeCannotConfirmOnlineFix(String state) throws Exception {
+        var builder = RestClient.builder();
+        var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new GitHubAdvisoryClient(null, false, "fixture", "https://api.github.com", Duration.ofSeconds(1), Duration.ofSeconds(1));
+        ReflectionTestUtils.setField(client, "restClient", builder.build());
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var response = mapper.readTree(page("GHSA-fixture", false, "end"));
+        var node = (com.fasterxml.jackson.databind.node.ObjectNode) response.path("data").path("securityVulnerabilities").path("nodes").get(0);
+        node.putObject("firstPatchedVersion").put("identifier", "2.0.0");
+        var advisory = (com.fasterxml.jackson.databind.node.ObjectNode) node.path("advisory");
+        switch (state) {
+            case "valid" -> advisory.put("updatedAt", "2026-02-01T00:00:00Z");
+            case "future" -> advisory.put("updatedAt", "9999-01-01T00:00:00Z");
+            case "malformed" -> advisory.put("updatedAt", "not-a-date");
+            case "wrong-type" -> advisory.put("updatedAt", 17);
+            case "null" -> advisory.putNull("updatedAt");
+            default -> advisory.remove("updatedAt");
+        }
+        server.expect(requestTo("https://api.github.com/graphql")).andRespond(withSuccess(mapper.writeValueAsString(response), MediaType.APPLICATION_JSON));
+        var result = new GitHubAdvisorySource(client).lookup("npm", "fixture", "1.0.0", List.of());
+        boolean invalid = java.util.Set.of("future", "malformed", "wrong-type").contains(state);
+        assertThat(result.lookupFailed()).isEqualTo(invalid);
+        assertThat(result.findings()).singleElement().satisfies(finding -> {
+            assertThat(finding.ghsaId()).isEqualTo("GHSA-fixture");
+            assertThat(finding.fixVersion()).isEqualTo(invalid ? null : "2.0.0");
+        });
+        server.verify();
+    }
     @org.junit.jupiter.api.Test
     void nugetPackageCasingDoesNotChangeAdvisoryIdentity() throws Exception {
         var builder = RestClient.builder();

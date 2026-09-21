@@ -32,13 +32,13 @@ class SnapshotImportTransactionTest {
     private final org.springframework.transaction.PlatformTransactionManager transactions;
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"complete", "stale", "undated", "conflict", "future", "legacy"})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"complete", "stale", "undated", "conflict", "future", "legacy", "future-update"})
     void importedGithubLifecycleRemainsSeparateFromActiveFindings(String state) throws Exception {
         var json = new com.fasterxml.jackson.databind.ObjectMapper();
         var withdrawal = new java.util.LinkedHashMap<String, Object>(Map.of("osvId", "GHSA-fixture", "fixVersion", "2.0.0"));
         if (!state.equals("legacy")) {
-            withdrawal.put("githubUpdatedAt", "2026-02-01T00:00:00Z");
-            withdrawal.put("githubWithdrawnAt", state.equals("future") ? "9999-01-01T00:00:00Z" : "2026-01-01T00:00:00Z");
+            withdrawal.put("githubUpdatedAt", state.equals("future-update") ? "9999-01-01T00:00:00Z" : "2026-02-01T00:00:00Z");
+            if (!state.equals("future-update")) withdrawal.put("githubWithdrawnAt", state.equals("future") ? "9999-01-01T00:00:00Z" : "2026-01-01T00:00:00Z");
         }
         var findings = new ArrayList<Map<String, Object>>();
         findings.add(withdrawal);
@@ -55,8 +55,8 @@ class SnapshotImportTransactionTest {
         var result = new com.salkcoding.oswl.service.vulnerability.sources.GitHubAdvisorySource(client).lookupSnapshot(
                 "npm", "fixture", "1.0.0", client.findSnapshotByComponentKeys(Set.of("NPM|fixture|1.0.0")).get("NPM|fixture|1.0.0"));
         assertThat(result.lookupFailed()).isEqualTo(!state.equals("complete") && !state.equals("legacy"));
-        assertThat(result.findings()).hasSize(Set.of("legacy", "conflict", "future").contains(state) ? 1 : 0);
-        assertThat(result.withdrawnFindings()).hasSize(Set.of("legacy", "future").contains(state) ? 0 : 1);
+        assertThat(result.findings()).hasSize(Set.of("legacy", "conflict", "future", "future-update").contains(state) ? 1 : 0);
+        assertThat(result.withdrawnFindings()).hasSize(Set.of("legacy", "future", "future-update").contains(state) ? 0 : 1);
         result.findings().forEach(row -> assertThat(row.fixVersion()).isEqualTo(state.equals("legacy") ? "2.0.0" : null));
         result.withdrawnFindings().forEach(row -> {
             assertThat(row.updatedAt()).isEqualTo("2026-02-01T00:00:00Z");
