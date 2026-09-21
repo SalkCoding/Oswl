@@ -45,8 +45,9 @@ final class GitHubAdvisorySource {
                 continue;
             }
             try {
-                List<GitHubAdvisoryClient.GitHubAdvisory> advisories =
-                        client.findByPackage(w.ecosystem(), w.name(), w.version());
+                var lookup = client.lookupByPackage(w.ecosystem(), w.name(), w.version());
+                var advisories = new ArrayList<>(lookup.findings());
+                advisories.addAll(lookup.withdrawnFindings());
                 List<SnapshotVuln> vulns = new ArrayList<>(advisories.size());
                 for (GitHubAdvisoryClient.GitHubAdvisory adv : advisories) {
                     vulns.add(toSnapshotVuln(adv));
@@ -55,7 +56,8 @@ final class GitHubAdvisorySource {
             } catch (Exception e) {
                 unresolvedKeys.add(key);
                 if (e instanceof GitHubAdvisoryClient.IncompleteLookupException incomplete) {
-                    result.put(key, incomplete.findings().stream().map(GitHubAdvisorySource::toSnapshotVuln).toList());
+                    result.put(key, java.util.stream.Stream.concat(incomplete.findings().stream(), incomplete.withdrawnFindings().stream())
+                            .map(GitHubAdvisorySource::toSnapshotVuln).toList());
                 }
                 System.err.println("[oswl-vdb] github-advisory lookup failed for " + w.name() + "@" + w.version()
                         + ": " + e.getMessage());
@@ -76,7 +78,7 @@ final class GitHubAdvisorySource {
                 adv.cvssScore(),
                 adv.cvss3Vector(),
                 null, // GitHub matches are exact package matches, not CPE inference
-                adv.fixVersionConflictCandidates()
+                adv.fixVersionConflictCandidates(), null, null, adv.updatedAt(), adv.withdrawnAt()
         );
     }
 

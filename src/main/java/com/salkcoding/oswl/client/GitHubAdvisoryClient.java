@@ -253,9 +253,25 @@ public class GitHubAdvisoryClient {
             var vulns = snapshot.findings().get(key);
             if (vulns == null) continue;
             boolean complete = !snapshot.stale() && !snapshot.unresolvedKeys().contains(key);
-            result.put(key, new SnapshotLookup<>(vulns.stream()
-                    .map(v -> new GitHubAdvisory(v.osvId(), v.cveId(), v.summary(), parseSeverity(v.severity()), v.cvssScore(), v.cvss3Vector(), complete ? v.fixVersion() : null, v.fixVersionConflictCandidates()))
-                    .toList(), complete));
+            Map<String, Boolean> states = new LinkedHashMap<>();
+            for (var vuln : vulns) {
+                boolean withdrawn = vuln.githubWithdrawnAt() != null;
+                Boolean prior = states.putIfAbsent(vuln.osvId(), withdrawn);
+                if (prior != null && prior != withdrawn) complete = false;
+                if (vuln.githubUpdatedAt() != null && java.time.Instant.parse(vuln.githubUpdatedAt()).isAfter(java.time.Instant.now())
+                        || withdrawn && java.time.Instant.parse(vuln.githubWithdrawnAt()).isAfter(java.time.Instant.now())) complete = false;
+            }
+            List<GitHubAdvisory> active = new ArrayList<>();
+            List<GitHubAdvisory> withdrawn = new ArrayList<>();
+            for (var v : vulns) {
+                var finding = new GitHubAdvisory(v.osvId(), v.cveId(), v.summary(), parseSeverity(v.severity()),
+                        v.cvssScore(), v.cvss3Vector(), complete ? v.fixVersion() : null, v.fixVersionConflictCandidates(),
+                        v.githubUpdatedAt(), v.githubWithdrawnAt());
+                if (v.githubWithdrawnAt() != null && !java.time.Instant.parse(v.githubWithdrawnAt()).isAfter(java.time.Instant.now()))
+                    withdrawn.add(finding);
+                else active.add(finding);
+            }
+            result.put(key, new SnapshotLookup<>(active, complete, withdrawn));
         }
         return result;
     }

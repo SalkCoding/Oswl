@@ -142,7 +142,15 @@ public class AirgappedSnapshotService {
      */
     public record SnapshotVuln(String osvId, String cveId, String summary, String fixVersion, String cweId,
                                 String severity, Double cvssScore, String cvss3Vector, String matchConfidence,
-                                Set<String> fixVersionConflictCandidates, JsonNode osvAdvisory, String nvdApplicability) {
+                                Set<String> fixVersionConflictCandidates, JsonNode osvAdvisory, String nvdApplicability,
+                                @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) String githubUpdatedAt,
+                                @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) String githubWithdrawnAt) {
+        public SnapshotVuln(String osvId, String cveId, String summary, String fixVersion, String cweId,
+                String severity, Double cvssScore, String cvss3Vector, String matchConfidence,
+                Set<String> fixVersionConflictCandidates, JsonNode osvAdvisory, String nvdApplicability) {
+            this(osvId,cveId,summary,fixVersion,cweId,severity,cvssScore,cvss3Vector,matchConfidence,
+                    fixVersionConflictCandidates,osvAdvisory,nvdApplicability,null,null);
+        }
         public SnapshotVuln(String osvId, String cveId, String summary, String fixVersion, String cweId,
                 String severity, Double cvssScore, String cvss3Vector, String matchConfidence,
                 Set<String> fixVersionConflictCandidates, JsonNode osvAdvisory) {
@@ -150,6 +158,11 @@ public class AirgappedSnapshotService {
                     fixVersionConflictCandidates,osvAdvisory,null);
         }
         public SnapshotVuln {
+            if (githubUpdatedAt != null) java.time.Instant.parse(githubUpdatedAt);
+            if (githubWithdrawnAt != null) {
+                java.time.Instant.parse(githubWithdrawnAt);
+                fixVersion = null;
+            }
             if (osvAdvisory != null && !osvAdvisory.isNull()) {
                 if (!osvAdvisory.isObject() || !osvAdvisory.path("id").isTextual()
                         || !Objects.equals(osvId, osvAdvisory.path("id").asText())
@@ -956,9 +969,14 @@ public class AirgappedSnapshotService {
                 if (v.hasNonNull("nvdApplicability") && (!v.path("nvdApplicability").isTextual()
                         || v.path("nvdApplicability").asText().isBlank()))
                     throw new InvalidRequestException("Snapshot NVD evidence must be a nonblank string");
+                for (String field : List.of("githubUpdatedAt", "githubWithdrawnAt")) {
+                    if (v.hasNonNull(field) && !v.path(field).isTextual())
+                        throw new IllegalArgumentException("GitHub lifecycle timestamps must be strings");
+                }
                 vulns.add(new SnapshotVuln(text(v, "osvId"), text(v, "cveId"),
                         text(v, "summary"), text(v, "fixVersion"), text(v, "cweId"),
-                        text(v, "severity"), number(v, "cvssScore"), text(v, "cvss3Vector"), text(v, "matchConfidence"), readFixConflicts(v), v.get("osvAdvisory"), text(v, "nvdApplicability")));
+                        text(v, "severity"), number(v, "cvssScore"), text(v, "cvss3Vector"), text(v, "matchConfidence"), readFixConflicts(v), v.get("osvAdvisory"), text(v, "nvdApplicability"),
+                        text(v, "githubUpdatedAt"), text(v, "githubWithdrawnAt")));
             }
             buffer.add(new ParsedLine(key, objectMapper.writeValueAsString(vulns), false));
         } catch (Exception e) {

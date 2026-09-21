@@ -30,6 +30,40 @@ import static org.assertj.core.api.Assertions.*;
 @org.springframework.test.context.TestConstructor(autowireMode = org.springframework.test.context.TestConstructor.AutowireMode.ALL)
 class SnapshotImportTransactionTest {
     private final org.springframework.transaction.PlatformTransactionManager transactions;
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"complete", "stale", "undated", "conflict", "future", "legacy"})
+    void importedGithubLifecycleRemainsSeparateFromActiveFindings(String state) throws Exception {
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var withdrawal = new java.util.LinkedHashMap<String, Object>(Map.of("osvId", "GHSA-fixture", "fixVersion", "2.0.0"));
+        if (!state.equals("legacy")) {
+            withdrawal.put("githubUpdatedAt", "2026-02-01T00:00:00Z");
+            withdrawal.put("githubWithdrawnAt", state.equals("future") ? "9999-01-01T00:00:00Z" : "2026-01-01T00:00:00Z");
+        }
+        var findings = new ArrayList<Map<String, Object>>();
+        findings.add(withdrawal);
+        if (state.equals("conflict")) findings.add(Map.of("osvId", "GHSA-fixture", "fixVersion", "2.0.0"));
+        String line = json.writeValueAsString(Map.of("ecosystem", "NPM", "name", "fixture", "version", "1.0.0", "vulns", findings));
+        Map<String, Object> date = state.equals("undated") ? Map.of()
+                : Map.of("asOf", java.time.LocalDate.now().minusDays(state.equals("stale") ? 8 : 0).toString());
+        String hash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(line.getBytes(StandardCharsets.UTF_8)));
+        String meta = json.writeValueAsString(Map.of("formatVersion", 2, "sources", Map.of("github-advisory", date),
+                "files", Map.of("github-advisory.jsonl", Map.of("sha256", hash, "lines", 1))));
+        service.importBundle(new ByteArrayInputStream(bundle(Map.of("github-advisory.jsonl", line, "meta.json", meta))));
+        var client = new com.salkcoding.oswl.client.GitHubAdvisoryClient(service, true, null, null,
+                java.time.Duration.ofSeconds(1), java.time.Duration.ofSeconds(1));
+        var result = new com.salkcoding.oswl.service.vulnerability.sources.GitHubAdvisorySource(client).lookupSnapshot(
+                "npm", "fixture", "1.0.0", client.findSnapshotByComponentKeys(Set.of("NPM|fixture|1.0.0")).get("NPM|fixture|1.0.0"));
+        assertThat(result.lookupFailed()).isEqualTo(!state.equals("complete") && !state.equals("legacy"));
+        assertThat(result.findings()).hasSize(Set.of("legacy", "conflict", "future").contains(state) ? 1 : 0);
+        assertThat(result.withdrawnFindings()).hasSize(Set.of("legacy", "future").contains(state) ? 0 : 1);
+        result.findings().forEach(row -> assertThat(row.fixVersion()).isEqualTo(state.equals("legacy") ? "2.0.0" : null));
+        result.withdrawnFindings().forEach(row -> {
+            assertThat(row.updatedAt()).isEqualTo("2026-02-01T00:00:00Z");
+            assertThat(row.withdrawnAt()).isEqualTo("2026-01-01T00:00:00Z");
+            assertThat(row.fixVersion()).isNull();
+        });
+    }
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
             "npm,NPM,form-data,4.0.3,4.0.4,GHSA-fjxv-7rqg-78g4",
