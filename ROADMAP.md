@@ -302,6 +302,8 @@
 
 ### 13. 원문 수명·중복·수정 버전·수집 실패 보존 — P0 · [부분 구현]
 
+- **2026-09-21 지원 범위 정정:** 앞선 GitHub 수명 정보 관련 기록의 «CLI→번들» 및 «CLI 수집» 표현은 실제 CLI writer 연결 완료를 의미하지 않는다. 구현·검증된 범위는 독립 GitHubAdvisorySource 보조 클래스의 SnapshotVuln 변환, 앱 반입/오프라인 조회, 테스트에서 명시적으로 작성한 ZIP 왕복이다. VdbBuildOptions는 --sources github-advisory 및 관련 옵션을 거절하며 실제 builder에는 연결되지 않았다. 세 언어 Administration의 잘못된 출력 지원 문구를 보조 클래스 지원으로 정정했다. 기존 VdbSourceSelectionTest 25/25 통과(4초), 미지원 단독/혼합 source 요청의 실패 및 기존 출력 보존을 재확인했다. 로그 build/github-cli-support-audit.log. 커밋 제목 `docs: correct github collector integration claims`. 운영 코드·외부 자료·권한 변경 없음. 실제 CLI 수집/쓰기/증분/고지 연결은 32번의 미완료 작업이며 단위 검증을 실제 CLI 지원으로 간주하지 않는다.
+
 - **2026-09-21 GitHub 미래 철회 관측의 온라인 누락 수정:** 미래 withdrawnAt을 가진 공지가 온라인에서는 버려지고 오프라인에서는 미확인 발견으로 유지되는 차이를 확인했다. 모의 HTTP 회귀 2조건 중 영향 버전의 발견 누락 1실패를 재현했다. 온라인도 문법상 유효한 미래 철회를 유효한 철회로 확정하지 않으며, 식별·영향 범위를 통과한 발견과 미래 시각을 미완료/수정 후보 없음 상태로 보존한다. 범위 밖 버전은 발견에 추가하지 않는다. 기존 정상 철회·잘못된 문법·식별 거절 동작은 유지한다. GitHub·실제 ZIP 반입·enrichment·remediation 관련 599건 중 598 통과·조건부 skip 1·실패/오류 0, bootJar/verifyProdJar 성공(47초). 로그 build/github-future-withdrawal-red.log 및 build/github-future-withdrawal-checked.log. 커밋 제목 `fix: retain affected findings with future github withdrawals`. 세 언어 Administration 반영. 자체 합성 데이터이며 신규 외부 자료·라이브러리·이용 권한·SQL schema 변경 없음. 원문 전체 보존·출처 revision 비교·앱 내보내기 수명 이력과 이번 변경의 전체 build·PostgreSQL·실제 API·브라우저 검증은 잔여다.
 
 - **2026-09-21 GitHub CLI의 잘못된 수정 시각 격리:** 미완료 조회의 updatedAt이 잘못된 날짜 또는 빈 문자열이면 SnapshotVuln 변환이 예외 처리 안에서 다시 실패하여 정상 동반 발견과 후속 패키지 수집까지 중단되는 2실패를 재현했다. 타입이 정해진 번들 필드에서 변환 불가능한 선택 시각만 null로 정규화하고 발견·unresolvedKeys·수정 후보 보류 상태를 유지한다. 문법상 유효한 미래 시각은 그대로 보존하며 미확인 상태를 유지한다. 회귀 테스트 3조건은 정상 동반 발견과 후속 패키지의 수정 버전 보존도 확인한다. 관련 GitHub 및 실제 ZIP 반입 테스트 386건 중 385 통과·조건부 skip 1·실패/오류 0, bootJar/verifyProdJar 성공(43초). 로그 build/github-bulk-invalid-time-red.log 및 build/github-bulk-invalid-time-checked.log. 커밋 제목 `fix: isolate malformed github timestamps during bundle collection`. 세 언어 Administration에 정규화와 원문 손실 한계를 기록했다. 자체 합성 데이터만 사용하며 신규 외부 자료·이용 권한·라이브러리·SQL schema 변경 없음. 잘못된 문자열 자체의 번들 원문 보존, 출처별 revision 비교, 이번 변경의 전체 build·PostgreSQL·실제 외부 API·브라우저 검증은 완료하지 않았다.
@@ -972,6 +974,8 @@
 ## 5단계 — 로컬 데이터·망분리 번들·운영 신뢰
 
 ### 32. 원천별 수집 파이프라인·경로·완전성 관리 — P0 · [코드 확인/설계]
+
+- **2026-09-21 경로 재확인:** GitHub 일괄 수집 보조 클래스의 수명 메타데이터 보존은 구현되었지만 CLI builder/writer 연결은 미구현이다. `--sources github-advisory`와 관련 자격 증명 옵션은 현재 거절된다. 다음 구현은 source 선택·안전한 자격 증명 전달·수집 결과와 미확인 coverage·full/delta writer·출처 고지·실제 CLI→반입 검증을 함께 연결해야 한다. 기존 기본 source 또는 재배포 승인 범위를 암묵적으로 확대하지 않는다. 지원 문구 정정 및 기존 거절 경로 회귀 근거는 13번에 기록했다.
 
 - **2026-09-21 OSV 원본 JSON 모호성 거절:** 대량 수집의 중복 affected/versions/package name/modified/withdrawn 및 trailing JSON 6종이 수정 전 모두 받아들여지는 실패를 재현했다. 원본 파서에 중복 필드와 후행 값 거절을 적용해 원본 근거를 마지막 값으로 덮어쓰지 않으며, 실제 CLI 실패 시 기존 출력 번들을 보존한다. `test --tests '*Osv*Test' --tests '*Vdb*Test' --tests '*SnapshotImportTransactionTest' bootJar verifyProdJar` 540건 중 538건 통과·2건 skip·실패/오류 0, 운영 JAR 검사 통과. 로그 `build/osv-bulk-json-before.log`, `build/osv-bulk-json-checked.log`. 커밋 제목 `fix: reject ambiguous osv bulk advisory json`. 세 언어 Administration 문서 반영. 자체 합성 입력이며 신규 외부 자료·라이브러리·UI·운영 DB 변경 없음. [OSV 출처 안내](https://google.github.io/osv.dev/data/)와 [GitHub Advisory Database 라이선스](https://raw.githubusercontent.com/github/advisory-database/main/LICENSE.md)를 다시 확인했다. OSV 전체를 단일 라이선스로 취급하지 않으며, 기존 GHSA 고지는 다른 출처의 재배포 허가를 의미하지 않는다. 대량 수집의 원본 근거 보존·출처별 배포 조건 적용은 아직 남아 있다. 전체 build·실제 PostgreSQL·브라우저 검사는 이번에 재실행하지 않았고 항목 전체 완료는 아니다.
 
