@@ -17,6 +17,19 @@ import static org.assertj.core.api.Assertions.*;
 
 class VdbSourceSelectionTest {
     @ParameterizedTest
+    @ValueSource(strings = {"github-advisory", "nvd", "unknown", ""})
+    void writerCannotSilentlyOmitAnUnsupportedSelectedSource(String source, @TempDir Path directory) throws Exception {
+        Path output = directory.resolve("bundle.zip");
+        Files.writeString(output, "existing bundle");
+        assertThatThrownBy(() -> new VdbBundleWriter(new ObjectMapper(), java.util.Set.of("osv", source)).write(
+                output, java.util.Map.of(), java.time.LocalDate.now(), List.of(), List.of(), java.util.Map.of(),
+                java.util.Map.of(), java.time.LocalDate.now(), java.util.Set.of(), java.time.LocalDate.now(),
+                0, null, List.of(), null))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("Unsupported writer source");
+        assertThat(Files.readString(output)).isEqualTo("existing bundle");
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"", ",", ",,", " ", "osv,", ",osv", "osv,,kev"})
     void malformedSourceListsCannotReplaceOutput(String sources, @TempDir Path directory) throws Exception {
         Path output = directory.resolve("bundle.zip");

@@ -52,6 +52,10 @@ final class VdbBundleWriter {
     }
 
     VdbBundleWriter(ObjectMapper mapper, java.util.Set<String> collectedSources, String distributionProfile) {
+        for (String source : collectedSources) {
+            if (!java.util.Set.of("osv", "depsdev", "epss", "kev").contains(source))
+                throw new IllegalArgumentException("Unsupported writer source: " + source);
+        }
         this.distributionProfile = distributionProfile;
         this.mapper = mapper;
         this.collectedSources = java.util.Set.copyOf(collectedSources);
